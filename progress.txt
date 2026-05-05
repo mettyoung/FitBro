@@ -1,3 +1,20 @@
+## 2026-05-06 - US-007
+- Implemented 7-day calorie balance chart with Canvas-based bar chart (no external charting library)
+- Implemented DashboardScreen/DashboardContent composables with Loading/Success/Error states
+- Updated App.kt to show DashboardContent with sample data for demo/preview
+- Files changed:
+  - composeApp/src/commonMain/.../ui/dashboard/CalorieBalanceChart.kt — NEW: Canvas bar chart, positive=green, negative=red, zero line, grid lines, Y-axis labels, X-axis day labels via Zeller's congruence
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — NEW: DashboardScreen (connects stateHolder), DashboardContent (pure composable accepting DashboardState)
+  - composeApp/src/commonMain/.../App.kt — UPDATED: replaced placeholder with DashboardContent + sample data
+- **Learnings for future iterations:**
+  - No external chart library needed — Compose Canvas handles bar chart fully in commonMain
+  - `String.format()` NOT available in KMP commonMain (JVM-only); use manual arithmetic for number formatting
+  - Day-of-week from "YYYY-MM-DD" string: use Zeller's congruence; h=0→Sat, h=1→Sun, h=2→Mon, h=3→Tue, h=4→Wed, h=5→Thu, h=6→Fri
+  - `StateFlow.collectAsState()` works in commonMain with `import androidx.compose.runtime.collectAsState` (or wildcard); no lifecycle owner needed
+  - `DashboardContent` is the pure/dumb composable (takes DashboardState); `DashboardScreen` is the smart wrapper (takes DashboardStateHolder)
+  - `dev-browser` skill not available in this session; browser verification skipped, noted as manual step
+---
+
 ## 2026-05-06 - US-006
 - Implemented DashboardStateHolder with StateFlow, parallel refresh, cache fallback
 - Files changed:
