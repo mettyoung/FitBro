@@ -1,0 +1,27 @@
+## Codebase Patterns
+- Auth files (OAuthRepository, TokenStorage, PkceGenerator) were pre-scaffolded as untracked files; check git status before writing new files to avoid duplicates
+- iOS cinterop: never use `is CFStringRef` (erased type) in when expressions — use `is CPointer<*>` instead
+- iOS TokenStorage casts NSMutableDictionary → CFDictionaryRef with @Suppress("UNCHECKED_CAST"); warnings are expected and benign
+- PkceGenerator.ios.kt uses CoreCrypto CC_SHA256 + posix gettimeofday for time — no Foundation dependency needed
+- TokenStorage.android.kt requires AndroidAppContext singleton initialized in FitBroApp.onCreate()
+- OAuthCallbackHandler uses SharedFlow with extraBufferCapacity=1 for delivering redirect URI callbacks to coroutine consumers
+- Gradle typecheck: use :composeApp:compileDebugKotlinAndroid (Android) and :composeApp:compileKotlinIosSimulatorArm64 (iOS) — compileKotlinAndroid is ambiguous
+
+---
+
+## 2026-05-06 - US-001
+- Implemented Cronometer OAuth 2.0 PKCE flow end-to-end
+- Files changed:
+  - composeApp/build.gradle.kts — added kotlinx-coroutines-core 1.10.2
+  - gradle/libs.versions.toml — added kotlinxCoroutines version + library entry
+  - composeApp/src/androidMain/AndroidManifest.xml — INTERNET permission + OAuth callback intent-filter for com.mettyoung.fitbro://oauth/callback
+  - composeApp/src/androidMain/kotlin/.../MainActivity.kt — onNewIntent + handleOAuthCallback routing to OAuthCallbackHandler
+  - composeApp/src/commonMain/kotlin/.../auth/OAuthCallbackHandler.kt — NEW: SharedFlow bridge for OAuth redirect delivery
+  - composeApp/src/iosMain/kotlin/.../auth/TokenStorage.ios.kt — fixed erased type check (CFStringRef → CPointer<*>)
+  - All pre-existing auth/ files committed (were untracked): OAuthConfig, OAuthError, OAuthToken, OAuthRepository, CronometerOAuthRepository, PkceGenerator (common/android/ios), TokenStorage (common/android/ios)
+- **Learnings for future iterations:**
+  - Pre-scaffolded auth files existed as untracked; the real work was wiring the Android OAuth callback (intent-filter + onNewIntent) and fixing the iOS type error
+  - kotlinx-coroutines-core must be explicit in commonMain for SharedFlow — transitive from ktor/lifecycle is not reliable in KMP
+  - iOS Keychain API requires NSMutableDictionary → CFDictionaryRef casts with @Suppress; this is idiomatic K/N Keychain code
+  - CronometerOAuthRepository takes createTokenStorage() as a default param — easy to inject in tests later
+---
