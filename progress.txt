@@ -1,4 +1,7 @@
 ## Codebase Patterns
+- multiplatform-settings 1.3.0: Android actual uses `SharedPreferencesSettings(prefs)` from `com.russhwolf.settings.SharedPreferencesSettings`; iOS actual uses `NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults)` from `com.russhwolf.settings.NSUserDefaultsSettings`. Both in same artifact `com.russhwolf:multiplatform-settings` added to commonMain.
+- Cache keys follow pattern `{type}_{startDate}_{endDate}` for date-range lookups; sync timestamps use `sync_{CacheSource.name}` as keys.
+
 - K/N 2.3.21 ObjC category methods need EXPLICIT imports to be accessible on class companions — e.g. `import platform.HealthKit.kilocalorieUnit` for `HKUnit.kilocalorieUnit()`, `import platform.HealthKit.predicateForSamplesWithStartDate` for `HKQuery.predicateForSamplesWithStartDate(...)`, `import platform.Foundation.localTimeZone` for `NSTimeZone.localTimeZone`. Direct-on-interface methods (like `HKHealthStore.isHealthDataAvailable()`) work without extra import.
 - Use `NSCalendar(calendarIdentifier = NSCalendarIdentifierGregorian)` — `NSCalendar.currentCalendar` and `NSCalendar.current` are NOT accessible in K/N 2.3.21 (category methods, same issue)
 - Health data package: `com.mettyoung.fitbro.data.health` for HealthKit/HealthConnect; `HealthResult<T>` + `HealthDataError` mirror `ApiResult<T>` + `CronometerApiError` pattern
@@ -15,6 +18,22 @@
 - ApiResult<T> (Success/Failure) mirrors OAuthResult pattern — use for all data layer results; CronometerApiError covers NetworkError, HttpError, RateLimited, Unauthorized, ParseError
 - OAuthRepository.getValidToken() handles token refresh automatically; data sources just call it and unwrap Success or return Unauthorized failure
 
+---
+
+## 2026-05-06 - US-004
+- Implemented local caching layer using multiplatform-settings + kotlinx.serialization
+- Files changed:
+  - gradle/libs.versions.toml — added multiplatformSettings = "1.3.0" version + multiplatform-settings library entry
+  - composeApp/build.gradle.kts — added multiplatform-settings to commonMain dependencies
+  - composeApp/src/commonMain/.../data/cache/CacheDataSource.kt — NEW: CacheSource enum + CacheDataSource interface + expect factory
+  - composeApp/src/commonMain/.../data/cache/CacheDataSourceImpl.kt — NEW: Settings-backed impl with JSON serialization
+  - composeApp/src/androidMain/.../data/cache/CacheDataSource.android.kt — NEW: actual using SharedPreferencesSettings
+  - composeApp/src/iosMain/.../data/cache/CacheDataSource.ios.kt — NEW: actual using NSUserDefaultsSettings
+- **Learnings for future iterations:**
+  - multiplatform-settings 1.3.0 single artifact covers both Android (SharedPreferencesSettings) and iOS (NSUserDefaultsSettings) — no separate platform artifacts needed
+  - Domain models (DailyIntake, Metabolism, ActivityBurn) already @Serializable — JSON cache is zero-config
+  - Android actual can use AndroidAppContext.context directly for SharedPreferences — consistent with TokenStorage pattern
+  - Cache interface uses suspend for data methods (future dispatcher flexibility) and non-suspend for timestamps/clearAll (synchronous lifecycle calls)
 ---
 
 ## 2026-05-06 - US-001
