@@ -6,6 +6,11 @@
 - TokenStorage.android.kt requires AndroidAppContext singleton initialized in FitBroApp.onCreate()
 - OAuthCallbackHandler uses SharedFlow with extraBufferCapacity=1 for delivering redirect URI callbacks to coroutine consumers
 - Gradle typecheck: use :composeApp:compileDebugKotlinAndroid (Android) and :composeApp:compileKotlinIosSimulatorArm64 (iOS) — compileKotlinAndroid is ambiguous
+- Data layer package: `com.mettyoung.fitbro.data.model` for domain models, `com.mettyoung.fitbro.data.cronometer` for Cronometer API client code
+- Ktor HTTP client pattern: each service creates its own HttpClient instance (same as OAuthRepository); use `parameter()` for query params, `header()` for auth header
+- CronometerOAuthConfig.API_BASE_URL = "https://cronometer.com/api" — add new endpoints as `${API_BASE_URL}/endpoint/`
+- ApiResult<T> (Success/Failure) mirrors OAuthResult pattern — use for all data layer results; CronometerApiError covers NetworkError, HttpError, RateLimited, Unauthorized, ParseError
+- OAuthRepository.getValidToken() handles token refresh automatically; data sources just call it and unwrap Success or return Unauthorized failure
 
 ---
 
@@ -24,4 +29,20 @@
   - kotlinx-coroutines-core must be explicit in commonMain for SharedFlow — transitive from ktor/lifecycle is not reliable in KMP
   - iOS Keychain API requires NSMutableDictionary → CFDictionaryRef casts with @Suppress; this is idiomatic K/N Keychain code
   - CronometerOAuthRepository takes createTokenStorage() as a default param — easy to inject in tests later
+---
+
+## 2026-05-06 - US-002
+- Implemented Cronometer data fetching layer: domain models, error types, data source interface + implementation
+- Files changed:
+  - composeApp/src/commonMain/kotlin/.../data/model/DailyIntake.kt — NEW: date + totalCalories domain model
+  - composeApp/src/commonMain/kotlin/.../data/model/Metabolism.kt — NEW: date + bmr + tef domain model
+  - composeApp/src/commonMain/kotlin/.../data/cronometer/CronometerApiError.kt — NEW: sealed error class + ApiResult<T> wrapper
+  - composeApp/src/commonMain/kotlin/.../data/cronometer/CronometerDataSource.kt — NEW: interface with fetchDailyIntake + fetchMetabolism
+  - composeApp/src/commonMain/kotlin/.../data/cronometer/CronometerDataSourceImpl.kt — NEW: Ktor implementation with auth, HTTP, error handling
+  - composeApp/src/commonMain/kotlin/.../auth/OAuthConfig.kt — added API_BASE_URL constant
+- **Learnings for future iterations:**
+  - Ktor `HttpStatusCode.TooManyRequests` (429) is available in Ktor 3.x without custom definition
+  - Private DTOs (NutritionDay, MetabolicDay, NutritionResponse, MetabolicsResponse) kept inside impl file — no leakage to interface layer
+  - `getValidAccessToken()` private helper in impl extracts token or returns null — cleaner than duplicating when-unwrap for each method
+  - iOS pre-existing cast warnings in TokenStorage.ios.kt are benign; don't try to fix them (they come from K/N CFDictionaryRef interop)
 ---
