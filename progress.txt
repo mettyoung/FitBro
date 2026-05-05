@@ -20,6 +20,21 @@
 
 ---
 
+## 2026-05-06 - US-005
+- Implemented CalorieMath repository: DailyBalance model, CalorieMathError sealed class, CalorieMathRepositoryImpl, 9 unit tests
+- Files changed:
+  - composeApp/src/commonMain/.../data/model/DailyBalance.kt — NEW: date + intake + burn + balance model
+  - composeApp/src/commonMain/.../data/repository/CalorieMathError.kt — NEW: InvalidInput error + CalorieResult<T> sealed class
+  - composeApp/src/commonMain/.../data/repository/CalorieMathRepository.kt — NEW: interface + impl with validation and nullable activity fallback
+  - composeApp/src/commonTest/.../data/repository/CalorieMathRepositoryTest.kt — NEW: 9 tests covering full data, missing activity, zero values, negative balance, all invalid-input paths
+- **Learnings for future iterations:**
+  - commonTest runs as Android JVM unit tests via `:composeApp:testDebugUnitTest` — fast feedback loop, no emulator needed
+  - CalorieMathRepositoryImpl lives in `data/repository/` package; future repositories (e.g. DashboardRepository for US-006) should follow same package
+  - `activity: ActivityBurn?` nullable param — null means no platform health data; burn falls back to BMR + TEF only
+  - Validation rejects bmr <= 0 (BMR must be positive) and any negative field value; zero intake and zero activity are valid
+
+---
+
 ## 2026-05-06 - US-004
 - Implemented local caching layer using multiplatform-settings + kotlinx.serialization
 - Files changed:
