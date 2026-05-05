@@ -1,4 +1,7 @@
 ## Codebase Patterns
+- K/N 2.3.21 ObjC category methods need EXPLICIT imports to be accessible on class companions — e.g. `import platform.HealthKit.kilocalorieUnit` for `HKUnit.kilocalorieUnit()`, `import platform.HealthKit.predicateForSamplesWithStartDate` for `HKQuery.predicateForSamplesWithStartDate(...)`, `import platform.Foundation.localTimeZone` for `NSTimeZone.localTimeZone`. Direct-on-interface methods (like `HKHealthStore.isHealthDataAvailable()`) work without extra import.
+- Use `NSCalendar(calendarIdentifier = NSCalendarIdentifierGregorian)` — `NSCalendar.currentCalendar` and `NSCalendar.current` are NOT accessible in K/N 2.3.21 (category methods, same issue)
+- Health data package: `com.mettyoung.fitbro.data.health` for HealthKit/HealthConnect; `HealthResult<T>` + `HealthDataError` mirror `ApiResult<T>` + `CronometerApiError` pattern
 - Auth files (OAuthRepository, TokenStorage, PkceGenerator) were pre-scaffolded as untracked files; check git status before writing new files to avoid duplicates
 - iOS cinterop: never use `is CFStringRef` (erased type) in when expressions — use `is CPointer<*>` instead
 - iOS TokenStorage casts NSMutableDictionary → CFDictionaryRef with @Suppress("UNCHECKED_CAST"); warnings are expected and benign
@@ -45,4 +48,24 @@
   - Private DTOs (NutritionDay, MetabolicDay, NutritionResponse, MetabolicsResponse) kept inside impl file — no leakage to interface layer
   - `getValidAccessToken()` private helper in impl extracts token or returns null — cleaner than duplicating when-unwrap for each method
   - iOS pre-existing cast warnings in TokenStorage.ios.kt are benign; don't try to fix them (they come from K/N CFDictionaryRef interop)
+---
+
+## 2026-05-06 - US-003
+- Implemented platform health data bridge: HealthKit (iOS) + Health Connect (Android)
+- Files changed:
+  - composeApp/src/commonMain/.../data/model/ActivityBurn.kt — NEW: date + neat + eat domain model
+  - composeApp/src/commonMain/.../data/health/HealthDataError.kt — NEW: HealthDataError sealed class + HealthResult<T>
+  - composeApp/src/commonMain/.../data/health/HealthDataSource.kt — NEW: interface + expect factory
+  - composeApp/src/androidMain/.../data/health/HealthDataSource.android.kt — NEW: Health Connect impl (aggregateGroupByPeriod per day)
+  - composeApp/src/iosMain/.../data/health/HealthDataSource.ios.kt — NEW: HealthKit impl (HKSampleQuery + daily grouping)
+  - gradle/libs.versions.toml — added healthConnect = "1.1.0-alpha12"
+  - composeApp/build.gradle.kts — added androidx.health.connect dependency in androidMain
+  - composeApp/src/androidMain/AndroidManifest.xml — added READ_ACTIVE_CALORIES_BURNED permission + Health Connect queries block
+  - iosApp/iosApp/Info.plist — added NSHealthShareUsageDescription
+- **Learnings for future iterations:**
+  - K/N 2.3.21 category method explicit import pattern (now in Codebase Patterns above)
+  - Android Health Connect: `aggregateGroupByPeriod` returns `AggregationResultGroupedByPeriod` with `startTime: LocalDateTime` (not Instant) — use `.toLocalDate().toString()` for date string
+  - iOS HealthKit: Mi Band reports step-based calories as `activeEnergyBurned` = NEAT; EAT requires exercise session records (out of scope for MVP, set to 0.0)
+  - HealthKit permission auth: `requestAuthorizationToShareTypes(typesToShare: null, readTypes: setOf(...))` — `success=false` means system error, not user denial; proceed with query anyway
+  - Note: Xcode HealthKit capability NOT added to project.pbxproj — required for production build but not Kotlin typecheck
 ---
