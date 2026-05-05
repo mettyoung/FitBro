@@ -1,3 +1,21 @@
+## 2026-05-06 - US-006
+- Implemented DashboardStateHolder with StateFlow, parallel refresh, cache fallback
+- Files changed:
+  - composeApp/src/commonMain/.../util/TimeUtil.kt — NEW: expect fun currentEpochMs()
+  - composeApp/src/androidMain/.../util/TimeUtil.kt — NEW: actual via System.currentTimeMillis()
+  - composeApp/src/iosMain/.../util/TimeUtil.kt — NEW: actual via NSDate().timeIntervalSince1970
+  - composeApp/src/commonMain/.../ui/dashboard/DateRange.kt — NEW: data class DateRange(startDate, endDate)
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardUiState.kt — NEW: sealed Loading/Success/Error
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardState.kt — NEW: state with uiState + lastSyncTime + errorMessage + selectedDateRange
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardStateHolder.kt — NEW: StateFlow holder, parallel async fetch, cache fallback, describe() error helpers
+- **Learnings for future iterations:**
+  - `NSDate().timeIntervalSince1970` needs `import platform.Foundation.timeIntervalSince1970` (K/N 2.3.21 category method pattern)
+  - `currentEpochMs()` expect/actual lives in `com.mettyoung.fitbro.util` — use for all timestamp needs in common code
+  - DashboardStateHolder lives in `com.mettyoung.fitbro.ui.dashboard`; caller provides initial DateRange (no date computation in common)
+  - `errorMessage` is non-null even when `uiState` is Success (indicates partial cache fallback)
+  - `scope.launch(Dispatchers.Default) { async {} }` pattern for parallel API calls — async inherits Default dispatcher
+---
+
 ## Codebase Patterns
 - multiplatform-settings 1.3.0: Android actual uses `SharedPreferencesSettings(prefs)` from `com.russhwolf.settings.SharedPreferencesSettings`; iOS actual uses `NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults)` from `com.russhwolf.settings.NSUserDefaultsSettings`. Both in same artifact `com.russhwolf:multiplatform-settings` added to commonMain.
 - Cache keys follow pattern `{type}_{startDate}_{endDate}` for date-range lookups; sync timestamps use `sync_{CacheSource.name}` as keys.
@@ -17,6 +35,8 @@
 - CronometerOAuthConfig.API_BASE_URL = "https://cronometer.com/api" — add new endpoints as `${API_BASE_URL}/endpoint/`
 - ApiResult<T> (Success/Failure) mirrors OAuthResult pattern — use for all data layer results; CronometerApiError covers NetworkError, HttpError, RateLimited, Unauthorized, ParseError
 - OAuthRepository.getValidToken() handles token refresh automatically; data sources just call it and unwrap Success or return Unauthorized failure
+- `currentEpochMs()` expect/actual in `com.mettyoung.fitbro.util` — use for all timestamp needs in common; iOS actual needs `import platform.Foundation.timeIntervalSince1970`
+- UI state holders live in `com.mettyoung.fitbro.ui.{feature}`; take CoroutineScope as constructor param (caller owns scope lifecycle)
 
 ---
 
