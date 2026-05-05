@@ -4,5 +4,7 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>FitBro reads your daily activity and calorie burn data to calculate your calorie balance.</string>
 </dict>
 </plist>
