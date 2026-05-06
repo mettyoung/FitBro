@@ -211,3 +211,14 @@
   - `DashboardUiState.Error` now reserved for totalFailure only (no data + no cache + all sources failed); partial failures emit Success+warnings
   - Warning banners use `errorContainer`/`onErrorContainer` colors for visual consistency with Material3
 ---
+
+## 2026-05-06 - US-001
+- Added readDailyIntake and readBasalMetabolicRate to HealthDataSource interface (commonMain)
+- Added DailyIntake + Metabolism imports to both actuals
+- Stubbed both methods with HealthResult.Failure(HealthDataError.NotAvailable) in Android and iOS actuals
+- Files changed: HealthDataSource.kt, HealthDataSource.android.kt, HealthDataSource.ios.kt, prd.json
+- **Learnings for future iterations:**
+  - Branch was correctly based on ralph/calorie-balance-dashboard (not main) since it extends that work
+  - Both DailyIntake and Metabolism models already existed in data.model package
+  - HealthResult<T> and HealthDataError sealed classes already established — no new types needed
+---

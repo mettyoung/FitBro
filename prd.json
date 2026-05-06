@@ -1,7 +1,7 @@
 {
   "project": "FitBro",
   "branchName": "ralph/health-connect-integration",
-  "description": "Replace fictional Cronometer OAuth with real Health Connect (Android) + HealthKit (iOS) pipeline. All calorie data — intake, BMR, NEAT — sourced from device health store. Wire App.kt to render live data instead of hardcoded samples.",
+  "description": "Replace fictional Cronometer OAuth with real Health Connect (Android) + HealthKit (iOS) pipeline. All calorie data \u2014 intake, BMR, NEAT \u2014 sourced from device health store. Wire App.kt to render live data instead of hardcoded samples.",
   "userStories": [
     {
       "id": "US-001",
@@ -9,13 +9,13 @@
       "description": "As a developer, I need the shared HealthDataSource interface to declare intake and BMR queries so platform implementations can provide them.",
       "acceptanceCriteria": [
         "Add suspend fun readDailyIntake(startDate: String, endDate: String): HealthResult<List<DailyIntake>> to HealthDataSource interface in composeApp/src/commonMain/kotlin/com/mettyoung/fitbro/data/health/HealthDataSource.kt",
-        "Add suspend fun readBasalMetabolicRate(startDate: String, endDate: String): HealthResult<List<Metabolism>> to HealthDataSource interface — returned Metabolism objects must have tef = 0.0",
-        "Android actual (HealthDataSource.android.kt) updated to include both new methods — may stub with HealthResult.Failure(HealthDataError.NotAvailable) until US-002",
-        "iOS actual (HealthDataSource.ios.kt) updated to include both new methods — may stub with HealthResult.Failure(HealthDataError.NotAvailable) until US-003",
+        "Add suspend fun readBasalMetabolicRate(startDate: String, endDate: String): HealthResult<List<Metabolism>> to HealthDataSource interface \u2014 returned Metabolism objects must have tef = 0.0",
+        "Android actual (HealthDataSource.android.kt) updated to include both new methods \u2014 may stub with HealthResult.Failure(HealthDataError.NotAvailable) until US-002",
+        "iOS actual (HealthDataSource.ios.kt) updated to include both new methods \u2014 may stub with HealthResult.Failure(HealthDataError.NotAvailable) until US-003",
         "Typecheck passes (Android + iOS)"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -57,7 +57,7 @@
         "Replace cronometerDataSource.fetchDailyIntake(...) with healthDataSource.readDailyIntake(...)",
         "Replace cronometerDataSource.fetchMetabolism(...) with healthDataSource.readBasalMetabolicRate(...)",
         "In computeBalances(), after pairing intake and metabolism, override TEF: pass metabolism.copy(tef = intake.totalCalories * 0.1) to calorieMathRepository.computeDailyBalance()",
-        "CacheSource.CRONOMETER_INTAKE and CacheSource.CRONOMETER_METABOLISM keys still used for caching — no rename needed",
+        "CacheSource.CRONOMETER_INTAKE and CacheSource.CRONOMETER_METABOLISM keys still used for caching \u2014 no rename needed",
         "buildWarnings() in DashboardWarnings.kt updated: replace cronometerIntakeFailed/cronometerMetabolismFailed params with healthIntakeFailed/healthMetabolismFailed; update warning messages to Health intake data unavailable and BMR data unavailable",
         "DashboardMissingDataTest.kt updated to match new buildWarnings() signature and warning text",
         "Typecheck passes",
@@ -92,11 +92,11 @@
       "description": "As a user, I need the app to request Health Connect permissions before showing the dashboard so data can actually be fetched.",
       "acceptanceCriteria": [
         "Required permissions set defined as a constant: setOf READ_ACTIVE_CALORIES_BURNED, READ_NUTRITION, READ_BASAL_METABOLIC_RATE where each is HealthPermission.getReadPermission(RecordClass::class)",
-        "On Android: before showing dashboard, check healthConnectClient.permissionController.getGrantedPermissions() — if not all required permissions granted, show permission gate screen",
+        "On Android: before showing dashboard, check healthConnectClient.permissionController.getGrantedPermissions() \u2014 if not all required permissions granted, show permission gate screen",
         "Permission gate screen shows explanation text (FitBro needs Health Connect access to read calorie data) and a Grant Permissions button",
         "Grant Permissions button launches HealthPermission.getHealthPermissionsActivityContract() using rememberLauncherForActivityResult",
         "On activity result: if all permissions now granted, proceed to dashboard; if still missing, show Permissions required message with retry button",
-        "On iOS: no permission gate screen — HealthKit authorization requested inline on first query (already handled in HealthDataSource.ios.kt)",
+        "On iOS: no permission gate screen \u2014 HealthKit authorization requested inline on first query (already handled in HealthDataSource.ios.kt)",
         "Typecheck passes"
       ],
       "priority": 6,
