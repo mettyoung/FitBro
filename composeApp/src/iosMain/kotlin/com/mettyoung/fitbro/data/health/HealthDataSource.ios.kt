@@ -18,6 +18,8 @@ import platform.HealthKit.HKQueryOptionNone
 import platform.HealthKit.HKQuantitySample
 import platform.HealthKit.HKQuantityType
 import platform.HealthKit.HKQuantityTypeIdentifierActiveEnergyBurned
+import platform.HealthKit.HKQuantityTypeIdentifierBasalEnergyBurned
+import platform.HealthKit.HKQuantityTypeIdentifierDietaryEnergyConsumed
 import platform.HealthKit.HKSampleQuery
 import platform.HealthKit.HKUnit
 import platform.HealthKit.kilocalorieUnit
@@ -28,6 +30,33 @@ actual fun createHealthDataSource(): HealthDataSource = HealthKitDataSource()
 
 private class HealthKitDataSource : HealthDataSource {
     private val healthStore = HKHealthStore()
+
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun requestAuthorization(types: Set<HKQuantityType>): Boolean =
+        suspendCancellableCoroutine { cont ->
+            healthStore.requestAuthorizationToShareTypes(
+                typesToShare = null,
+                readTypes = types.map { it as HKObjectType }.toSet()
+            ) { success, _ ->
+                cont.resume(success)
+            }
+        }
+
+    private fun buildDateRange(
+        startDate: String,
+        endDate: String,
+        formatter: NSDateFormatter
+    ): Pair<NSDate, NSDate>? {
+        val cal = NSCalendar(calendarIdentifier = NSCalendarIdentifierGregorian)
+        val startNSDate = formatter.dateFromString(startDate) ?: return null
+        val endNSDate = cal.dateByAddingUnit(
+            unit = NSCalendarUnitDay,
+            value = 1,
+            toDate = formatter.dateFromString(endDate) ?: return null,
+            options = 0u
+        ) ?: return null
+        return startNSDate to endNSDate
+    }
 
     @Suppress("UNCHECKED_CAST")
     override suspend fun readActivityData(
@@ -42,14 +71,15 @@ private class HealthKitDataSource : HealthDataSource {
             HKQuantityTypeIdentifierActiveEnergyBurned
         ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
 
-        val authorized = suspendCancellableCoroutine<Boolean> { cont ->
-            healthStore.requestAuthorizationToShareTypes(
-                typesToShare = null,
-                readTypes = setOf(activeEnergyType as HKObjectType)
-            ) { success, _ ->
-                cont.resume(success)
-            }
-        }
+        val dietaryType = HKQuantityType.quantityTypeForIdentifier(
+            HKQuantityTypeIdentifierDietaryEnergyConsumed
+        ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+
+        val basalType = HKQuantityType.quantityTypeForIdentifier(
+            HKQuantityTypeIdentifierBasalEnergyBurned
+        ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+
+        val authorized = requestAuthorization(setOf(activeEnergyType, dietaryType, basalType))
         if (!authorized) return HealthResult.Failure(HealthDataError.PermissionDenied)
 
         val formatter = NSDateFormatter().apply {
@@ -57,17 +87,8 @@ private class HealthKitDataSource : HealthDataSource {
             timeZone = NSTimeZone.localTimeZone
         }
 
-        val cal = NSCalendar(calendarIdentifier = NSCalendarIdentifierGregorian)
-
-        val startNSDate = formatter.dateFromString(startDate)
-            ?: return HealthResult.Failure(HealthDataError.QueryError(Exception("Invalid date: $startDate")))
-        val endNSDate = cal.dateByAddingUnit(
-            unit = NSCalendarUnitDay,
-            value = 1,
-            toDate = formatter.dateFromString(endDate)
-                ?: return HealthResult.Failure(HealthDataError.QueryError(Exception("Invalid date: $endDate"))),
-            options = 0u
-        ) ?: return HealthResult.Failure(HealthDataError.QueryError(Exception("Date arithmetic failed")))
+        val (startNSDate, endNSDate) = buildDateRange(startDate, endDate, formatter)
+            ?: return HealthResult.Failure(HealthDataError.QueryError(Exception("Invalid date range")))
 
         val predicate = HKQuery.predicateForSamplesWithStartDate(
             startDate = startNSDate,
@@ -109,13 +130,133 @@ private class HealthKitDataSource : HealthDataSource {
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     override suspend fun readDailyIntake(
         startDate: String,
         endDate: String
-    ): HealthResult<List<DailyIntake>> = HealthResult.Failure(HealthDataError.NotAvailable)
+    ): HealthResult<List<DailyIntake>> {
+        if (!HKHealthStore.isHealthDataAvailable()) {
+            return HealthResult.Failure(HealthDataError.NotAvailable)
+        }
 
+        val dietaryType = HKQuantityType.quantityTypeForIdentifier(
+            HKQuantityTypeIdentifierDietaryEnergyConsumed
+        ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+
+        val authorized = requestAuthorization(setOf(dietaryType))
+        if (!authorized) return HealthResult.Failure(HealthDataError.PermissionDenied)
+
+        val formatter = NSDateFormatter().apply {
+            dateFormat = "yyyy-MM-dd"
+            timeZone = NSTimeZone.localTimeZone
+        }
+
+        val (startNSDate, endNSDate) = buildDateRange(startDate, endDate, formatter)
+            ?: return HealthResult.Failure(HealthDataError.QueryError(Exception("Invalid date range")))
+
+        val predicate = HKQuery.predicateForSamplesWithStartDate(
+            startDate = startNSDate,
+            endDate = endNSDate,
+            options = HKQueryOptionNone
+        )
+
+        return suspendCancellableCoroutine { cont ->
+            val query = HKSampleQuery(
+                sampleType = dietaryType,
+                predicate = predicate,
+                limit = 0u,
+                sortDescriptors = null,
+                resultsHandler = { _, samples, error ->
+                    when {
+                        error != null -> cont.resume(
+                            HealthResult.Failure(HealthDataError.QueryError(
+                                Exception(error.localizedDescription)
+                            ))
+                        )
+                        else -> {
+                            val dailyCalories = mutableMapOf<String, Double>()
+                            samples?.forEach { sample ->
+                                val quantitySample = sample as? HKQuantitySample ?: return@forEach
+                                val kcal = quantitySample.quantity
+                                    .doubleValueForUnit(HKUnit.kilocalorieUnit())
+                                val dateStr = formatter.stringFromDate(quantitySample.startDate)
+                                dailyCalories[dateStr] = (dailyCalories[dateStr] ?: 0.0) + kcal
+                            }
+                            val intakes = dailyCalories.entries
+                                .sortedBy { it.key }
+                                .map { (date, kcal) -> DailyIntake(date = date, totalCalories = kcal) }
+                            cont.resume(HealthResult.Success(intakes))
+                        }
+                    }
+                }
+            )
+            healthStore.executeQuery(query)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
     override suspend fun readBasalMetabolicRate(
         startDate: String,
         endDate: String
-    ): HealthResult<List<Metabolism>> = HealthResult.Failure(HealthDataError.NotAvailable)
+    ): HealthResult<List<Metabolism>> {
+        if (!HKHealthStore.isHealthDataAvailable()) {
+            return HealthResult.Failure(HealthDataError.NotAvailable)
+        }
+
+        val basalType = HKQuantityType.quantityTypeForIdentifier(
+            HKQuantityTypeIdentifierBasalEnergyBurned
+        ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+
+        val authorized = requestAuthorization(setOf(basalType))
+        if (!authorized) return HealthResult.Failure(HealthDataError.PermissionDenied)
+
+        val formatter = NSDateFormatter().apply {
+            dateFormat = "yyyy-MM-dd"
+            timeZone = NSTimeZone.localTimeZone
+        }
+
+        val (startNSDate, endNSDate) = buildDateRange(startDate, endDate, formatter)
+            ?: return HealthResult.Failure(HealthDataError.QueryError(Exception("Invalid date range")))
+
+        val predicate = HKQuery.predicateForSamplesWithStartDate(
+            startDate = startNSDate,
+            endDate = endNSDate,
+            options = HKQueryOptionNone
+        )
+
+        return suspendCancellableCoroutine { cont ->
+            val query = HKSampleQuery(
+                sampleType = basalType,
+                predicate = predicate,
+                limit = 0u,
+                sortDescriptors = null,
+                resultsHandler = { _, samples, error ->
+                    when {
+                        error != null -> cont.resume(
+                            HealthResult.Failure(HealthDataError.QueryError(
+                                Exception(error.localizedDescription)
+                            ))
+                        )
+                        else -> {
+                            val dailyValues = mutableMapOf<String, MutableList<Double>>()
+                            samples?.forEach { sample ->
+                                val quantitySample = sample as? HKQuantitySample ?: return@forEach
+                                val kcal = quantitySample.quantity
+                                    .doubleValueForUnit(HKUnit.kilocalorieUnit())
+                                val dateStr = formatter.stringFromDate(quantitySample.startDate)
+                                dailyValues.getOrPut(dateStr) { mutableListOf() }.add(kcal)
+                            }
+                            val metabolisms = dailyValues.entries
+                                .sortedBy { it.key }
+                                .map { (date, values) ->
+                                    Metabolism(date = date, bmr = values.average(), tef = 0.0)
+                                }
+                            cont.resume(HealthResult.Success(metabolisms))
+                        }
+                    }
+                }
+            )
+            healthStore.executeQuery(query)
+        }
+    }
 }
