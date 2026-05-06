@@ -234,3 +234,15 @@
   - BasalMetabolicRateRecord has no aggregate metric — must use readRecords then group/average by day manually
   - Health Connect queries block needs intent filter for ACTION_SHOW_PERMISSIONS_RATIONALE alongside package filter
 ---
+
+## 2026-05-06 - US-003
+- Implemented readDailyIntake using HKSampleQuery for HKQuantityTypeIdentifierDietaryEnergyConsumed; sums per day
+- Implemented readBasalMetabolicRate using HKSampleQuery for HKQuantityTypeIdentifierBasalEnergyBurned; averages per day
+- Refactored shared helpers: requestAuthorization() and buildDateRange() to avoid code duplication
+- readActivityData updated to request all three types (active, dietary, basal) together in a single authorization call
+- Files changed: HealthDataSource.ios.kt, prd.json
+- **Learnings for future iterations:**
+  - Extracted requestAuthorization(types) helper and buildDateRange() to reduce boilerplate across three similar methods
+  - Both HKQuantityTypeIdentifierDietaryEnergyConsumed and HKQuantityTypeIdentifierBasalEnergyBurned identifiers are direct imports (not ObjC category methods) — no special import trick needed beyond the standard identifier import
+  - Requesting all auth types at once in readActivityData ensures the system only shows one permission dialog
+---
