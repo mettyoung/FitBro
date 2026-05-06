@@ -1,5 +1,6 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,12 +10,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,16 +29,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.Color
 import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.util.formatTimeAgo
 import com.mettyoung.fitbro.util.minusDays
 import com.mettyoung.fitbro.util.plusDays
 import com.mettyoung.fitbro.util.toDisplayRange
 import com.mettyoung.fitbro.util.todayString
+import kotlinx.coroutines.delay
 
 @Composable
 fun DashboardScreen(
@@ -57,104 +60,178 @@ fun DashboardContent(
 ) {
     var showPicker by remember { mutableStateOf(false) }
     var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
+    var wasRefreshing by remember { mutableStateOf(false) }
+    var showSuccessToast by remember { mutableStateOf(false) }
+    var refreshError by remember { mutableStateOf<String?>(null) }
+
     val today = todayString()
     val startDate = state.selectedDateRange.startDate
     val canGoNext = startDate.plusDays(7) <= today
+    val isLoading = state.uiState is DashboardUiState.Loading
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Title row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Calorie Balance",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            TextButton(onClick = { showPicker = true }) {
-                Text("📅")
+    // Detect Loading → Success/Error transition triggered by user refresh
+    LaunchedEffect(state.uiState) {
+        if (wasRefreshing) {
+            when (val uiState = state.uiState) {
+                is DashboardUiState.Success -> {
+                    wasRefreshing = false
+                    showSuccessToast = true
+                }
+                is DashboardUiState.Error -> {
+                    wasRefreshing = false
+                    refreshError = uiState.message
+                }
+                is DashboardUiState.Loading -> { /* still loading */ }
             }
         }
+    }
 
-        // Week navigation row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = {
-                val newStart = startDate.minusDays(7)
-                onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
-            }) { Text("‹ Prev") }
-
-            Text(
-                text = startDate.toDisplayRange(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            TextButton(
-                onClick = {
-                    val newStart = startDate.plusDays(7)
-                    onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
-                },
-                enabled = canGoNext
-            ) { Text("Next ›") }
+    LaunchedEffect(showSuccessToast) {
+        if (showSuccessToast) {
+            delay(2000)
+            showSuccessToast = false
         }
+    }
 
-        Spacer(Modifier.height(8.dp))
-
-        when (val uiState = state.uiState) {
-            is DashboardUiState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            // Title row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Calorie Balance",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                        if (isLoading && wasRefreshing) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            TextButton(
+                                onClick = { wasRefreshing = true; onRefresh() },
+                                enabled = !isLoading
+                            ) { Text("🔄") }
+                        }
+                    }
+                    TextButton(onClick = { showPicker = true }) {
+                        Text("📅")
+                    }
                 }
             }
-            is DashboardUiState.Success -> {
-                CalorieBalanceChart(
-                    balances = uiState.balances,
-                    onBarClick = { selectedBreakdown = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
+
+            // Week navigation row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = {
+                    val newStart = startDate.minusDays(7)
+                    onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
+                }) { Text("‹ Prev") }
+
+                Text(
+                    text = startDate.toDisplayRange(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                TextButton(
+                    onClick = {
+                        val newStart = startDate.plusDays(7)
+                        onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
+                    },
+                    enabled = canGoNext
+                ) { Text("Next ›") }
             }
-            is DashboardUiState.Error -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+
+            Spacer(Modifier.height(8.dp))
+
+            when (val uiState = state.uiState) {
+                is DashboardUiState.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = uiState.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Button(onClick = onRefresh) {
-                            Text("Retry")
+                        CircularProgressIndicator()
+                    }
+                }
+                is DashboardUiState.Success -> {
+                    CalorieBalanceChart(
+                        balances = uiState.balances,
+                        onBarClick = { selectedBreakdown = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    )
+                }
+                is DashboardUiState.Error -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Text(
+                                text = uiState.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Button(onClick = onRefresh) {
+                                Text("Retry")
+                            }
                         }
                     }
                 }
             }
+
+            Spacer(Modifier.height(8.dp))
+            SyncStatusBar(state = state)
         }
 
-        Spacer(Modifier.height(8.dp))
-        SyncStatusBar(state = state)
+        // Success toast overlay
+        if (showSuccessToast) {
+            Snackbar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+            ) {
+                Text("Data updated")
+            }
+        }
+    }
+
+    // Error dialog for user-triggered refresh failures
+    refreshError?.let { error ->
+        AlertDialog(
+            onDismissRequest = { refreshError = null },
+            title = { Text("Sync Failed") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(error, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        suggestAction(error),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { refreshError = null }) { Text("OK") }
+            }
+        )
     }
 
     selectedBreakdown?.let { breakdown ->
-
         BreakdownDialog(
             balance = breakdown,
             onDismiss = { selectedBreakdown = null }
@@ -171,6 +248,14 @@ fun DashboardContent(
             }
         )
     }
+}
+
+private fun suggestAction(errorMessage: String): String = when {
+    "Auth expired" in errorMessage -> "Suggestion: Re-login to Cronometer"
+    "Permission denied" in errorMessage -> "Suggestion: Grant Health Connect permission in Settings"
+    "Network" in errorMessage -> "Suggestion: Check your internet connection"
+    "Rate limited" in errorMessage -> "Suggestion: Wait a moment and try again"
+    else -> "Suggestion: Try again later"
 }
 
 @Composable
