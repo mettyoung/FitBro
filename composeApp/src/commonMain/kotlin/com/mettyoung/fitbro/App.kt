@@ -39,6 +39,7 @@ fun App() {
         DashboardContent(
             state = demoState,
             onRefresh = {},
+            onDateRangeChanged = {},
             modifier = Modifier
                 .safeContentPadding()
                 .fillMaxSize()
