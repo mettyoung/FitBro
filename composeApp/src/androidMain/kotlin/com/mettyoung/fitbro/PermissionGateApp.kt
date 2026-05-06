@@ -18,7 +18,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -57,14 +59,22 @@ fun PermissionGateApp() {
 private fun PermissionGateContent() {
     val context = AndroidAppContext.context
     val client = remember { HealthConnectClient.getOrCreate(context) }
+    val scope = rememberCoroutineScope()
 
     var allGranted by remember { mutableStateOf(false) }
     var checked by remember { mutableStateOf(false) }
 
     val launcher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract()
-    ) { granted ->
-        allGranted = granted.containsAll(REQUIRED_PERMISSIONS)
+    ) { _ ->
+        scope.launch {
+            val currentlyGranted = try {
+                client.permissionController.getGrantedPermissions()
+            } catch (e: Exception) {
+                emptySet()
+            }
+            allGranted = currentlyGranted.containsAll(REQUIRED_PERMISSIONS)
+        }
     }
 
     LaunchedEffect(Unit) {
