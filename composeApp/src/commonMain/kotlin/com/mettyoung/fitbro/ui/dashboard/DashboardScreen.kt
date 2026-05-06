@@ -171,6 +171,28 @@ fun DashboardContent(
                             .fillMaxWidth()
                             .weight(1f)
                     )
+                    if (uiState.warnings.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        uiState.warnings.forEach { warning ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        color = MaterialTheme.colorScheme.errorContainer,
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "⚠ $warning",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                        }
+                    }
                 }
                 is DashboardUiState.Error -> {
                     Box(

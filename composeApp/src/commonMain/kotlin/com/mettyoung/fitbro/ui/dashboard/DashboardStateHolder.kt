@@ -55,6 +55,10 @@ class DashboardStateHolder(
             val metabolismResult = metabolismDeferred.await()
             val activityResult = activityDeferred.await()
 
+            val cronometerIntakeFailed = intakeResult is ApiResult.Failure
+            val cronometerMetabolismFailed = metabolismResult is ApiResult.Failure
+            val healthFailed = activityResult is HealthResult.Failure
+
             val now = currentEpochMs()
             val errors = mutableListOf<String>()
 
@@ -102,10 +106,13 @@ class DashboardStateHolder(
                 CacheSource.HEALTH_ACTIVITY to cacheDataSource.getSyncTimestamp(CacheSource.HEALTH_ACTIVITY),
             )
 
-            val newUiState = if (balances.isEmpty()) {
+            val warnings = buildWarnings(cronometerIntakeFailed, cronometerMetabolismFailed, healthFailed)
+            val totalFailure = balances.isEmpty() && errors.isNotEmpty() &&
+                updatedSyncTime.values.all { it == null }
+            val newUiState = if (totalFailure) {
                 DashboardUiState.Error(errors.joinToString("\n"))
             } else {
-                DashboardUiState.Success(balances)
+                DashboardUiState.Success(balances, warnings)
             }
 
             _state.update {
