@@ -270,3 +270,16 @@
   - String.minusDays() is a top-level extension in com.mettyoung.fitbro.util — must be imported explicitly when called as member on String variable
   - DashboardStateHolder keys on all four remember() params to avoid re-creation on recomposition
 ---
+
+## 2026-05-06 - US-006
+- Implemented Android Health Connect permission gate before dashboard
+- Files changed:
+  - composeApp/src/androidMain/.../PermissionGateApp.kt — NEW: PermissionGateApp checks HC SDK availability + permissions, shows PermissionScreen if not granted, calls App() if granted; PermissionScreen has explanation + "Grant Permissions" button
+  - composeApp/src/androidMain/.../MainActivity.kt — UPDATED: setContent calls PermissionGateApp() instead of App()
+- **Learnings for future iterations:**
+  - Health Connect alpha12 permission contract: `PermissionController.createRequestPermissionResultContract()` (static companion method on `PermissionController`, NOT on `HealthPermission` or client instance)
+  - `HealthPermission.getHealthPermissionsActivityContract()` does NOT exist in alpha12 — this is a stable SDK method
+  - `client.permissionController.createRequestPermissionActivityContract()` does NOT exist — it's a static method on `PermissionController`
+  - Pattern: check `HealthConnectClient.getSdkStatus(context) == SDK_AVAILABLE` before calling `getOrCreate()` — if unavailable, skip permission gate (data source returns NotAvailable)
+  - Split into `PermissionGateApp` (SDK check) + `PermissionGateContent` (inner composable where client is guaranteed non-null) to avoid calling `remember {}` conditionally
+---
