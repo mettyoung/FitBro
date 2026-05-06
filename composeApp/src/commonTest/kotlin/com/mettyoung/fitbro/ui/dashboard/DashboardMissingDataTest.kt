@@ -10,8 +10,8 @@ class DashboardMissingDataTest {
     @Test
     fun noFailures_noWarnings() {
         val warnings = buildWarnings(
-            cronometerIntakeFailed = false,
-            cronometerMetabolismFailed = false,
+            healthIntakeFailed = false,
+            healthMetabolismFailed = false,
             healthFailed = false
         )
         assertTrue(warnings.isEmpty())
@@ -20,8 +20,8 @@ class DashboardMissingDataTest {
     @Test
     fun healthFailed_activityWarning() {
         val warnings = buildWarnings(
-            cronometerIntakeFailed = false,
-            cronometerMetabolismFailed = false,
+            healthIntakeFailed = false,
+            healthMetabolismFailed = false,
             healthFailed = true
         )
         assertEquals(1, warnings.size)
@@ -29,10 +29,10 @@ class DashboardMissingDataTest {
     }
 
     @Test
-    fun cronometerIntakeFailed_intakeWarning() {
+    fun healthIntakeFailed_intakeWarning() {
         val warnings = buildWarnings(
-            cronometerIntakeFailed = true,
-            cronometerMetabolismFailed = false,
+            healthIntakeFailed = true,
+            healthMetabolismFailed = false,
             healthFailed = false
         )
         assertEquals(1, warnings.size)
@@ -40,46 +40,46 @@ class DashboardMissingDataTest {
     }
 
     @Test
-    fun cronometerMetabolismFailed_metabolismWarning() {
+    fun healthMetabolismFailed_bmrWarning() {
         val warnings = buildWarnings(
-            cronometerIntakeFailed = false,
-            cronometerMetabolismFailed = true,
+            healthIntakeFailed = false,
+            healthMetabolismFailed = true,
             healthFailed = false
         )
         assertEquals(1, warnings.size)
-        assertTrue("etabolic" in warnings[0])
+        assertTrue("BMR" in warnings[0])
     }
 
     @Test
-    fun bothCronometerFailed_singleCombinedWarning() {
+    fun bothHealthDataFailed_twoWarnings() {
         val warnings = buildWarnings(
-            cronometerIntakeFailed = true,
-            cronometerMetabolismFailed = true,
+            healthIntakeFailed = true,
+            healthMetabolismFailed = true,
             healthFailed = false
         )
-        // Combined into one Cronometer warning, not two separate ones
-        assertEquals(1, warnings.size)
-        assertTrue("Cronometer" in warnings[0])
+        assertEquals(2, warnings.size)
+        assertTrue(warnings.any { "intake" in it.lowercase() })
+        assertTrue(warnings.any { "BMR" in it })
     }
 
     @Test
     fun allSourcesFailed_threeWarnings() {
         val warnings = buildWarnings(
-            cronometerIntakeFailed = true,
-            cronometerMetabolismFailed = true,
+            healthIntakeFailed = true,
+            healthMetabolismFailed = true,
             healthFailed = true
         )
-        // Cronometer combined (1) + Health (1) = 2 warnings
-        assertEquals(2, warnings.size)
-        assertTrue(warnings.any { "Cronometer" in it })
+        assertEquals(3, warnings.size)
+        assertTrue(warnings.any { "intake" in it.lowercase() })
+        assertTrue(warnings.any { "BMR" in it })
         assertTrue(warnings.any { "Activity" in it })
     }
 
     @Test
-    fun cronometerIntakeAndHealthFailed_twoWarnings() {
+    fun healthIntakeAndHealthFailed_twoWarnings() {
         val warnings = buildWarnings(
-            cronometerIntakeFailed = true,
-            cronometerMetabolismFailed = false,
+            healthIntakeFailed = true,
+            healthMetabolismFailed = false,
             healthFailed = true
         )
         assertEquals(2, warnings.size)

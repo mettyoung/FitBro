@@ -2,10 +2,6 @@ package com.mettyoung.fitbro.ui.dashboard
 
 import com.mettyoung.fitbro.data.cache.CacheDataSource
 import com.mettyoung.fitbro.data.cache.CacheSource
-import com.mettyoung.fitbro.data.cronometer.ApiResult
-import com.mettyoung.fitbro.data.cronometer.CronometerApiError
-import com.mettyoung.fitbro.data.cronometer.CronometerDataSource
-import com.mettyoung.fitbro.data.health.HealthDataError
 import com.mettyoung.fitbro.data.health.HealthDataSource
 import com.mettyoung.fitbro.data.health.HealthResult
 import com.mettyoung.fitbro.data.model.ActivityBurn
@@ -25,7 +21,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class DashboardStateHolder(
-    private val cronometerDataSource: CronometerDataSource,
     private val healthDataSource: HealthDataSource,
     private val cacheDataSource: CacheDataSource,
     private val calorieMathRepository: CalorieMathRepository,
@@ -47,41 +42,41 @@ class DashboardStateHolder(
             val range = _state.value.selectedDateRange
             _state.update { it.copy(uiState = DashboardUiState.Loading, errorMessage = null) }
 
-            val intakeDeferred = async { cronometerDataSource.fetchDailyIntake(range.startDate, range.endDate) }
-            val metabolismDeferred = async { cronometerDataSource.fetchMetabolism(range.startDate, range.endDate) }
+            val intakeDeferred = async { healthDataSource.readDailyIntake(range.startDate, range.endDate) }
+            val metabolismDeferred = async { healthDataSource.readBasalMetabolicRate(range.startDate, range.endDate) }
             val activityDeferred = async { healthDataSource.readActivityData(range.startDate, range.endDate) }
 
             val intakeResult = intakeDeferred.await()
             val metabolismResult = metabolismDeferred.await()
             val activityResult = activityDeferred.await()
 
-            val cronometerIntakeFailed = intakeResult is ApiResult.Failure
-            val cronometerMetabolismFailed = metabolismResult is ApiResult.Failure
+            val healthIntakeFailed = intakeResult is HealthResult.Failure
+            val healthMetabolismFailed = metabolismResult is HealthResult.Failure
             val healthFailed = activityResult is HealthResult.Failure
 
             val now = currentEpochMs()
             val errors = mutableListOf<String>()
 
             val intakes: List<DailyIntake> = when (intakeResult) {
-                is ApiResult.Success -> {
+                is HealthResult.Success -> {
                     cacheDataSource.saveDailyIntake(range.startDate, range.endDate, intakeResult.value)
                     cacheDataSource.saveSyncTimestamp(CacheSource.CRONOMETER_INTAKE, now)
                     intakeResult.value
                 }
-                is ApiResult.Failure -> {
-                    errors.add("Cronometer: ${intakeResult.error.describe()}")
+                is HealthResult.Failure -> {
+                    errors.add("Health intake: ${intakeResult.error.describe()}")
                     cacheDataSource.getDailyIntake(range.startDate, range.endDate) ?: emptyList()
                 }
             }
 
             val metabolisms: List<Metabolism> = when (metabolismResult) {
-                is ApiResult.Success -> {
+                is HealthResult.Success -> {
                     cacheDataSource.saveMetabolism(range.startDate, range.endDate, metabolismResult.value)
                     cacheDataSource.saveSyncTimestamp(CacheSource.CRONOMETER_METABOLISM, now)
                     metabolismResult.value
                 }
-                is ApiResult.Failure -> {
-                    errors.add("Cronometer metabolism: ${metabolismResult.error.describe()}")
+                is HealthResult.Failure -> {
+                    errors.add("BMR: ${metabolismResult.error.describe()}")
                     cacheDataSource.getMetabolism(range.startDate, range.endDate) ?: emptyList()
                 }
             }
@@ -106,7 +101,7 @@ class DashboardStateHolder(
                 CacheSource.HEALTH_ACTIVITY to cacheDataSource.getSyncTimestamp(CacheSource.HEALTH_ACTIVITY),
             )
 
-            val warnings = buildWarnings(cronometerIntakeFailed, cronometerMetabolismFailed, healthFailed)
+            val warnings = buildWarnings(healthIntakeFailed, healthMetabolismFailed, healthFailed)
             val totalFailure = balances.isEmpty() && errors.isNotEmpty() &&
                 updatedSyncTime.values.all { it == null }
             val newUiState = if (totalFailure) {
@@ -139,8 +134,9 @@ class DashboardStateHolder(
         val activityByDate = activities?.associateBy { it.date }
         return intakes.mapNotNull { intake ->
             val metabolism = metabolismByDate[intake.date] ?: return@mapNotNull null
+            val metabolismWithTef = metabolism.copy(tef = intake.totalCalories * 0.1)
             val activity = activityByDate?.get(intake.date)
-            when (val result = calorieMathRepository.computeDailyBalance(intake, metabolism, activity)) {
+            when (val result = calorieMathRepository.computeDailyBalance(intake, metabolismWithTef, activity)) {
                 is CalorieResult.Success -> result.value
                 is CalorieResult.Failure -> null
             }
@@ -148,16 +144,8 @@ class DashboardStateHolder(
     }
 }
 
-private fun CronometerApiError.describe(): String = when (this) {
-    is CronometerApiError.NetworkError -> "Network error"
-    is CronometerApiError.HttpError -> "HTTP $statusCode: $message"
-    CronometerApiError.RateLimited -> "Rate limited"
-    CronometerApiError.Unauthorized -> "Auth expired"
-    is CronometerApiError.ParseError -> "Parse error"
-}
-
-private fun HealthDataError.describe(): String = when (this) {
-    HealthDataError.PermissionDenied -> "Permission denied"
-    HealthDataError.NotAvailable -> "Not available"
-    is HealthDataError.QueryError -> "Query error"
+private fun com.mettyoung.fitbro.data.health.HealthDataError.describe(): String = when (this) {
+    com.mettyoung.fitbro.data.health.HealthDataError.PermissionDenied -> "Permission denied"
+    com.mettyoung.fitbro.data.health.HealthDataError.NotAvailable -> "Not available"
+    is com.mettyoung.fitbro.data.health.HealthDataError.QueryError -> "Query error"
 }
