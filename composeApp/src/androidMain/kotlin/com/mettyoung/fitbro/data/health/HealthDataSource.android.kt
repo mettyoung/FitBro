@@ -93,6 +93,8 @@ private class HealthConnectDataSource : HealthDataSource {
             val startDt = LocalDate.parse(startDate).atStartOfDay()
             val endDt = LocalDate.parse(endDate).plusDays(1).atStartOfDay()
 
+            Log.d("HealthConnect", "Nutrition query: $startDate to $endDate (LocalDateTime: $startDt to $endDt)")
+
             val buckets = healthClient.aggregateGroupByPeriod(
                 AggregateGroupByPeriodRequest(
                     metrics = setOf(NutritionRecord.ENERGY_TOTAL),
@@ -102,11 +104,15 @@ private class HealthConnectDataSource : HealthDataSource {
             )
 
             Log.d("HealthConnect", "Nutrition query returned ${buckets.size} days")
+            if (buckets.isEmpty()) {
+                Log.w("HealthConnect", "EMPTY: No nutrition data in HC. User must log food in connected app (Google Fit, Samsung Health, etc)")
+            }
 
             val intakes = buckets.mapNotNull { bucket ->
                 val energy = bucket.result[NutritionRecord.ENERGY_TOTAL] ?: return@mapNotNull null
                 val kcal = energy.inKilocalories
                 val date = bucket.startTime.atZone(zone).toLocalDate().toString()
+                Log.d("HealthConnect", "Nutrition on $date: ${kcal}kcal")
                 DailyIntake(date = date, totalCalories = kcal)
             }
 
