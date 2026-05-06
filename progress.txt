@@ -259,3 +259,14 @@
   - CacheSource.CRONOMETER_INTAKE/METABOLISM keys intentionally kept — no rename per PRD
   - HealthDataError.describe() kept as private extension — moved inline with FQN to avoid import in same file
 ---
+
+## 2026-05-06 - US-005
+- Rewrote App.kt to wire real DashboardStateHolder: createHealthDataSource, createCacheDataSource, CalorieMathRepositoryImpl, rememberCoroutineScope
+- initialDateRange = DateRange(today.minusDays(6), today) using todayString() from DateUtil
+- LaunchedEffect(Unit) triggers stateHolder.refresh() on first composition
+- Removed all hardcoded sampleBalances and demoState; now renders DashboardScreen(stateHolder)
+- Files changed: App.kt, prd.json
+- **Learnings for future iterations:**
+  - String.minusDays() is a top-level extension in com.mettyoung.fitbro.util — must be imported explicitly when called as member on String variable
+  - DashboardStateHolder keys on all four remember() params to avoid re-creation on recomposition
+---
