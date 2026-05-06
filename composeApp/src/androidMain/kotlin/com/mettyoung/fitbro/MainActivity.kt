@@ -15,7 +15,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         handleOAuthCallback(intent)
         setContent {
-            App()
+            PermissionGateApp()
         }
     }
 
