@@ -3,7 +3,10 @@ package com.mettyoung.fitbro.data.health
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.BasalMetabolicRateRecord
+import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
+import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.mettyoung.fitbro.AndroidAppContext
 import com.mettyoung.fitbro.data.model.ActivityBurn
@@ -69,10 +72,87 @@ private class HealthConnectDataSource : HealthDataSource {
     override suspend fun readDailyIntake(
         startDate: String,
         endDate: String
-    ): HealthResult<List<DailyIntake>> = HealthResult.Failure(HealthDataError.NotAvailable)
+    ): HealthResult<List<DailyIntake>> {
+        val healthClient = client ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+
+        val required = setOf(HealthPermission.getReadPermission(NutritionRecord::class))
+        val granted = try {
+            healthClient.permissionController.getGrantedPermissions()
+        } catch (e: Exception) {
+            return HealthResult.Failure(HealthDataError.QueryError(e))
+        }
+        if (!granted.containsAll(required)) {
+            return HealthResult.Failure(HealthDataError.PermissionDenied)
+        }
+
+        return try {
+            val zone = ZoneId.systemDefault()
+            val start = LocalDate.parse(startDate).atStartOfDay(zone).toInstant()
+            val end = LocalDate.parse(endDate).plusDays(1).atStartOfDay(zone).toInstant()
+
+            val buckets = healthClient.aggregateGroupByPeriod(
+                AggregateGroupByPeriodRequest(
+                    metrics = setOf(NutritionRecord.ENERGY_TOTAL),
+                    timeRangeFilter = TimeRangeFilter.between(start, end),
+                    timeRangeSlicer = Period.ofDays(1)
+                )
+            )
+
+            val intakes = buckets.mapNotNull { bucket ->
+                val energy = bucket.result[NutritionRecord.ENERGY_TOTAL] ?: return@mapNotNull null
+                val kcal = energy.inKilocalories
+                val date = bucket.startTime.atZone(zone).toLocalDate().toString()
+                DailyIntake(date = date, totalCalories = kcal)
+            }
+
+            HealthResult.Success(intakes)
+        } catch (e: Exception) {
+            HealthResult.Failure(HealthDataError.QueryError(e))
+        }
+    }
 
     override suspend fun readBasalMetabolicRate(
         startDate: String,
         endDate: String
-    ): HealthResult<List<Metabolism>> = HealthResult.Failure(HealthDataError.NotAvailable)
+    ): HealthResult<List<Metabolism>> {
+        val healthClient = client ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+
+        val required = setOf(HealthPermission.getReadPermission(BasalMetabolicRateRecord::class))
+        val granted = try {
+            healthClient.permissionController.getGrantedPermissions()
+        } catch (e: Exception) {
+            return HealthResult.Failure(HealthDataError.QueryError(e))
+        }
+        if (!granted.containsAll(required)) {
+            return HealthResult.Failure(HealthDataError.PermissionDenied)
+        }
+
+        return try {
+            val zone = ZoneId.systemDefault()
+            val start = LocalDate.parse(startDate).atStartOfDay(zone).toInstant()
+            val end = LocalDate.parse(endDate).plusDays(1).atStartOfDay(zone).toInstant()
+
+            val response = healthClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = BasalMetabolicRateRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(start, end)
+                )
+            )
+
+            val byDay = mutableMapOf<String, MutableList<Double>>()
+            for (record in response.records) {
+                val date = record.time.atZone(zone).toLocalDate().toString()
+                byDay.getOrPut(date) { mutableListOf() }
+                    .add(record.basalMetabolicRate.inKilocaloriesPerDay)
+            }
+
+            val metabolisms = byDay.entries.sortedBy { it.key }.map { (date, values) ->
+                Metabolism(date = date, bmr = values.average(), tef = 0.0)
+            }
+
+            HealthResult.Success(metabolisms)
+        } catch (e: Exception) {
+            HealthResult.Failure(HealthDataError.QueryError(e))
+        }
+    }
 }
