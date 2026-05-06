@@ -4,6 +4,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BasalMetabolicRateRecord
+import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
@@ -49,6 +50,7 @@ private class HealthConnectDataSource : HealthDataSource {
             val start = LocalDate.parse(startDate).atStartOfDay(zone).toLocalDateTime()
             val end = LocalDate.parse(endDate).plusDays(1).atStartOfDay(zone).toLocalDateTime()
 
+            // Query total active calories from Mi Band
             val buckets = healthClient.aggregateGroupByPeriod(
                 AggregateGroupByPeriodRequest(
                     metrics = setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),
@@ -57,15 +59,48 @@ private class HealthConnectDataSource : HealthDataSource {
                 )
             )
 
-            val activities = buckets.map { bucket ->
+            val totalByDate = buckets.associate { bucket ->
+                val date = bucket.startTime.atZone(zone).toLocalDate().toString()
                 val kcal = bucket.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]
                     ?.inKilocalories ?: 0.0
-                val date = bucket.startTime.atZone(zone).toLocalDate().toString()
-                ActivityBurn(date = date, neat = kcal, eat = 0.0)
+                date to kcal
+            }
+
+            // Query exercise sessions for EAT (explicit workouts)
+            val eatByDate = mutableMapOf<String, Double>()
+            try {
+                val exerciseResponse = healthClient.readRecords(
+                    ReadRecordsRequest(
+                        recordType = ExerciseSessionRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(start, end)
+                    )
+                )
+
+                exerciseResponse.records.forEach { session ->
+                    val date = session.startTime.atZone(zone).toLocalDate().toString()
+                    val durationSecs = (session.endTime.toEpochMilli() - session.startTime.toEpochMilli()) / 1000.0
+                    val durationMins = durationSecs / 60.0
+                    val estimatedCalories = durationMins * 5.0  // Rough estimate: ~5 kcal/min for moderate exercise
+                    eatByDate[date] = (eatByDate[date] ?: 0.0) + estimatedCalories
+                }
+                Log.d("HealthConnect", "Exercise sessions: ${exerciseResponse.records.size} workouts logged")
+            } catch (e: Exception) {
+                Log.d("HealthConnect", "ExerciseSessionRecord query failed (ok if no workouts): ${e.message}")
+            }
+
+            Log.d("HealthConnect", "Activity query returned ${totalByDate.size} days with total burn")
+            Log.d("HealthConnect", "EAT breakdown: ${eatByDate.size} days with workout calories")
+
+            val activities = totalByDate.map { (date, totalKcal) ->
+                val eatKcal = eatByDate[date] ?: 0.0
+                val neatKcal = maxOf(0.0, totalKcal - eatKcal)  // NEAT = total - EAT, min 0
+                Log.d("HealthConnect", "Activity on $date: total=$totalKcal, eat=$eatKcal, neat=$neatKcal")
+                ActivityBurn(date = date, neat = neatKcal, eat = eatKcal)
             }
 
             HealthResult.Success(activities)
         } catch (e: Exception) {
+            Log.e("HealthConnect", "Activity query failed: ${e.message}", e)
             HealthResult.Failure(HealthDataError.QueryError(e))
         }
     }
