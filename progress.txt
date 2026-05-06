@@ -222,3 +222,15 @@
   - Both DailyIntake and Metabolism models already existed in data.model package
   - HealthResult<T> and HealthDataError sealed classes already established — no new types needed
 ---
+
+## 2026-05-06 - US-002
+- Implemented readDailyIntake using AggregateGroupByPeriodRequest with NutritionRecord.ENERGY_TOTAL + Period.ofDays(1)
+- Implemented readBasalMetabolicRate using ReadRecordsRequest(BasalMetabolicRateRecord::class) then average per day
+- Both methods check READ_NUTRITION / READ_BASAL_METABOLIC_RATE permissions; return PermissionDenied if absent
+- Added READ_NUTRITION and READ_BASAL_METABOLIC_RATE to uses-permission and queries blocks in AndroidManifest.xml
+- Files changed: HealthDataSource.android.kt, AndroidManifest.xml, prd.json
+- **Learnings for future iterations:**
+  - mapNotNull used for readDailyIntake to skip days with no data (bucket.result[metric] returns null when no data)
+  - BasalMetabolicRateRecord has no aggregate metric — must use readRecords then group/average by day manually
+  - Health Connect queries block needs intent filter for ACTION_SHOW_PERMISSIONS_RATIONALE alongside package filter
+---
