@@ -90,13 +90,13 @@ private class HealthConnectDataSource : HealthDataSource {
 
         return try {
             val zone = ZoneId.systemDefault()
-            val start = LocalDate.parse(startDate).atStartOfDay(zone).toInstant()
-            val end = LocalDate.parse(endDate).plusDays(1).atStartOfDay(zone).toInstant()
+            val startDt = LocalDate.parse(startDate).atStartOfDay()
+            val endDt = LocalDate.parse(endDate).plusDays(1).atStartOfDay()
 
             val buckets = healthClient.aggregateGroupByPeriod(
                 AggregateGroupByPeriodRequest(
                     metrics = setOf(NutritionRecord.ENERGY_TOTAL),
-                    timeRangeFilter = TimeRangeFilter.between(start, end),
+                    timeRangeFilter = TimeRangeFilter.between(startDt, endDt),
                     timeRangeSlicer = Period.ofDays(1)
                 )
             )
