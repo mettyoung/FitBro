@@ -132,10 +132,15 @@ class DashboardStateHolder(
     ): List<DailyBalance> {
         val metabolismByDate = metabolisms.associateBy { it.date }
         val activityByDate = activities?.associateBy { it.date }
-        return intakes.mapNotNull { intake ->
-            val metabolism = metabolismByDate[intake.date] ?: return@mapNotNull null
+        val intakesByDate = intakes.associateBy { it.date }
+
+        val allDates = (intakes.map { it.date } + (activityByDate?.keys ?: emptySet())).distinct().sorted()
+
+        return allDates.mapNotNull { date ->
+            val metabolism = metabolismByDate[date] ?: return@mapNotNull null
+            val intake = intakesByDate[date] ?: DailyIntake(date, 0.0)
             val metabolismWithTef = metabolism.copy(tef = intake.totalCalories * 0.1)
-            val activity = activityByDate?.get(intake.date)
+            val activity = activityByDate?.get(date)
             when (val result = calorieMathRepository.computeDailyBalance(intake, metabolismWithTef, activity)) {
                 is CalorieResult.Success -> result.value
                 is CalorieResult.Failure -> null
