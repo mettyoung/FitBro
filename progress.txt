@@ -140,3 +140,74 @@
   - HealthKit permission auth: `requestAuthorizationToShareTypes(typesToShare: null, readTypes: setOf(...))` — `success=false` means system error, not user denial; proceed with query anyway
   - Note: Xcode HealthKit capability NOT added to project.pbxproj — required for production build but not Kotlin typecheck
 ---
+
+## 2026-05-06 - US-008
+- Implemented date range picker with 7-day window navigation
+- Files changed:
+  - composeApp/src/commonMain/.../util/DateUtil.kt — NEW: date arithmetic (plusDays, minusDays, todayString, dayOfWeekMonBased, daysInMonth, toDisplayRange, MONTH_ABBR) without kotlinx-datetime
+  - composeApp/src/commonMain/.../ui/dashboard/DatePickerDialog.kt — NEW: custom month calendar dialog with range highlighting, future-date blocking, prev/next month nav
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — UPDATED: added prev/next week buttons, calendar icon, onDateRangeChanged callback, showPicker state
+  - composeApp/src/commonMain/.../App.kt — UPDATED: added onDateRangeChanged={} to DashboardContent call
+- **Learnings for future iterations:**
+  - No kotlinx-datetime in project — use DateUtil.kt (manual arithmetic via Julian-day-style epoch conversion)
+  - `String` comparison works for YYYY-MM-DD (lexicographic == chronological) — use `dayStr in startDate..endDate`
+  - `androidx.compose.ui.window.Dialog` + `Surface` gives full control over dialog layout in KMP
+  - `dayOfWeekMonBased` uses Zeller's congruence: (h + 5) % 7 gives 0=Mon, 6=Sun offset for calendar grid
+  - `dev-browser` skill not available — browser verification skipped, noted as manual step
+---
+
+## 2026-05-06 - US-009
+- Implemented chart drill-down: tap a bar to see component breakdown modal
+- Files changed:
+  - composeApp/src/commonMain/.../data/model/DailyBalance.kt — UPDATED: added bmr, tef, neat, eat fields (default 0.0) for breakdown
+  - composeApp/src/commonMain/.../data/repository/CalorieMathRepository.kt — UPDATED: populate breakdown fields in computed DailyBalance
+  - composeApp/src/commonMain/.../ui/dashboard/CalorieBalanceChart.kt — UPDATED: added onBarClick callback via pointerInput + detectTapGestures; tap maps x offset to bar index
+  - composeApp/src/commonMain/.../ui/dashboard/BreakdownDialog.kt — NEW: Dialog showing intake, BMR/TEF/NEAT/EAT with horizontal bar chart and % of total burn
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — UPDATED: selectedBreakdown state, shows BreakdownDialog on bar tap
+  - composeApp/src/commonMain/.../App.kt — UPDATED: sample data now includes breakdown fields
+- **Learnings for future iterations:**
+  - Canvas tap gesture: `pointerInput(balances) { detectTapGestures { offset -> ... } }` — key `balances` ensures lambda recomposes when data changes
+  - `detectTapGestures` from `androidx.compose.foundation.gestures` works in KMP commonMain
+  - `DailyBalance` breakdown fields use default values = 0.0 so existing tests compile without changes
+  - `dev-browser` skill not available — browser verification skipped, noted as manual step
+---
+
+## 2026-05-06 - US-010
+- Added sync status bar: last synced time, Offline badge, Syncing... indicator
+- Files changed:
+  - composeApp/src/commonMain/.../util/DateUtil.kt — UPDATED: added formatTimeAgo(timestampMs) helper
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — UPDATED: SyncStatusBar composable at bottom; uses lastSyncTime map + errorMessage for offline detection; moved errorMessage display from Success block into SyncStatusBar
+- **Learnings for future iterations:**
+  - `DashboardState.lastSyncTime` and `errorMessage` already carried sync metadata from US-006; US-010 just surfaced it
+  - `state.lastSyncTime.values.filterNotNull().maxOrNull()` = most recent successful fetch across all sources
+  - `isOffline = errorMessage != null` — errorMessage is set whenever any source fell back to cache
+  - `dev-browser` skill not available — browser verification skipped, noted as manual step
+---
+
+## 2026-05-06 - US-011
+- Implemented manual refresh button with spinner, success toast, and error dialog
+- Files changed:
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — UPDATED: refresh button (🔄) in header, wasRefreshing flag, LaunchedEffect detects Loading→Success/Error transitions, Snackbar toast for success (auto-dismiss after 2s), AlertDialog for refresh errors with suggestAction() mapping
+- **Learnings for future iterations:**
+  - Transition detection pattern: `wasRefreshing` bool + `LaunchedEffect(state.uiState)` — only reacts to user-triggered refreshes
+  - `LaunchedEffect(showSuccessToast) { delay(2000); showSuccessToast = false }` pattern for auto-dismiss overlays
+  - `Snackbar` composable works standalone inside a `Box` without SnackbarHostState/Scaffold
+  - `AlertDialog` from material3 works in KMP commonMain
+  - `delay()` from `kotlinx.coroutines` available in commonMain without extra import (already in deps)
+  - `dev-browser` skill not available — browser verification skipped, noted as manual step
+---
+
+## 2026-05-06 - US-012
+- Implemented missing data handling: warning banners, graceful degradation, unit tests
+- Files changed:
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardWarnings.kt — NEW: internal buildWarnings() pure function (testable without coroutines)
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardUiState.kt — UPDATED: Success now carries warnings: List<String> with default emptyList()
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardStateHolder.kt — UPDATED: tracks cronometerIntakeFailed/cronometerMetabolismFailed/healthFailed booleans; calls buildWarnings(); totalFailure = balances empty + errors present + no prior sync timestamps
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — UPDATED: warning banners in Success branch (errorContainer background, ⚠ prefix)
+  - composeApp/src/commonTest/.../ui/dashboard/DashboardMissingDataTest.kt — NEW: 8 tests for buildWarnings() and Success.warnings field
+- **Learnings for future iterations:**
+  - `internal` functions in commonMain are visible to commonTest (same module) — no need for @VisibleForTesting
+  - Pure function extraction pattern: `buildWarnings()` is pure, easily testable without mocking coroutines or state holders
+  - `DashboardUiState.Error` now reserved for totalFailure only (no data + no cache + all sources failed); partial failures emit Success+warnings
+  - Warning banners use `errorContainer`/`onErrorContainer` colors for visual consistency with Material3
+---
