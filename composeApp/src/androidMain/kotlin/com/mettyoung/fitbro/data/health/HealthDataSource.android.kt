@@ -15,6 +15,7 @@ import com.mettyoung.fitbro.data.model.Metabolism
 import java.time.LocalDate
 import java.time.Period
 import java.time.ZoneId
+import android.util.Log
 
 actual fun createHealthDataSource(): HealthDataSource = HealthConnectDataSource()
 
@@ -79,9 +80,11 @@ private class HealthConnectDataSource : HealthDataSource {
         val granted = try {
             healthClient.permissionController.getGrantedPermissions()
         } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to get granted permissions: ${e.message}")
             return HealthResult.Failure(HealthDataError.QueryError(e))
         }
         if (!granted.containsAll(required)) {
+            Log.w("HealthConnect", "NutritionRecord permission not granted")
             return HealthResult.Failure(HealthDataError.PermissionDenied)
         }
 
@@ -98,6 +101,8 @@ private class HealthConnectDataSource : HealthDataSource {
                 )
             )
 
+            Log.d("HealthConnect", "Nutrition query returned ${buckets.size} days")
+
             val intakes = buckets.mapNotNull { bucket ->
                 val energy = bucket.result[NutritionRecord.ENERGY_TOTAL] ?: return@mapNotNull null
                 val kcal = energy.inKilocalories
@@ -105,8 +110,10 @@ private class HealthConnectDataSource : HealthDataSource {
                 DailyIntake(date = date, totalCalories = kcal)
             }
 
+            Log.d("HealthConnect", "Nutrition intakes: ${intakes.size} days with data")
             HealthResult.Success(intakes)
         } catch (e: Exception) {
+            Log.e("HealthConnect", "Nutrition query failed: ${e.message}", e)
             HealthResult.Failure(HealthDataError.QueryError(e))
         }
     }
