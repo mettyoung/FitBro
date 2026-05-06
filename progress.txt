@@ -246,3 +246,16 @@
   - Both HKQuantityTypeIdentifierDietaryEnergyConsumed and HKQuantityTypeIdentifierBasalEnergyBurned identifiers are direct imports (not ObjC category methods) — no special import trick needed beyond the standard identifier import
   - Requesting all auth types at once in readActivityData ensures the system only shows one permission dialog
 ---
+
+## 2026-05-06 - US-004
+- Removed cronometerDataSource param from DashboardStateHolder; replaced with healthDataSource calls
+- readDailyIntake + readBasalMetabolicRate now used for intake/metabolism fetching (both return HealthResult)
+- computeBalances() now computes TEF as 10% of intake: metabolism.copy(tef = intake.totalCalories * 0.1)
+- DashboardWarnings.kt: replaced cronometerIntakeFailed/cronometerMetabolismFailed with healthIntakeFailed/healthMetabolismFailed; messages now "Health intake data unavailable" and "BMR data unavailable"
+- DashboardMissingDataTest.kt: updated all test cases to new signature; removed combined Cronometer test; added bothHealthDataFailed_twoWarnings
+- Files changed: DashboardStateHolder.kt, DashboardWarnings.kt, DashboardMissingDataTest.kt, prd.json
+- **Learnings for future iterations:**
+  - CronometerDataSource import fully removed; only HealthDataSource remains for data fetching
+  - CacheSource.CRONOMETER_INTAKE/METABOLISM keys intentionally kept — no rename per PRD
+  - HealthDataError.describe() kept as private extension — moved inline with FQN to avoid import in same file
+---
