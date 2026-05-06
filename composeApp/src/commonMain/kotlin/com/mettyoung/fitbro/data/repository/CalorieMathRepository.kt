@@ -47,7 +47,11 @@ class CalorieMathRepositoryImpl : CalorieMathRepository {
                 date = intake.date,
                 intake = intake.totalCalories,
                 burn = burn,
-                balance = balance
+                balance = balance,
+                bmr = metabolism.bmr,
+                tef = metabolism.tef,
+                neat = neat,
+                eat = eat
             )
         )
     }

@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.util.minusDays
 import com.mettyoung.fitbro.util.plusDays
 import com.mettyoung.fitbro.util.toDisplayRange
@@ -50,6 +51,7 @@ fun DashboardContent(
     modifier: Modifier = Modifier
 ) {
     var showPicker by remember { mutableStateOf(false) }
+    var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
     val today = todayString()
     val startDate = state.selectedDateRange.startDate
     val canGoNext = startDate.plusDays(7) <= today
@@ -114,6 +116,7 @@ fun DashboardContent(
             is DashboardUiState.Success -> {
                 CalorieBalanceChart(
                     balances = uiState.balances,
+                    onBarClick = { selectedBreakdown = it },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
@@ -148,6 +151,13 @@ fun DashboardContent(
                 }
             }
         }
+    }
+
+    selectedBreakdown?.let { breakdown ->
+        BreakdownDialog(
+            balance = breakdown,
+            onDismiss = { selectedBreakdown = null }
+        )
     }
 
     if (showPicker) {
