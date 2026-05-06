@@ -46,8 +46,8 @@ private class HealthConnectDataSource : HealthDataSource {
 
         return try {
             val zone = ZoneId.systemDefault()
-            val start = LocalDate.parse(startDate).atStartOfDay(zone).toInstant()
-            val end = LocalDate.parse(endDate).plusDays(1).atStartOfDay(zone).toInstant()
+            val start = LocalDate.parse(startDate).atStartOfDay(zone).toLocalDateTime()
+            val end = LocalDate.parse(endDate).plusDays(1).atStartOfDay(zone).toLocalDateTime()
 
             val buckets = healthClient.aggregateGroupByPeriod(
                 AggregateGroupByPeriodRequest(
