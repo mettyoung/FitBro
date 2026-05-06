@@ -66,3 +66,16 @@ fun String.toDisplayRange(): String {
 
 val MONTH_ABBR = arrayOf("", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+fun formatTimeAgo(timestampMs: Long): String {
+    val elapsed = currentEpochMs() - timestampMs
+    val minutes = elapsed / 60_000
+    val hours = elapsed / 3_600_000
+    val days = elapsed / 86_400_000
+    return when {
+        minutes < 1 -> "just now"
+        minutes < 60 -> "${minutes}m ago"
+        hours < 24 -> "${hours}h ago"
+        else -> "${days}d ago"
+    }
+}
