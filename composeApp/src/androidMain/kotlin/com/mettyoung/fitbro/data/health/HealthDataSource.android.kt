@@ -57,14 +57,14 @@ private class HealthConnectDataSource : HealthDataSource {
                 )
             )
 
-            Log.d("HealthConnect", "Activity query returned ${buckets.size} days")
+            Log.d("HealthConnect", "Activity query returned ${buckets.size} days with data")
 
             val activities = buckets.map { bucket ->
-                val activeCalories = bucket.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]
+                val activity = bucket.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]
                     ?.inKilocalories ?: 0.0
                 val date = bucket.startTime.atZone(zone).toLocalDate().toString()
-                Log.d("HealthConnect", "Activity on $date: activeCalories=$activeCalories")
-                ActivityBurn(date = date, neat = activeCalories, eat = 0.0)
+                Log.d("HealthConnect", "Activity on $date: $activity kcal")
+                ActivityBurn(date = date, neat = activity, eat = 0.0)
             }
 
             HealthResult.Success(activities)

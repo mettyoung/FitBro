@@ -75,8 +75,7 @@ fun BreakdownDialog(
                 val components = listOf(
                     Triple("BMR", balance.bmr, Color(0xFF9C27B0)),
                     Triple("TEF", balance.tef, Color(0xFFFF9800)),
-                    Triple("NEAT", balance.neat, Color(0xFF4CAF50)),
-                    Triple("EAT", balance.eat, Color(0xFF00BCD4))
+                    Triple("Activity", balance.neat, Color(0xFF4CAF50))
                 )
                 components.forEach { (label, value, color) ->
                     ComponentRow(label = label, value = value, total = balance.burn, color = color)
