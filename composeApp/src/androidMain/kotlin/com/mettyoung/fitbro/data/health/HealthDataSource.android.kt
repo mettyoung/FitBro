@@ -7,6 +7,8 @@ import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.mettyoung.fitbro.AndroidAppContext
 import com.mettyoung.fitbro.data.model.ActivityBurn
+import com.mettyoung.fitbro.data.model.DailyIntake
+import com.mettyoung.fitbro.data.model.Metabolism
 import java.time.LocalDate
 import java.time.Period
 import java.time.ZoneId
@@ -63,4 +65,14 @@ private class HealthConnectDataSource : HealthDataSource {
             HealthResult.Failure(HealthDataError.QueryError(e))
         }
     }
+
+    override suspend fun readDailyIntake(
+        startDate: String,
+        endDate: String
+    ): HealthResult<List<DailyIntake>> = HealthResult.Failure(HealthDataError.NotAvailable)
+
+    override suspend fun readBasalMetabolicRate(
+        startDate: String,
+        endDate: String
+    ): HealthResult<List<Metabolism>> = HealthResult.Failure(HealthDataError.NotAvailable)
 }

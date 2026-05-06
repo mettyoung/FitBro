@@ -1,6 +1,8 @@
 package com.mettyoung.fitbro.data.health
 
 import com.mettyoung.fitbro.data.model.ActivityBurn
+import com.mettyoung.fitbro.data.model.DailyIntake
+import com.mettyoung.fitbro.data.model.Metabolism
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSCalendar
 import platform.Foundation.NSCalendarIdentifierGregorian
@@ -106,4 +108,14 @@ private class HealthKitDataSource : HealthDataSource {
             healthStore.executeQuery(query)
         }
     }
+
+    override suspend fun readDailyIntake(
+        startDate: String,
+        endDate: String
+    ): HealthResult<List<DailyIntake>> = HealthResult.Failure(HealthDataError.NotAvailable)
+
+    override suspend fun readBasalMetabolicRate(
+        startDate: String,
+        endDate: String
+    ): HealthResult<List<Metabolism>> = HealthResult.Failure(HealthDataError.NotAvailable)
 }

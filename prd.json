@@ -1,206 +1,106 @@
 {
   "project": "FitBro",
-  "branchName": "ralph/calorie-balance-dashboard",
-  "description": "Calorie Balance Dashboard - Display daily calorie balance (intake - burn) from Cronometer and Mi Band data with 7-day visualization and offline caching",
+  "branchName": "ralph/health-connect-integration",
+  "description": "Replace fictional Cronometer OAuth with real Health Connect (Android) + HealthKit (iOS) pipeline. All calorie data — intake, BMR, NEAT — sourced from device health store. Wire App.kt to render live data instead of hardcoded samples.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Set up Cronometer OAuth authentication",
-      "description": "As a developer, I need to establish OAuth flow with Cronometer API so users can securely authenticate and grant access to their food logging and metabolic data.",
+      "title": "Extend HealthDataSource interface with readDailyIntake and readBasalMetabolicRate",
+      "description": "As a developer, I need the shared HealthDataSource interface to declare intake and BMR queries so platform implementations can provide them.",
       "acceptanceCriteria": [
-        "OAuth 2.0 flow implemented with Cronometer endpoints",
-        "Credentials securely stored in platform keychain (Android Keystore / iOS Keychain)",
-        "Token refresh logic handles expired tokens gracefully",
-        "Token persists across app restarts",
-        "Typecheck passes"
+        "Add suspend fun readDailyIntake(startDate: String, endDate: String): HealthResult<List<DailyIntake>> to HealthDataSource interface in composeApp/src/commonMain/kotlin/com/mettyoung/fitbro/data/health/HealthDataSource.kt",
+        "Add suspend fun readBasalMetabolicRate(startDate: String, endDate: String): HealthResult<List<Metabolism>> to HealthDataSource interface — returned Metabolism objects must have tef = 0.0",
+        "Android actual (HealthDataSource.android.kt) updated to include both new methods — may stub with HealthResult.Failure(HealthDataError.NotAvailable) until US-002",
+        "iOS actual (HealthDataSource.ios.kt) updated to include both new methods — may stub with HealthResult.Failure(HealthDataError.NotAvailable) until US-003",
+        "Typecheck passes (Android + iOS)"
       ],
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Fetch calorie intake and metabolic data from Cronometer",
-      "description": "As a developer, I need to fetch daily calorie intake (food), BMR, and TEF from Cronometer API so these values populate the dashboard calculations.",
+      "title": "Implement NutritionRecord + BasalMetabolicRateRecord reading in Android Health Connect",
+      "description": "As a developer, I need the Android HealthDataSource to read calorie intake from NutritionRecord and BMR from BasalMetabolicRateRecord.",
       "acceptanceCriteria": [
-        "Ktor HTTP client configured for Cronometer API",
-        "Parse response JSON into domain models: DailyIntake { date, totalCalories } and Metabolism { date, bmr, tef }",
-        "Handle API errors and rate limits gracefully",
-        "Fetch covers 7-day date range",
-        "Network calls are non-blocking (coroutine-based)",
+        "readDailyIntake: uses AggregateGroupByPeriodRequest with NutritionRecord.ENERGY_TOTAL metric and Period.ofDays(1); returns DailyIntake(date, totalCalories) per day; days with no data omitted",
+        "readBasalMetabolicRate: uses readRecords(BasalMetabolicRateRequest(...)) for date range; averages record.basalMetabolicRate.inKilocaloriesPerDay per calendar day; returns Metabolism(date, bmr, tef=0.0) per day; days with no data omitted",
+        "Permission check: if HealthPermission.getReadPermission(NutritionRecord::class) or HealthPermission.getReadPermission(BasalMetabolicRateRecord::class) not granted, return HealthResult.Failure(HealthDataError.PermissionDenied)",
+        "AndroidManifest.xml updated: add android.permission.health.READ_NUTRITION and android.permission.health.READ_BASAL_METABOLIC_RATE to both uses-permission block and health-connect queries block",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Bridge Health Connect (Android) and HealthKit (iOS) for Mi Band data",
-      "description": "As a developer, I need to read NEAT and EAT from platform health APIs using expect/actual pattern so Mi Band data is integrated into calorie burn calculations.",
+      "title": "Implement dietary energy + basal energy reading in iOS HealthKit",
+      "description": "As a developer, I need the iOS HealthDataSource to read calorie intake from HKQuantityTypeIdentifierDietaryEnergyConsumed and BMR from HKQuantityTypeIdentifierBasalEnergyBurned.",
       "acceptanceCriteria": [
-        "commonMain: Define HealthDataSource interface with readActivityData(dateRange) method",
-        "androidMain: Health Connect integration reading NEAT and EAT",
-        "iosMain: HealthKit integration reading HKQuantityTypeIdentifierActiveEnergyBurned",
-        "Parse and map activity data to ActivityBurn { date, neat, eat }",
-        "Request appropriate permissions (Android: HEALTH_CONNECT_READ; iOS: Health read)",
-        "Handle permission denial gracefully",
+        "readDailyIntake: uses HKSampleQuery for HKQuantityTypeIdentifierDietaryEnergyConsumed; sums samples per calendar day using HKUnit.kilocalorieUnit(); returns DailyIntake(date, totalCalories) per day; days with no data omitted",
+        "readBasalMetabolicRate: uses HKSampleQuery for HKQuantityTypeIdentifierBasalEnergyBurned; averages samples per calendar day in kcal/day; returns Metabolism(date, bmr, tef=0.0) per day; days with no data omitted",
+        "requestAuthorizationToShareTypes updated to include both new quantity types in its readTypes set alongside existing activeEnergyBurned",
+        "K/N 2.3.21 pattern: explicit imports required for ObjC category methods (e.g. import platform.HealthKit.kilocalorieUnit)",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Implement local caching for sync data",
-      "description": "As a developer, I need to cache synced data locally so the dashboard works offline and provides fallback when API calls fail.",
+      "title": "Refactor DashboardStateHolder to use HealthDataSource for all data and compute TEF",
+      "description": "As a developer, I need DashboardStateHolder to use HealthDataSource for intake and BMR instead of CronometerDataSource, and to compute TEF as 10% of daily intake.",
       "acceptanceCriteria": [
-        "Define CacheDataSource interface for storing DailyIntake, Metabolism, ActivityBurn",
-        "Store latest successful sync for each data source with timestamp",
-        "Cache keyed by date range (7-day window)",
-        "Clear cache when user signs out",
-        "Retrieve cached data when fresh sync unavailable",
-        "Typecheck passes"
+        "Remove cronometerDataSource: CronometerDataSource constructor parameter from DashboardStateHolder",
+        "Replace cronometerDataSource.fetchDailyIntake(...) with healthDataSource.readDailyIntake(...)",
+        "Replace cronometerDataSource.fetchMetabolism(...) with healthDataSource.readBasalMetabolicRate(...)",
+        "In computeBalances(), after pairing intake and metabolism, override TEF: pass metabolism.copy(tef = intake.totalCalories * 0.1) to calorieMathRepository.computeDailyBalance()",
+        "CacheSource.CRONOMETER_INTAKE and CacheSource.CRONOMETER_METABOLISM keys still used for caching — no rename needed",
+        "buildWarnings() in DashboardWarnings.kt updated: replace cronometerIntakeFailed/cronometerMetabolismFailed params with healthIntakeFailed/healthMetabolismFailed; update warning messages to Health intake data unavailable and BMR data unavailable",
+        "DashboardMissingDataTest.kt updated to match new buildWarnings() signature and warning text",
+        "Typecheck passes",
+        "Tests pass (./gradlew :composeApp:testDebugUnitTest)"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Create CalorieMath repository for balance calculation",
-      "description": "As a developer, I need a centralized repository that computes daily calorie balance from all sources so the calculation logic is testable and reusable.",
+      "title": "Wire App.kt with real DashboardStateHolder using Health Connect sources",
+      "description": "As a developer, I need App.kt to instantiate real data sources and DashboardStateHolder so the dashboard renders live Health Connect data instead of hardcoded samples.",
       "acceptanceCriteria": [
-        "Function: computeDailyBalance(intake: DailyIntake, metabolism: Metabolism, activity: ActivityBurn) -> DailyBalance",
-        "DailyBalance model: { date, intake, burn, balance } where burn = NEAT + EAT + BMR + TEF",
-        "Handle missing data gracefully (e.g., if activity unavailable, show intake - (BMR + TEF))",
-        "Sealed class error type for invalid inputs",
-        "Unit tests covering edge cases (zero values, negative balance, missing components)",
-        "Typecheck passes",
-        "Tests pass"
+        "App() composable creates createHealthDataSource() via remember {}",
+        "App() creates createCacheDataSource() via remember {}",
+        "App() creates CalorieMathRepositoryImpl() via remember {}",
+        "App() creates a CoroutineScope via rememberCoroutineScope()",
+        "App() creates DashboardStateHolder(healthDataSource, cacheDataSource, calorieMathRepository, scope, initialDateRange) where initialDateRange = DateRange(todayString().minusDays(6), todayString())",
+        "App() renders DashboardScreen(stateHolder = stateHolder, modifier = ...) instead of DashboardContent with hardcoded state",
+        "stateHolder.refresh() called on first composition via LaunchedEffect(Unit)",
+        "Hardcoded sampleBalances and demoState removed from App.kt",
+        "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Build dashboard state holder with refresh logic",
-      "description": "As a developer, I need a shared state holder that manages the dashboard's data pipeline so loading, errors, and cached fallback are coordinated.",
+      "title": "Add Health Connect permission gate on Android",
+      "description": "As a user, I need the app to request Health Connect permissions before showing the dashboard so data can actually be fetched.",
       "acceptanceCriteria": [
-        "StateFlow-based state holder: DashboardState { uiState, lastSyncTime, errorMessage, selectedDateRange }",
-        "uiState sealed class: Loading | Success(data) | Error(message)",
-        "Manual refresh function triggers Cronometer + Health API calls in parallel",
-        "On API failure: fall back to cached data, set error message visible in UI",
-        "Track last successful sync timestamp from each source",
-        "Sync logic is main-safe (uses Dispatchers.Default for computation)",
+        "Required permissions set defined as a constant: setOf READ_ACTIVE_CALORIES_BURNED, READ_NUTRITION, READ_BASAL_METABOLIC_RATE where each is HealthPermission.getReadPermission(RecordClass::class)",
+        "On Android: before showing dashboard, check healthConnectClient.permissionController.getGrantedPermissions() — if not all required permissions granted, show permission gate screen",
+        "Permission gate screen shows explanation text (FitBro needs Health Connect access to read calorie data) and a Grant Permissions button",
+        "Grant Permissions button launches HealthPermission.getHealthPermissionsActivityContract() using rememberLauncherForActivityResult",
+        "On activity result: if all permissions now granted, proceed to dashboard; if still missing, show Permissions required message with retry button",
+        "On iOS: no permission gate screen — HealthKit authorization requested inline on first query (already handled in HealthDataSource.ios.kt)",
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-007",
-      "title": "Display 7-day calorie balance chart",
-      "description": "As a user, I want to see my daily calorie balance over the last 7 days in a clear chart so I can spot trends.",
-      "acceptanceCriteria": [
-        "Bar or line chart showing balance for each day (positive = surplus, negative = deficit)",
-        "X-axis: date labels (Mon, Tue, etc.)",
-        "Y-axis: calorie values with zero line marked",
-        "Positive bars colored green, negative red",
-        "Responsive layout on phone and tablet",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 7,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-008",
-      "title": "Add date range picker for 7-day window navigation",
-      "description": "As a user, I want to select different date ranges so I can review balance data for any 7-day period.",
-      "acceptanceCriteria": [
-        "Calendar icon button opens date picker modal",
-        "Picker allows selecting start date; automatically shows 7-day window",
-        "Prev/Next week buttons for quick navigation",
-        "Selected range displayed in header (e.g., 'May 1 - May 7')",
-        "Chart updates immediately on date selection",
-        "Cannot select future dates",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-009",
-      "title": "Implement chart drill-down for component breakdown",
-      "description": "As a user, I want to click on a day in the chart and see the breakdown of intake, NEAT, EAT, BMR, and TEF so I understand what drives the balance.",
-      "acceptanceCriteria": [
-        "Tapping/clicking a bar opens bottom sheet or modal with breakdown",
-        "Shows: Intake (from Cronometer), NEAT, EAT (from Health), BMR, TEF",
-        "Each component labeled with calorie value and percentage of total burn",
-        "Visual bar chart within modal showing relative sizes",
-        "Close button or swipe to dismiss",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-010",
-      "title": "Display sync status and last refresh time",
-      "description": "As a user, I want to see when data was last synced and know if I'm viewing fresh or cached data so I can trust the numbers.",
-      "acceptanceCriteria": [
-        "'Last synced: 2 hours ago' or timestamp displayed at bottom of dashboard",
-        "'Offline' badge shown if using cached data (no recent successful sync)",
-        "'Syncing...' indicator during active API calls",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-011",
-      "title": "Add manual refresh with error reporting",
-      "description": "As a user, I want to manually trigger a data refresh and see detailed error messages if it fails so I can diagnose connection issues.",
-      "acceptanceCriteria": [
-        "Refresh button (circular arrow icon) in header",
-        "Clicking shows loading spinner during sync",
-        "On success: 'Data updated' toast, last-synced timestamp updates",
-        "On failure: modal/dialog showing error details (e.g., 'Cronometer: Auth expired', 'Health Connect: Permission denied')",
-        "Error shows which data source failed",
-        "Suggests action (e.g., 'Re-login to Cronometer' or 'Grant Health Connect permission')",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-012",
-      "title": "Handle and display missing data scenarios",
-      "description": "As a developer, I need the dashboard to handle cases where one data source is unavailable so the app doesn't crash and users see partial data where possible.",
-      "acceptanceCriteria": [
-        "If Cronometer unavailable: show Health data only (NEAT + EAT + BMR estimate)",
-        "If Health data unavailable: show Cronometer data only (intake, BMR, TEF; no activity)",
-        "Show warning banners for missing data (e.g., 'Activity data unavailable')",
-        "Display best-effort balance with caveat message",
-        "Unit tests cover all missing-data scenarios",
-        "Typecheck passes",
-        "Tests pass"
-      ],
-      "priority": 12,
-      "passes": true,
+      "passes": false,
       "notes": ""
     }
   ]
