@@ -101,7 +101,12 @@ private class HealthConnectDataSource : HealthDataSource {
 
             val buckets = healthClient.aggregateGroupByPeriod(
                 AggregateGroupByPeriodRequest(
-                    metrics = setOf(NutritionRecord.ENERGY_TOTAL),
+                    metrics = setOf(
+                        NutritionRecord.ENERGY_TOTAL,
+                        NutritionRecord.PROTEIN_TOTAL,
+                        NutritionRecord.TOTAL_CARBOHYDRATE_TOTAL,
+                        NutritionRecord.TOTAL_FAT_TOTAL,
+                    ),
                     timeRangeFilter = TimeRangeFilter.between(startDt, endDt),
                     timeRangeSlicer = Period.ofDays(1)
                 )
@@ -115,9 +120,12 @@ private class HealthConnectDataSource : HealthDataSource {
             val intakes = buckets.mapNotNull { bucket ->
                 val energy = bucket.result[NutritionRecord.ENERGY_TOTAL] ?: return@mapNotNull null
                 val kcal = energy.inKilocalories
+                val protein = bucket.result[NutritionRecord.PROTEIN_TOTAL]?.inGrams ?: 0.0
+                val carbs = bucket.result[NutritionRecord.TOTAL_CARBOHYDRATE_TOTAL]?.inGrams ?: 0.0
+                val fat = bucket.result[NutritionRecord.TOTAL_FAT_TOTAL]?.inGrams ?: 0.0
                 val date = bucket.startTime.atZone(zone).toLocalDate().toString()
-                Log.d("HealthConnect", "Nutrition on $date: ${kcal}kcal")
-                DailyIntake(date = date, totalCalories = kcal)
+                Log.d("HealthConnect", "Nutrition on $date: ${kcal}kcal, protein=${protein}g, carbs=${carbs}g, fat=${fat}g")
+                DailyIntake(date = date, totalCalories = kcal, proteinG = protein, carbG = carbs, fatG = fat)
             }
 
             Log.d("HealthConnect", "Nutrition intakes: ${intakes.size} days with data")
