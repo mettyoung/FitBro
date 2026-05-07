@@ -2,6 +2,7 @@ package com.mettyoung.fitbro.ui.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.BalanceWindow
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.data.model.TrendDirection
 import com.mettyoung.fitbro.data.model.groupByWeeks
 import kotlin.math.abs
 
@@ -66,6 +68,11 @@ private fun WindowSection(
     onBarClick: (DailyBalance) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
+        BalanceWindowHeader(
+            window = window,
+            positiveColor = positiveColor,
+            negativeColor = negativeColor
+        )
         window.balances.forEach { balance ->
             CalorieBalanceRow(
                 balance = balance,
@@ -75,6 +82,53 @@ private fun WindowSection(
                 onBarClick = { onBarClick(balance) }
             )
         }
+    }
+}
+
+@Composable
+private fun BalanceWindowHeader(
+    window: BalanceWindow,
+    positiveColor: Color,
+    negativeColor: Color
+) {
+    val headerBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+    val trendColor = when (window.trend) {
+        TrendDirection.IMPROVING -> positiveColor
+        TrendDirection.DECLINING -> negativeColor
+        TrendDirection.STABLE -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    }
+    val trendIcon = when (window.trend) {
+        TrendDirection.IMPROVING -> "↗"
+        TrendDirection.DECLINING -> "↘"
+        TrendDirection.STABLE -> "→"
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(headerBg)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Avg: ${formatCalories(window.avgDailyBalance)}/day",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Total: ${formatCalories(window.totalBalance)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        Text(
+            text = trendIcon,
+            style = MaterialTheme.typography.headlineSmall,
+            color = trendColor,
+            modifier = Modifier.padding(start = 8.dp)
+        )
     }
 }
 

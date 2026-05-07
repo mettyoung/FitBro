@@ -36,3 +36,17 @@
   - Trend threshold is binary: >50 or <-50, else STABLE (difference < 100 total is neutral)
   - Partial windows (<6 entries) need STABLE default to avoid unreliable trend with small sample
 ---
+
+## 2026-05-07 12:35 - US-002
+- Refactored CalorieBalanceChart to call groupByWeeks() internally
+- Created WindowSection composable that renders each BalanceWindow with its daily rows
+- LazyColumn now iterates over windows instead of individual balances
+- onBarClick callback preserved and still fires on daily row tap
+- Scroll behavior is continuous (LazyColumn handles this naturally)
+- Files changed: composeApp/src/commonMain/kotlin/com/mettyoung/fitbro/ui/dashboard/CalorieBalanceChart.kt
+- **Learnings for future iterations:**
+  - WindowSection is a private composable that acts as a container for daily rows within a window
+  - Key function uses window.hashCode() for LazyColumn; works but could use custom key if needed
+  - onBarClick callback is passed through WindowSection → CalorieBalanceRow → actual tap handler
+  - CalorieBalanceChart still calculates maxAbsBalance from all balances (not per-window) for consistent scaling across windows
+---
