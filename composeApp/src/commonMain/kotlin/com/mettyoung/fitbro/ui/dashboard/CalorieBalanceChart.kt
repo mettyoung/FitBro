@@ -2,7 +2,6 @@ package com.mettyoung.fitbro.ui.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,28 +10,28 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.mettyoung.fitbro.data.model.BalanceWindow
 import com.mettyoung.fitbro.data.model.DailyBalance
-import com.mettyoung.fitbro.data.model.TrendDirection
-import com.mettyoung.fitbro.data.model.groupByWeeks
 import kotlin.math.abs
 
 @Composable
 fun CalorieBalanceChart(
     balances: List<DailyBalance>,
     onBarClick: (DailyBalance) -> Unit = {},
+    onListStateCreated: (LazyListState) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (balances.isEmpty()) {
@@ -42,45 +41,18 @@ fun CalorieBalanceChart(
         return
     }
 
-    val windows = balances.groupByWeeks()
+    val listState = rememberLazyListState()
+    remember { onListStateCreated(listState) }
+
     val positiveColor = Color(0xFF4CAF50)
     val negativeColor = Color(0xFFF44336)
     val maxAbsBalance = balances.maxOf { abs(it.balance) }.coerceAtLeast(1.0)
 
-    LazyColumn(modifier = modifier) {
-        items(windows, key = { it.hashCode() }) { window ->
-            WindowSection(
-                window = window,
-                maxAbsBalance = maxAbsBalance,
-                positiveColor = positiveColor,
-                negativeColor = negativeColor,
-                onBarClick = onBarClick
-            )
-        }
-    }
-}
-
-@Composable
-private fun WindowSection(
-    window: BalanceWindow,
-    maxAbsBalance: Double,
-    positiveColor: Color,
-    negativeColor: Color,
-    onBarClick: (DailyBalance) -> Unit
-) {
-    val windowBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f)
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(windowBg)
+    LazyColumn(
+        modifier = modifier,
+        state = listState
     ) {
-        BalanceWindowHeader(
-            window = window,
-            positiveColor = positiveColor,
-            negativeColor = negativeColor
-        )
-        window.balances.forEach { balance ->
+        items(balances, key = { it.date }) { balance ->
             CalorieBalanceRow(
                 balance = balance,
                 maxAbsBalance = maxAbsBalance,
@@ -88,59 +60,36 @@ private fun WindowSection(
                 negativeColor = negativeColor,
                 onBarClick = { onBarClick(balance) }
             )
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            )
         }
-        HorizontalDivider(
-            thickness = 1.dp,
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        )
     }
 }
 
-@Composable
-private fun BalanceWindowHeader(
-    window: BalanceWindow,
-    positiveColor: Color,
-    negativeColor: Color
-) {
-    val headerBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
-    val trendColor = when (window.trend) {
-        TrendDirection.IMPROVING -> positiveColor
-        TrendDirection.DECLINING -> negativeColor
-        TrendDirection.STABLE -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-    }
-    val trendIcon = when (window.trend) {
-        TrendDirection.IMPROVING -> "↗"
-        TrendDirection.DECLINING -> "↘"
-        TrendDirection.STABLE -> "→"
-    }
+private fun String.toDayLabel(): String {
+    val parts = split("-")
+    if (parts.size != 3) return this
+    val year = parts[0].toIntOrNull() ?: return this
+    val month = parts[1].toIntOrNull() ?: return this
+    val day = parts[2].toIntOrNull() ?: return this
+    return dayOfWeekAbbr(year, month, day)
+}
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(headerBg)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Avg: ${formatCalories(window.avgDailyBalance)}/day",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "Total: ${formatCalories(window.totalBalance)}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-        Text(
-            text = trendIcon,
-            style = MaterialTheme.typography.headlineSmall,
-            color = trendColor,
-            modifier = Modifier.padding(start = 8.dp)
-        )
-    }
+// Zeller's congruence: h=0→Sat, h=1→Sun, h=2→Mon, h=3→Tue, h=4→Wed, h=5→Thu, h=6→Fri
+private fun dayOfWeekAbbr(year: Int, month: Int, day: Int): String {
+    val m = if (month < 3) month + 12 else month
+    val y = if (month < 3) year - 1 else year
+    val k = y % 100
+    val j = y / 100
+    val h = (day + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 - 2 * j).mod(7)
+    return listOf("Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri")[h]
+}
+
+private fun formatCalories(value: Double): String {
+    val v = value.toInt()
+    return if (v >= 1000) "${v / 1000}.${(v % 1000) / 100}k" else v.toString()
 }
 
 @Composable
@@ -200,28 +149,4 @@ private fun CalorieBalanceRow(
             )
         }
     }
-}
-
-private fun formatCalories(value: Double): String {
-    val v = value.toInt()
-    return if (v >= 1000) "${v / 1000}.${(v % 1000) / 100}k" else v.toString()
-}
-
-private fun String.toDayLabel(): String {
-    val parts = split("-")
-    if (parts.size != 3) return this
-    val year = parts[0].toIntOrNull() ?: return this
-    val month = parts[1].toIntOrNull() ?: return this
-    val day = parts[2].toIntOrNull() ?: return this
-    return dayOfWeekAbbr(year, month, day)
-}
-
-// Zeller's congruence: h=0→Sat, h=1→Sun, h=2→Mon, h=3→Tue, h=4→Wed, h=5→Thu, h=6→Fri
-private fun dayOfWeekAbbr(year: Int, month: Int, day: Int): String {
-    val m = if (month < 3) month + 12 else month
-    val y = if (month < 3) year - 1 else year
-    val k = y % 100
-    val j = y / 100
-    val h = (day + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 - 2 * j).mod(7)
-    return listOf("Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri")[h]
 }
