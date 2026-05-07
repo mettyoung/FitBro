@@ -21,7 +21,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mettyoung.fitbro.data.model.BalanceWindow
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.data.model.groupByWeeks
 import kotlin.math.abs
 
 @Composable
@@ -37,12 +39,34 @@ fun CalorieBalanceChart(
         return
     }
 
+    val windows = balances.groupByWeeks()
     val positiveColor = Color(0xFF4CAF50)
     val negativeColor = Color(0xFFF44336)
     val maxAbsBalance = balances.maxOf { abs(it.balance) }.coerceAtLeast(1.0)
 
     LazyColumn(modifier = modifier) {
-        items(balances) { balance ->
+        items(windows, key = { it.hashCode() }) { window ->
+            WindowSection(
+                window = window,
+                maxAbsBalance = maxAbsBalance,
+                positiveColor = positiveColor,
+                negativeColor = negativeColor,
+                onBarClick = onBarClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun WindowSection(
+    window: BalanceWindow,
+    maxAbsBalance: Double,
+    positiveColor: Color,
+    negativeColor: Color,
+    onBarClick: (DailyBalance) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        window.balances.forEach { balance ->
             CalorieBalanceRow(
                 balance = balance,
                 maxAbsBalance = maxAbsBalance,

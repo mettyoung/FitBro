@@ -23,3 +23,16 @@
 - HorizontalDivider (not deprecated Divider) for Material3 dividers in commonMain.
 - `dev-browser` skill not available in this session; browser verification skipped.
 ---
+
+## 2026-05-07 12:30 - US-001
+- Implemented BalanceWindow data class with TrendDirection enum (IMPROVING, STABLE, DECLINING)
+- Created List<DailyBalance>.groupByWeeks() extension that chunks into groups of 7
+- Trend calculation: compares mean of first 3 vs last 3 days; partial windows (<6 entries) default to STABLE
+- Handles partial windows without crash
+- Files changed: created composeApp/src/commonMain/kotlin/com/mettyoung/fitbro/data/model/BalanceWindow.kt
+- **Learnings for future iterations:**
+  - BalanceWindow model placed in data/model alongside other domain models (DailyBalance, etc.)
+  - groupByWeeks() extension uses subList() to chunk; this preserves original ordering (oldest first)
+  - Trend threshold is binary: >50 or <-50, else STABLE (difference < 100 total is neutral)
+  - Partial windows (<6 entries) need STABLE default to avoid unreliable trend with small sample
+---
