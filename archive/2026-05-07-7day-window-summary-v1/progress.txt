@@ -1,0 +1,285 @@
+## 2026-05-06 - US-007
+- Implemented 7-day calorie balance chart with Canvas-based bar chart (no external charting library)
+- Implemented DashboardScreen/DashboardContent composables with Loading/Success/Error states
+- Updated App.kt to show DashboardContent with sample data for demo/preview
+- Files changed:
+  - composeApp/src/commonMain/.../ui/dashboard/CalorieBalanceChart.kt — NEW: Canvas bar chart, positive=green, negative=red, zero line, grid lines, Y-axis labels, X-axis day labels via Zeller's congruence
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — NEW: DashboardScreen (connects stateHolder), DashboardContent (pure composable accepting DashboardState)
+  - composeApp/src/commonMain/.../App.kt — UPDATED: replaced placeholder with DashboardContent + sample data
+- **Learnings for future iterations:**
+  - No external chart library needed — Compose Canvas handles bar chart fully in commonMain
+  - `String.format()` NOT available in KMP commonMain (JVM-only); use manual arithmetic for number formatting
+  - Day-of-week from "YYYY-MM-DD" string: use Zeller's congruence; h=0→Sat, h=1→Sun, h=2→Mon, h=3→Tue, h=4→Wed, h=5→Thu, h=6→Fri
+  - `StateFlow.collectAsState()` works in commonMain with `import androidx.compose.runtime.collectAsState` (or wildcard); no lifecycle owner needed
+  - `DashboardContent` is the pure/dumb composable (takes DashboardState); `DashboardScreen` is the smart wrapper (takes DashboardStateHolder)
+  - `dev-browser` skill not available in this session; browser verification skipped, noted as manual step
+---
+
+## 2026-05-06 - US-006
+- Implemented DashboardStateHolder with StateFlow, parallel refresh, cache fallback
+- Files changed:
+  - composeApp/src/commonMain/.../util/TimeUtil.kt — NEW: expect fun currentEpochMs()
+  - composeApp/src/androidMain/.../util/TimeUtil.kt — NEW: actual via System.currentTimeMillis()
+  - composeApp/src/iosMain/.../util/TimeUtil.kt — NEW: actual via NSDate().timeIntervalSince1970
+  - composeApp/src/commonMain/.../ui/dashboard/DateRange.kt — NEW: data class DateRange(startDate, endDate)
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardUiState.kt — NEW: sealed Loading/Success/Error
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardState.kt — NEW: state with uiState + lastSyncTime + errorMessage + selectedDateRange
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardStateHolder.kt — NEW: StateFlow holder, parallel async fetch, cache fallback, describe() error helpers
+- **Learnings for future iterations:**
+  - `NSDate().timeIntervalSince1970` needs `import platform.Foundation.timeIntervalSince1970` (K/N 2.3.21 category method pattern)
+  - `currentEpochMs()` expect/actual lives in `com.mettyoung.fitbro.util` — use for all timestamp needs in common code
+  - DashboardStateHolder lives in `com.mettyoung.fitbro.ui.dashboard`; caller provides initial DateRange (no date computation in common)
+  - `errorMessage` is non-null even when `uiState` is Success (indicates partial cache fallback)
+  - `scope.launch(Dispatchers.Default) { async {} }` pattern for parallel API calls — async inherits Default dispatcher
+---
+
+## Codebase Patterns
+- multiplatform-settings 1.3.0: Android actual uses `SharedPreferencesSettings(prefs)` from `com.russhwolf.settings.SharedPreferencesSettings`; iOS actual uses `NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults)` from `com.russhwolf.settings.NSUserDefaultsSettings`. Both in same artifact `com.russhwolf:multiplatform-settings` added to commonMain.
+- Cache keys follow pattern `{type}_{startDate}_{endDate}` for date-range lookups; sync timestamps use `sync_{CacheSource.name}` as keys.
+
+- K/N 2.3.21 ObjC category methods need EXPLICIT imports to be accessible on class companions — e.g. `import platform.HealthKit.kilocalorieUnit` for `HKUnit.kilocalorieUnit()`, `import platform.HealthKit.predicateForSamplesWithStartDate` for `HKQuery.predicateForSamplesWithStartDate(...)`, `import platform.Foundation.localTimeZone` for `NSTimeZone.localTimeZone`. Direct-on-interface methods (like `HKHealthStore.isHealthDataAvailable()`) work without extra import.
+- Use `NSCalendar(calendarIdentifier = NSCalendarIdentifierGregorian)` — `NSCalendar.currentCalendar` and `NSCalendar.current` are NOT accessible in K/N 2.3.21 (category methods, same issue)
+- Health data package: `com.mettyoung.fitbro.data.health` for HealthKit/HealthConnect; `HealthResult<T>` + `HealthDataError` mirror `ApiResult<T>` + `CronometerApiError` pattern
+- Auth files (OAuthRepository, TokenStorage, PkceGenerator) were pre-scaffolded as untracked files; check git status before writing new files to avoid duplicates
+- iOS cinterop: never use `is CFStringRef` (erased type) in when expressions — use `is CPointer<*>` instead
+- iOS TokenStorage casts NSMutableDictionary → CFDictionaryRef with @Suppress("UNCHECKED_CAST"); warnings are expected and benign
+- PkceGenerator.ios.kt uses CoreCrypto CC_SHA256 + posix gettimeofday for time — no Foundation dependency needed
+- TokenStorage.android.kt requires AndroidAppContext singleton initialized in FitBroApp.onCreate()
+- OAuthCallbackHandler uses SharedFlow with extraBufferCapacity=1 for delivering redirect URI callbacks to coroutine consumers
+- Gradle typecheck: use :composeApp:compileDebugKotlinAndroid (Android) and :composeApp:compileKotlinIosSimulatorArm64 (iOS) — compileKotlinAndroid is ambiguous
+- Data layer package: `com.mettyoung.fitbro.data.model` for domain models, `com.mettyoung.fitbro.data.cronometer` for Cronometer API client code
+- Ktor HTTP client pattern: each service creates its own HttpClient instance (same as OAuthRepository); use `parameter()` for query params, `header()` for auth header
+- CronometerOAuthConfig.API_BASE_URL = "https://cronometer.com/api" — add new endpoints as `${API_BASE_URL}/endpoint/`
+- ApiResult<T> (Success/Failure) mirrors OAuthResult pattern — use for all data layer results; CronometerApiError covers NetworkError, HttpError, RateLimited, Unauthorized, ParseError
+- OAuthRepository.getValidToken() handles token refresh automatically; data sources just call it and unwrap Success or return Unauthorized failure
+- `currentEpochMs()` expect/actual in `com.mettyoung.fitbro.util` — use for all timestamp needs in common; iOS actual needs `import platform.Foundation.timeIntervalSince1970`
+- UI state holders live in `com.mettyoung.fitbro.ui.{feature}`; take CoroutineScope as constructor param (caller owns scope lifecycle)
+
+---
+
+## 2026-05-06 - US-005
+- Implemented CalorieMath repository: DailyBalance model, CalorieMathError sealed class, CalorieMathRepositoryImpl, 9 unit tests
+- Files changed:
+  - composeApp/src/commonMain/.../data/model/DailyBalance.kt — NEW: date + intake + burn + balance model
+  - composeApp/src/commonMain/.../data/repository/CalorieMathError.kt — NEW: InvalidInput error + CalorieResult<T> sealed class
+  - composeApp/src/commonMain/.../data/repository/CalorieMathRepository.kt — NEW: interface + impl with validation and nullable activity fallback
+  - composeApp/src/commonTest/.../data/repository/CalorieMathRepositoryTest.kt — NEW: 9 tests covering full data, missing activity, zero values, negative balance, all invalid-input paths
+- **Learnings for future iterations:**
+  - commonTest runs as Android JVM unit tests via `:composeApp:testDebugUnitTest` — fast feedback loop, no emulator needed
+  - CalorieMathRepositoryImpl lives in `data/repository/` package; future repositories (e.g. DashboardRepository for US-006) should follow same package
+  - `activity: ActivityBurn?` nullable param — null means no platform health data; burn falls back to BMR + TEF only
+  - Validation rejects bmr <= 0 (BMR must be positive) and any negative field value; zero intake and zero activity are valid
+
+---
+
+## 2026-05-06 - US-004
+- Implemented local caching layer using multiplatform-settings + kotlinx.serialization
+- Files changed:
+  - gradle/libs.versions.toml — added multiplatformSettings = "1.3.0" version + multiplatform-settings library entry
+  - composeApp/build.gradle.kts — added multiplatform-settings to commonMain dependencies
+  - composeApp/src/commonMain/.../data/cache/CacheDataSource.kt — NEW: CacheSource enum + CacheDataSource interface + expect factory
+  - composeApp/src/commonMain/.../data/cache/CacheDataSourceImpl.kt — NEW: Settings-backed impl with JSON serialization
+  - composeApp/src/androidMain/.../data/cache/CacheDataSource.android.kt — NEW: actual using SharedPreferencesSettings
+  - composeApp/src/iosMain/.../data/cache/CacheDataSource.ios.kt — NEW: actual using NSUserDefaultsSettings
+- **Learnings for future iterations:**
+  - multiplatform-settings 1.3.0 single artifact covers both Android (SharedPreferencesSettings) and iOS (NSUserDefaultsSettings) — no separate platform artifacts needed
+  - Domain models (DailyIntake, Metabolism, ActivityBurn) already @Serializable — JSON cache is zero-config
+  - Android actual can use AndroidAppContext.context directly for SharedPreferences — consistent with TokenStorage pattern
+  - Cache interface uses suspend for data methods (future dispatcher flexibility) and non-suspend for timestamps/clearAll (synchronous lifecycle calls)
+---
+
+## 2026-05-06 - US-001
+- Implemented Cronometer OAuth 2.0 PKCE flow end-to-end
+- Files changed:
+  - composeApp/build.gradle.kts — added kotlinx-coroutines-core 1.10.2
+  - gradle/libs.versions.toml — added kotlinxCoroutines version + library entry
+  - composeApp/src/androidMain/AndroidManifest.xml — INTERNET permission + OAuth callback intent-filter for com.mettyoung.fitbro://oauth/callback
+  - composeApp/src/androidMain/kotlin/.../MainActivity.kt — onNewIntent + handleOAuthCallback routing to OAuthCallbackHandler
+  - composeApp/src/commonMain/kotlin/.../auth/OAuthCallbackHandler.kt — NEW: SharedFlow bridge for OAuth redirect delivery
+  - composeApp/src/iosMain/kotlin/.../auth/TokenStorage.ios.kt — fixed erased type check (CFStringRef → CPointer<*>)
+  - All pre-existing auth/ files committed (were untracked): OAuthConfig, OAuthError, OAuthToken, OAuthRepository, CronometerOAuthRepository, PkceGenerator (common/android/ios), TokenStorage (common/android/ios)
+- **Learnings for future iterations:**
+  - Pre-scaffolded auth files existed as untracked; the real work was wiring the Android OAuth callback (intent-filter + onNewIntent) and fixing the iOS type error
+  - kotlinx-coroutines-core must be explicit in commonMain for SharedFlow — transitive from ktor/lifecycle is not reliable in KMP
+  - iOS Keychain API requires NSMutableDictionary → CFDictionaryRef casts with @Suppress; this is idiomatic K/N Keychain code
+  - CronometerOAuthRepository takes createTokenStorage() as a default param — easy to inject in tests later
+---
+
+## 2026-05-06 - US-002
+- Implemented Cronometer data fetching layer: domain models, error types, data source interface + implementation
+- Files changed:
+  - composeApp/src/commonMain/kotlin/.../data/model/DailyIntake.kt — NEW: date + totalCalories domain model
+  - composeApp/src/commonMain/kotlin/.../data/model/Metabolism.kt — NEW: date + bmr + tef domain model
+  - composeApp/src/commonMain/kotlin/.../data/cronometer/CronometerApiError.kt — NEW: sealed error class + ApiResult<T> wrapper
+  - composeApp/src/commonMain/kotlin/.../data/cronometer/CronometerDataSource.kt — NEW: interface with fetchDailyIntake + fetchMetabolism
+  - composeApp/src/commonMain/kotlin/.../data/cronometer/CronometerDataSourceImpl.kt — NEW: Ktor implementation with auth, HTTP, error handling
+  - composeApp/src/commonMain/kotlin/.../auth/OAuthConfig.kt — added API_BASE_URL constant
+- **Learnings for future iterations:**
+  - Ktor `HttpStatusCode.TooManyRequests` (429) is available in Ktor 3.x without custom definition
+  - Private DTOs (NutritionDay, MetabolicDay, NutritionResponse, MetabolicsResponse) kept inside impl file — no leakage to interface layer
+  - `getValidAccessToken()` private helper in impl extracts token or returns null — cleaner than duplicating when-unwrap for each method
+  - iOS pre-existing cast warnings in TokenStorage.ios.kt are benign; don't try to fix them (they come from K/N CFDictionaryRef interop)
+---
+
+## 2026-05-06 - US-003
+- Implemented platform health data bridge: HealthKit (iOS) + Health Connect (Android)
+- Files changed:
+  - composeApp/src/commonMain/.../data/model/ActivityBurn.kt — NEW: date + neat + eat domain model
+  - composeApp/src/commonMain/.../data/health/HealthDataError.kt — NEW: HealthDataError sealed class + HealthResult<T>
+  - composeApp/src/commonMain/.../data/health/HealthDataSource.kt — NEW: interface + expect factory
+  - composeApp/src/androidMain/.../data/health/HealthDataSource.android.kt — NEW: Health Connect impl (aggregateGroupByPeriod per day)
+  - composeApp/src/iosMain/.../data/health/HealthDataSource.ios.kt — NEW: HealthKit impl (HKSampleQuery + daily grouping)
+  - gradle/libs.versions.toml — added healthConnect = "1.1.0-alpha12"
+  - composeApp/build.gradle.kts — added androidx.health.connect dependency in androidMain
+  - composeApp/src/androidMain/AndroidManifest.xml — added READ_ACTIVE_CALORIES_BURNED permission + Health Connect queries block
+  - iosApp/iosApp/Info.plist — added NSHealthShareUsageDescription
+- **Learnings for future iterations:**
+  - K/N 2.3.21 category method explicit import pattern (now in Codebase Patterns above)
+  - Android Health Connect: `aggregateGroupByPeriod` returns `AggregationResultGroupedByPeriod` with `startTime: LocalDateTime` (not Instant) — use `.toLocalDate().toString()` for date string
+  - iOS HealthKit: Mi Band reports step-based calories as `activeEnergyBurned` = NEAT; EAT requires exercise session records (out of scope for MVP, set to 0.0)
+  - HealthKit permission auth: `requestAuthorizationToShareTypes(typesToShare: null, readTypes: setOf(...))` — `success=false` means system error, not user denial; proceed with query anyway
+  - Note: Xcode HealthKit capability NOT added to project.pbxproj — required for production build but not Kotlin typecheck
+---
+
+## 2026-05-06 - US-008
+- Implemented date range picker with 7-day window navigation
+- Files changed:
+  - composeApp/src/commonMain/.../util/DateUtil.kt — NEW: date arithmetic (plusDays, minusDays, todayString, dayOfWeekMonBased, daysInMonth, toDisplayRange, MONTH_ABBR) without kotlinx-datetime
+  - composeApp/src/commonMain/.../ui/dashboard/DatePickerDialog.kt — NEW: custom month calendar dialog with range highlighting, future-date blocking, prev/next month nav
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — UPDATED: added prev/next week buttons, calendar icon, onDateRangeChanged callback, showPicker state
+  - composeApp/src/commonMain/.../App.kt — UPDATED: added onDateRangeChanged={} to DashboardContent call
+- **Learnings for future iterations:**
+  - No kotlinx-datetime in project — use DateUtil.kt (manual arithmetic via Julian-day-style epoch conversion)
+  - `String` comparison works for YYYY-MM-DD (lexicographic == chronological) — use `dayStr in startDate..endDate`
+  - `androidx.compose.ui.window.Dialog` + `Surface` gives full control over dialog layout in KMP
+  - `dayOfWeekMonBased` uses Zeller's congruence: (h + 5) % 7 gives 0=Mon, 6=Sun offset for calendar grid
+  - `dev-browser` skill not available — browser verification skipped, noted as manual step
+---
+
+## 2026-05-06 - US-009
+- Implemented chart drill-down: tap a bar to see component breakdown modal
+- Files changed:
+  - composeApp/src/commonMain/.../data/model/DailyBalance.kt — UPDATED: added bmr, tef, neat, eat fields (default 0.0) for breakdown
+  - composeApp/src/commonMain/.../data/repository/CalorieMathRepository.kt — UPDATED: populate breakdown fields in computed DailyBalance
+  - composeApp/src/commonMain/.../ui/dashboard/CalorieBalanceChart.kt — UPDATED: added onBarClick callback via pointerInput + detectTapGestures; tap maps x offset to bar index
+  - composeApp/src/commonMain/.../ui/dashboard/BreakdownDialog.kt — NEW: Dialog showing intake, BMR/TEF/NEAT/EAT with horizontal bar chart and % of total burn
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — UPDATED: selectedBreakdown state, shows BreakdownDialog on bar tap
+  - composeApp/src/commonMain/.../App.kt — UPDATED: sample data now includes breakdown fields
+- **Learnings for future iterations:**
+  - Canvas tap gesture: `pointerInput(balances) { detectTapGestures { offset -> ... } }` — key `balances` ensures lambda recomposes when data changes
+  - `detectTapGestures` from `androidx.compose.foundation.gestures` works in KMP commonMain
+  - `DailyBalance` breakdown fields use default values = 0.0 so existing tests compile without changes
+  - `dev-browser` skill not available — browser verification skipped, noted as manual step
+---
+
+## 2026-05-06 - US-010
+- Added sync status bar: last synced time, Offline badge, Syncing... indicator
+- Files changed:
+  - composeApp/src/commonMain/.../util/DateUtil.kt — UPDATED: added formatTimeAgo(timestampMs) helper
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — UPDATED: SyncStatusBar composable at bottom; uses lastSyncTime map + errorMessage for offline detection; moved errorMessage display from Success block into SyncStatusBar
+- **Learnings for future iterations:**
+  - `DashboardState.lastSyncTime` and `errorMessage` already carried sync metadata from US-006; US-010 just surfaced it
+  - `state.lastSyncTime.values.filterNotNull().maxOrNull()` = most recent successful fetch across all sources
+  - `isOffline = errorMessage != null` — errorMessage is set whenever any source fell back to cache
+  - `dev-browser` skill not available — browser verification skipped, noted as manual step
+---
+
+## 2026-05-06 - US-011
+- Implemented manual refresh button with spinner, success toast, and error dialog
+- Files changed:
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — UPDATED: refresh button (🔄) in header, wasRefreshing flag, LaunchedEffect detects Loading→Success/Error transitions, Snackbar toast for success (auto-dismiss after 2s), AlertDialog for refresh errors with suggestAction() mapping
+- **Learnings for future iterations:**
+  - Transition detection pattern: `wasRefreshing` bool + `LaunchedEffect(state.uiState)` — only reacts to user-triggered refreshes
+  - `LaunchedEffect(showSuccessToast) { delay(2000); showSuccessToast = false }` pattern for auto-dismiss overlays
+  - `Snackbar` composable works standalone inside a `Box` without SnackbarHostState/Scaffold
+  - `AlertDialog` from material3 works in KMP commonMain
+  - `delay()` from `kotlinx.coroutines` available in commonMain without extra import (already in deps)
+  - `dev-browser` skill not available — browser verification skipped, noted as manual step
+---
+
+## 2026-05-06 - US-012
+- Implemented missing data handling: warning banners, graceful degradation, unit tests
+- Files changed:
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardWarnings.kt — NEW: internal buildWarnings() pure function (testable without coroutines)
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardUiState.kt — UPDATED: Success now carries warnings: List<String> with default emptyList()
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardStateHolder.kt — UPDATED: tracks cronometerIntakeFailed/cronometerMetabolismFailed/healthFailed booleans; calls buildWarnings(); totalFailure = balances empty + errors present + no prior sync timestamps
+  - composeApp/src/commonMain/.../ui/dashboard/DashboardScreen.kt — UPDATED: warning banners in Success branch (errorContainer background, ⚠ prefix)
+  - composeApp/src/commonTest/.../ui/dashboard/DashboardMissingDataTest.kt — NEW: 8 tests for buildWarnings() and Success.warnings field
+- **Learnings for future iterations:**
+  - `internal` functions in commonMain are visible to commonTest (same module) — no need for @VisibleForTesting
+  - Pure function extraction pattern: `buildWarnings()` is pure, easily testable without mocking coroutines or state holders
+  - `DashboardUiState.Error` now reserved for totalFailure only (no data + no cache + all sources failed); partial failures emit Success+warnings
+  - Warning banners use `errorContainer`/`onErrorContainer` colors for visual consistency with Material3
+---
+
+## 2026-05-06 - US-001
+- Added readDailyIntake and readBasalMetabolicRate to HealthDataSource interface (commonMain)
+- Added DailyIntake + Metabolism imports to both actuals
+- Stubbed both methods with HealthResult.Failure(HealthDataError.NotAvailable) in Android and iOS actuals
+- Files changed: HealthDataSource.kt, HealthDataSource.android.kt, HealthDataSource.ios.kt, prd.json
+- **Learnings for future iterations:**
+  - Branch was correctly based on ralph/calorie-balance-dashboard (not main) since it extends that work
+  - Both DailyIntake and Metabolism models already existed in data.model package
+  - HealthResult<T> and HealthDataError sealed classes already established — no new types needed
+---
+
+## 2026-05-06 - US-002
+- Implemented readDailyIntake using AggregateGroupByPeriodRequest with NutritionRecord.ENERGY_TOTAL + Period.ofDays(1)
+- Implemented readBasalMetabolicRate using ReadRecordsRequest(BasalMetabolicRateRecord::class) then average per day
+- Both methods check READ_NUTRITION / READ_BASAL_METABOLIC_RATE permissions; return PermissionDenied if absent
+- Added READ_NUTRITION and READ_BASAL_METABOLIC_RATE to uses-permission and queries blocks in AndroidManifest.xml
+- Files changed: HealthDataSource.android.kt, AndroidManifest.xml, prd.json
+- **Learnings for future iterations:**
+  - mapNotNull used for readDailyIntake to skip days with no data (bucket.result[metric] returns null when no data)
+  - BasalMetabolicRateRecord has no aggregate metric — must use readRecords then group/average by day manually
+  - Health Connect queries block needs intent filter for ACTION_SHOW_PERMISSIONS_RATIONALE alongside package filter
+---
+
+## 2026-05-06 - US-003
+- Implemented readDailyIntake using HKSampleQuery for HKQuantityTypeIdentifierDietaryEnergyConsumed; sums per day
+- Implemented readBasalMetabolicRate using HKSampleQuery for HKQuantityTypeIdentifierBasalEnergyBurned; averages per day
+- Refactored shared helpers: requestAuthorization() and buildDateRange() to avoid code duplication
+- readActivityData updated to request all three types (active, dietary, basal) together in a single authorization call
+- Files changed: HealthDataSource.ios.kt, prd.json
+- **Learnings for future iterations:**
+  - Extracted requestAuthorization(types) helper and buildDateRange() to reduce boilerplate across three similar methods
+  - Both HKQuantityTypeIdentifierDietaryEnergyConsumed and HKQuantityTypeIdentifierBasalEnergyBurned identifiers are direct imports (not ObjC category methods) — no special import trick needed beyond the standard identifier import
+  - Requesting all auth types at once in readActivityData ensures the system only shows one permission dialog
+---
+
+## 2026-05-06 - US-004
+- Removed cronometerDataSource param from DashboardStateHolder; replaced with healthDataSource calls
+- readDailyIntake + readBasalMetabolicRate now used for intake/metabolism fetching (both return HealthResult)
+- computeBalances() now computes TEF as 10% of intake: metabolism.copy(tef = intake.totalCalories * 0.1)
+- DashboardWarnings.kt: replaced cronometerIntakeFailed/cronometerMetabolismFailed with healthIntakeFailed/healthMetabolismFailed; messages now "Health intake data unavailable" and "BMR data unavailable"
+- DashboardMissingDataTest.kt: updated all test cases to new signature; removed combined Cronometer test; added bothHealthDataFailed_twoWarnings
+- Files changed: DashboardStateHolder.kt, DashboardWarnings.kt, DashboardMissingDataTest.kt, prd.json
+- **Learnings for future iterations:**
+  - CronometerDataSource import fully removed; only HealthDataSource remains for data fetching
+  - CacheSource.CRONOMETER_INTAKE/METABOLISM keys intentionally kept — no rename per PRD
+  - HealthDataError.describe() kept as private extension — moved inline with FQN to avoid import in same file
+---
+
+## 2026-05-06 - US-005
+- Rewrote App.kt to wire real DashboardStateHolder: createHealthDataSource, createCacheDataSource, CalorieMathRepositoryImpl, rememberCoroutineScope
+- initialDateRange = DateRange(today.minusDays(6), today) using todayString() from DateUtil
+- LaunchedEffect(Unit) triggers stateHolder.refresh() on first composition
+- Removed all hardcoded sampleBalances and demoState; now renders DashboardScreen(stateHolder)
+- Files changed: App.kt, prd.json
+- **Learnings for future iterations:**
+  - String.minusDays() is a top-level extension in com.mettyoung.fitbro.util — must be imported explicitly when called as member on String variable
+  - DashboardStateHolder keys on all four remember() params to avoid re-creation on recomposition
+---
+
+## 2026-05-06 - US-006
+- Implemented Android Health Connect permission gate before dashboard
+- Files changed:
+  - composeApp/src/androidMain/.../PermissionGateApp.kt — NEW: PermissionGateApp checks HC SDK availability + permissions, shows PermissionScreen if not granted, calls App() if granted; PermissionScreen has explanation + "Grant Permissions" button
+  - composeApp/src/androidMain/.../MainActivity.kt — UPDATED: setContent calls PermissionGateApp() instead of App()
+- **Learnings for future iterations:**
+  - Health Connect alpha12 permission contract: `PermissionController.createRequestPermissionResultContract()` (static companion method on `PermissionController`, NOT on `HealthPermission` or client instance)
+  - `HealthPermission.getHealthPermissionsActivityContract()` does NOT exist in alpha12 — this is a stable SDK method
+  - `client.permissionController.createRequestPermissionActivityContract()` does NOT exist — it's a static method on `PermissionController`
+  - Pattern: check `HealthConnectClient.getSdkStatus(context) == SDK_AVAILABLE` before calling `getOrCreate()` — if unavailable, skip permission gate (data source returns NotAvailable)
+  - Split into `PermissionGateApp` (SDK check) + `PermissionGateContent` (inner composable where client is guaranteed non-null) to avoid calling `remember {}` conditionally
+---
