@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
@@ -22,6 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +66,7 @@ fun DashboardContent(
     var wasRefreshing by remember { mutableStateOf(false) }
     var showSuccessToast by remember { mutableStateOf(false) }
     var refreshError by remember { mutableStateOf<String?>(null) }
+    var chartListState by remember { mutableStateOf<LazyListState?>(null) }
 
     val today = todayString()
     val startDate = state.selectedDateRange.startDate
@@ -164,13 +168,25 @@ fun DashboardContent(
                     }
                 }
                 is DashboardUiState.Success -> {
-                    CalorieBalanceChart(
-                        balances = uiState.balances,
-                        onBarClick = { selectedBreakdown = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        chartListState?.let { listState ->
+                            RollingWindowHeader(
+                                balances = uiState.balances,
+                                listState = listState,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                            )
+                        }
+                        CalorieBalanceChart(
+                            balances = uiState.balances,
+                            onBarClick = { selectedBreakdown = it },
+                            onListStateCreated = { chartListState = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        )
+                    }
                     if (uiState.warnings.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
                         uiState.warnings.forEach { warning ->
@@ -270,6 +286,86 @@ fun DashboardContent(
             }
         )
     }
+}
+
+@Composable
+private fun RollingWindowHeader(
+    balances: List<DailyBalance>,
+    listState: LazyListState,
+    modifier: Modifier = Modifier
+) {
+    val visibleWindowBalance by remember {
+        derivedStateOf {
+            val startIdx = listState.firstVisibleItemIndex
+            val endIdx = minOf(startIdx + 7, balances.size)
+            if (startIdx < balances.size) {
+                balances.subList(startIdx, endIdx)
+            } else {
+                emptyList()
+            }
+        }
+    }
+
+    visibleWindowBalance.let { window ->
+        if (window.isNotEmpty()) {
+            val metrics = com.mettyoung.fitbro.data.model.calculateWindowMetrics(window)
+            val positiveColor = androidx.compose.ui.graphics.Color(0xFF4CAF50)
+            val negativeColor = androidx.compose.ui.graphics.Color(0xFFF44336)
+            val trendColor = when (metrics.trend) {
+                com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING -> positiveColor
+                com.mettyoung.fitbro.data.model.TrendDirection.DECLINING -> negativeColor
+                com.mettyoung.fitbro.data.model.TrendDirection.STABLE ->
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            }
+            val trendIcon = when (metrics.trend) {
+                com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING -> "↗"
+                com.mettyoung.fitbro.data.model.TrendDirection.DECLINING -> "↘"
+                com.mettyoung.fitbro.data.model.TrendDirection.STABLE -> "→"
+            }
+
+            Card(
+                modifier = modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "${window.first().date} – ${window.last().date}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Avg: ${formatCalorieValue(metrics.avgDailyBalance)}/day",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Total: ${formatCalorieValue(metrics.totalBalance)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Text(
+                        text = trendIcon,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = trendColor,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatCalorieValue(value: Double): String {
+    val v = value.toInt()
+    return if (v >= 1000) "${v / 1000}.${(v % 1000) / 100}k" else v.toString()
 }
 
 private fun suggestAction(errorMessage: String): String = when {

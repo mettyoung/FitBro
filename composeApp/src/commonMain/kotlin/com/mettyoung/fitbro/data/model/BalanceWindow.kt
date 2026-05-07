@@ -38,6 +38,19 @@ fun List<DailyBalance>.groupByWeeks(): List<BalanceWindow> {
     return windows
 }
 
+fun calculateWindowMetrics(balances: List<DailyBalance>): BalanceWindow {
+    val totalBalance = balances.sumOf { it.balance }
+    val avgDailyBalance = if (balances.isNotEmpty()) totalBalance / balances.size else 0.0
+    val trend = calculateTrend(balances)
+
+    return BalanceWindow(
+        balances = balances,
+        avgDailyBalance = avgDailyBalance,
+        totalBalance = totalBalance,
+        trend = trend
+    )
+}
+
 private fun calculateTrend(balances: List<DailyBalance>): TrendDirection {
     if (balances.size < 6) return TrendDirection.STABLE
 

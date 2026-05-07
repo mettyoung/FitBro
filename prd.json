@@ -80,5 +80,40 @@
       "passes": true,
       "notes": ""
     }
+  ,
+    {
+      "id": "US-006",
+      "title": "Flatten chart to single scrollable list of all days (no fixed chunks)",
+      "description": "As a developer, I need to remove the fixed 7-day chunk grouping so all days render as a flat LazyColumn, enabling the rolling window header to track any 7-day slice.",
+      "acceptanceCriteria": [
+        "CalorieBalanceChart renders all DailyBalance entries as a flat LazyColumn (one row per day, no BalanceWindow section grouping)",
+        "Remove BalanceWindow section headers and background grouping from the list items",
+        "LazyListState is created and passed to the LazyColumn for scroll position tracking",
+        "LazyListState is exposed from CalorieBalanceChart (returned or hoisted) so parent can read firstVisibleItemIndex",
+        "onBarClick callback still fires on each daily row tap",
+        "HorizontalDivider between rows kept for visual separation",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add sticky rolling 7-day window summary header that tracks visible rows",
+      "description": "As a user, I want to see a summary header above the list that always shows metrics for the 7 days currently visible, updating as I scroll so I always know my rolling weekly average.",
+      "acceptanceCriteria": [
+        "A summary card is pinned above the LazyColumn (not inside it) showing: date range label (e.g. 'May 1 – May 7'), avg daily balance, total balance, trend icon (↗/→/↘)",
+        "Summary derives its 7-day window from LazyListState.firstVisibleItemIndex: window = balances[firstVisibleItemIndex .. firstVisibleItemIndex + 6] (clamped to list bounds)",
+        "Summary updates on every scroll using derivedStateOf { listState.firstVisibleItemIndex } to avoid excess recomposition",
+        "Trend uses existing TrendDirection logic (first 3 vs last 3 days of the visible 7)",
+        "When fewer than 7 days remain at bottom of list, window shows last 7 days (or all days if list < 7)",
+        "Summary card uses Card or Surface with elevation to visually float above the list",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    }
   ]
 }

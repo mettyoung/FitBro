@@ -92,3 +92,19 @@
   - Balance value width fixed at 60.dp with end text alignment for consistent positioning
   - Value color determined by same logic as bar color: if (balance >= 0) positiveColor else negativeColor
 ---
+
+## 2026-05-07 14:15 - US-006
+- Flattened CalorieBalanceChart from 7-day window grouping to single scrollable list of all days
+- Removed WindowSection and BalanceWindowHeader composables; kept CalorieBalanceRow
+- Created LazyListState with `rememberLazyListState()` and exposed via `onListStateCreated` callback parameter
+- LazyColumn now iterates directly over all DailyBalance items (no grouping)
+- HorizontalDivider maintained between each daily row
+- onBarClick callback preserved and routes through to CalorieBalanceRow
+- Files changed: composeApp/src/commonMain/kotlin/com/mettyoung/fitbro/ui/dashboard/CalorieBalanceChart.kt
+- **Learnings for future iterations:**
+  - LazyListState exposed via callback `onListStateCreated: (LazyListState) -> Unit = {}` — parent can capture state to read firstVisibleItemIndex for rolling window logic
+  - Key function for items uses `it.date` (String) instead of hashCode() — ensures stable unique keys across recompositions
+  - Flattening from windowed view removed ~75 lines of code (WindowSection + BalanceWindowHeader)
+  - Divider applied after each row inside items lambda — no need to track window boundaries
+  - maxAbsBalance still computed from all balances (not per-window) to ensure consistent bar scaling across entire list
+---
