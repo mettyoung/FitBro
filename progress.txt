@@ -108,3 +108,21 @@
   - Divider applied after each row inside items lambda — no need to track window boundaries
   - maxAbsBalance still computed from all balances (not per-window) to ensure consistent bar scaling across entire list
 ---
+
+## 2026-05-07 14:25 - US-007
+- Created RollingWindowHeader composable that displays sticky summary above the flat list
+- Header tracks visible window using LazyListState.firstVisibleItemIndex and derivedStateOf
+- Summary shows date range (first.date – last.date), avg daily balance, total balance, and trend icon
+- Trend computed via calculateWindowMetrics() helper from BalanceWindow.kt using existing trend logic
+- Window clamped to 7 days; handles partial windows at bottom of list gracefully
+- Card with Material3 elevation floats above LazyColumn (not inside it)
+- DashboardContent captures LazyListState via onListStateCreated callback and renders header conditionally
+- Files changed: composeApp/src/commonMain/kotlin/com/mettyoung/fitbro/data/model/BalanceWindow.kt, composeApp/src/commonMain/kotlin/com/mettyoung/fitbro/ui/dashboard/DashboardScreen.kt
+- **Learnings for future iterations:**
+  - calculateWindowMetrics() extracted to BalanceWindow.kt for reuse — takes List<DailyBalance> slice and returns BalanceWindow with all metrics
+  - derivedStateOf { listState.firstVisibleItemIndex } ensures recomposition only on scroll index changes, not on unrelated state changes
+  - Sticky header positioned above LazyColumn in a parent Column (not nested inside) to stay fixed while list scrolls
+  - Date range label truncates automatically with Material3 labelSmall typography
+  - formatCalorieValue() duplicated in DashboardScreen (mirrors formatCalories() in CalorieBalanceChart) — could be extracted to util if needed in future
+  - Card elevation creates visual separation; no explicit background needed (Card handles it)
+---
