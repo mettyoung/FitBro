@@ -25,9 +25,6 @@ class CalorieMathRepositoryImpl : CalorieMathRepository {
         if (metabolism.bmr <= 0) return CalorieResult.Failure(
             CalorieMathError.InvalidInput("metabolism.bmr", "must be positive")
         )
-        if (metabolism.tef < 0) return CalorieResult.Failure(
-            CalorieMathError.InvalidInput("metabolism.tef", "must be non-negative")
-        )
         if (activity != null) {
             if (activity.neat < 0) return CalorieResult.Failure(
                 CalorieMathError.InvalidInput("activity.neat", "must be non-negative")
@@ -37,9 +34,14 @@ class CalorieMathRepositoryImpl : CalorieMathRepository {
             )
         }
 
+        val tef = computeTef(intake)
+        if (tef < 0) return CalorieResult.Failure(
+            CalorieMathError.InvalidInput("computed.tef", "must be non-negative")
+        )
+
         val neat = activity?.neat ?: 0.0
         val eat = activity?.eat ?: 0.0
-        val burn = neat + eat + metabolism.bmr + metabolism.tef
+        val burn = neat + eat + metabolism.bmr + tef
         val balance = intake.totalCalories - burn
 
         return CalorieResult.Success(
@@ -49,10 +51,19 @@ class CalorieMathRepositoryImpl : CalorieMathRepository {
                 burn = burn,
                 balance = balance,
                 bmr = metabolism.bmr,
-                tef = metabolism.tef,
+                tef = tef,
                 neat = neat,
                 eat = eat
             )
         )
+    }
+
+    private fun computeTef(intake: DailyIntake): Double {
+        val allMacrosZero = intake.proteinG == 0.0 && intake.carbG == 0.0 && intake.fatG == 0.0
+        return if (allMacrosZero) {
+            intake.totalCalories * 0.10
+        } else {
+            (intake.proteinG * 4 * 0.25) + (intake.carbG * 4 * 0.08) + (intake.fatG * 9 * 0.03)
+        }
     }
 }
