@@ -50,3 +50,18 @@
   - onBarClick callback is passed through WindowSection → CalorieBalanceRow → actual tap handler
   - CalorieBalanceChart still calculates maxAbsBalance from all balances (not per-window) for consistent scaling across windows
 ---
+
+## 2026-05-07 12:45 - US-003
+- Created BalanceWindowHeader composable that displays weekly summary metrics
+- Header shows: avg daily balance formatted as 'Avg: X/day' and total balance as 'Total: X'
+- Trend icon displays ↗ (IMPROVING), → (STABLE), or ↘ (DECLINING)
+- Trend icon color: green (#4CAF50) for IMPROVING, red (#F44336) for DECLINING, muted onSurface for STABLE
+- Header background uses surfaceVariant at 15% alpha for subtle distinction from daily rows
+- Files changed: composeApp/src/commonMain/kotlin/com/mettyoung/fitbro/ui/dashboard/CalorieBalanceChart.kt
+- **Learnings for future iterations:**
+  - BalanceWindowHeader is rendered at top of WindowSection before daily rows
+  - Text layout uses Column + Arrangement.SpaceBetween Row to separate left metrics from right trend icon
+  - Alpha 0.15f on surfaceVariant creates subtle background (not too dark, not too light)
+  - Trend icon uses headlineSmall typography for visibility; icon is Unicode character
+  - Header padding: horizontal 16.dp (matches daily rows), vertical 12.dp for breathing room
+---

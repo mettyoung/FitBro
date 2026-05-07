@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -67,7 +68,13 @@ private fun WindowSection(
     negativeColor: Color,
     onBarClick: (DailyBalance) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    val windowBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(windowBg)
+    ) {
         BalanceWindowHeader(
             window = window,
             positiveColor = positiveColor,
@@ -82,6 +89,10 @@ private fun WindowSection(
                 onBarClick = { onBarClick(balance) }
             )
         }
+        HorizontalDivider(
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        )
     }
 }
 
