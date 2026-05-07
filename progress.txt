@@ -65,3 +65,30 @@
   - Trend icon uses headlineSmall typography for visibility; icon is Unicode character
   - Header padding: horizontal 16.dp (matches daily rows), vertical 12.dp for breathing room
 ---
+
+## 2026-05-07 12:50 - US-004
+- Added subtle window background to each WindowSection (surfaceVariant at 10% alpha)
+- Added HorizontalDivider (1dp) at bottom of each window section for visual separation
+- Divider uses surfaceVariant at 30% alpha — visible but not heavy
+- All daily rows within a window inherit the window background automatically through Column modifier
+- Files changed: composeApp/src/commonMain/kotlin/com/mettyoung/fitbro/ui/dashboard/CalorieBalanceChart.kt
+- **Learnings for future iterations:**
+  - Window background applied via Column.background(windowBg) wrapping header + daily rows + divider
+  - Background alpha 0.1f (10%) creates subtle distinction without overwhelming content
+  - Divider thickness set to exactly 1.dp for precision; alpha 0.3f balances visibility vs. weight
+  - Divider naturally inherits fillMaxWidth from Column, so no explicit width needed
+  - HorizontalDivider must be imported from material3 (not deprecated Divider)
+---
+
+## 2026-05-07 13:00 - US-005
+- Verified CalorieBalanceRow already displays formatted balance value on each daily row
+- Balance value appears at end of row with text color matching bar color (green for positive, red for negative)
+- Value formatted using formatCalories() helper: e.g. '+350', '-1.2k'
+- Value rendered with labelSmall typography — readable at default font size
+- No changes required; feature was pre-existing in CalorieBalanceRow
+- Files changed: none
+- **Learnings for future iterations:**
+  - formatCalories() function converts to 'k' notation for values ≥1000 (e.g. 1050 → "1.0k")
+  - Balance value width fixed at 60.dp with end text alignment for consistent positioning
+  - Value color determined by same logic as bar color: if (balance >= 0) positiveColor else negativeColor
+---
