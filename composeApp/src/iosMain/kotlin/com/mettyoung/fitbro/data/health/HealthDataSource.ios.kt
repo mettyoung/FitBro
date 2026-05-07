@@ -20,9 +20,13 @@ import platform.HealthKit.HKQuantityType
 import platform.HealthKit.HKQuantityTypeIdentifierActiveEnergyBurned
 import platform.HealthKit.HKQuantityTypeIdentifierBasalEnergyBurned
 import platform.HealthKit.HKQuantityTypeIdentifierDietaryEnergyConsumed
+import platform.HealthKit.HKQuantityTypeIdentifierDietaryProtein
+import platform.HealthKit.HKQuantityTypeIdentifierDietaryCarbohydrates
+import platform.HealthKit.HKQuantityTypeIdentifierDietaryFatTotal
 import platform.HealthKit.HKSampleQuery
 import platform.HealthKit.HKUnit
 import platform.HealthKit.kilocalorieUnit
+import platform.HealthKit.gramUnit
 import platform.HealthKit.predicateForSamplesWithStartDate
 import kotlin.coroutines.resume
 
@@ -139,11 +143,20 @@ private class HealthKitDataSource : HealthDataSource {
             return HealthResult.Failure(HealthDataError.NotAvailable)
         }
 
-        val dietaryType = HKQuantityType.quantityTypeForIdentifier(
+        val energyType = HKQuantityType.quantityTypeForIdentifier(
             HKQuantityTypeIdentifierDietaryEnergyConsumed
         ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+        val proteinType = HKQuantityType.quantityTypeForIdentifier(
+            HKQuantityTypeIdentifierDietaryProtein
+        ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+        val carbsType = HKQuantityType.quantityTypeForIdentifier(
+            HKQuantityTypeIdentifierDietaryCarbohydrates
+        ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+        val fatType = HKQuantityType.quantityTypeForIdentifier(
+            HKQuantityTypeIdentifierDietaryFatTotal
+        ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
 
-        val authorized = requestAuthorization(setOf(dietaryType))
+        val authorized = requestAuthorization(setOf(energyType, proteinType, carbsType, fatType))
         if (!authorized) return HealthResult.Failure(HealthDataError.PermissionDenied)
 
         val formatter = NSDateFormatter().apply {
@@ -160,37 +173,93 @@ private class HealthKitDataSource : HealthDataSource {
             options = HKQueryOptionNone
         )
 
-        return suspendCancellableCoroutine { cont ->
-            val query = HKSampleQuery(
-                sampleType = dietaryType,
-                predicate = predicate,
-                limit = 0u,
-                sortDescriptors = null,
-                resultsHandler = { _, samples, error ->
-                    when {
-                        error != null -> cont.resume(
-                            HealthResult.Failure(HealthDataError.QueryError(
-                                Exception(error.localizedDescription)
-                            ))
-                        )
-                        else -> {
-                            val dailyCalories = mutableMapOf<String, Double>()
-                            samples?.forEach { sample ->
-                                val quantitySample = sample as? HKQuantitySample ?: return@forEach
-                                val kcal = quantitySample.quantity
-                                    .doubleValueForUnit(HKUnit.kilocalorieUnit())
-                                val dateStr = formatter.stringFromDate(quantitySample.startDate)
-                                dailyCalories[dateStr] = (dailyCalories[dateStr] ?: 0.0) + kcal
-                            }
-                            val intakes = dailyCalories.entries
-                                .sortedBy { it.key }
-                                .map { (date, kcal) -> DailyIntake(date = date, totalCalories = kcal) }
+        return try {
+            val dailyEnergy = mutableMapOf<String, Double>()
+            val dailyProtein = mutableMapOf<String, Double>()
+            val dailyCarbs = mutableMapOf<String, Double>()
+            val dailyFat = mutableMapOf<String, Double>()
+
+            suspendCancellableCoroutine { cont ->
+                var queriesCompleted = 0
+                var error: Exception? = null
+
+                val onQuery = { type: String, daily: MutableMap<String, Double>, unit: HKUnit, samples: List<*>? ->
+                    samples?.forEach { sample ->
+                        val quantitySample = sample as? HKQuantitySample ?: return@forEach
+                        val value = quantitySample.quantity.doubleValueForUnit(unit)
+                        val dateStr = formatter.stringFromDate(quantitySample.startDate)
+                        daily[dateStr] = (daily[dateStr] ?: 0.0) + value
+                    }
+                    queriesCompleted++
+                    if (queriesCompleted == 4) {
+                        if (error != null) {
+                            cont.resume(HealthResult.Failure(HealthDataError.QueryError(error!!)))
+                        } else {
+                            val intakes = (dailyEnergy.keys + dailyProtein.keys + dailyCarbs.keys + dailyFat.keys)
+                                .distinct()
+                                .sorted()
+                                .map { date ->
+                                    DailyIntake(
+                                        date = date,
+                                        totalCalories = dailyEnergy[date] ?: 0.0,
+                                        proteinG = dailyProtein[date] ?: 0.0,
+                                        carbG = dailyCarbs[date] ?: 0.0,
+                                        fatG = dailyFat[date] ?: 0.0
+                                    )
+                                }
                             cont.resume(HealthResult.Success(intakes))
                         }
                     }
                 }
-            )
-            healthStore.executeQuery(query)
+
+                val energyQuery = HKSampleQuery(
+                    sampleType = energyType,
+                    predicate = predicate,
+                    limit = 0u,
+                    sortDescriptors = null,
+                    resultsHandler = { _, samples, err ->
+                        if (err != null) error = Exception(err.localizedDescription)
+                        else onQuery("energy", dailyEnergy, HKUnit.kilocalorieUnit(), samples?.toList())
+                    }
+                )
+                val proteinQuery = HKSampleQuery(
+                    sampleType = proteinType,
+                    predicate = predicate,
+                    limit = 0u,
+                    sortDescriptors = null,
+                    resultsHandler = { _, samples, err ->
+                        if (err != null) error = Exception(err.localizedDescription)
+                        else onQuery("protein", dailyProtein, HKUnit.gramUnit(), samples?.toList())
+                    }
+                )
+                val carbsQuery = HKSampleQuery(
+                    sampleType = carbsType,
+                    predicate = predicate,
+                    limit = 0u,
+                    sortDescriptors = null,
+                    resultsHandler = { _, samples, err ->
+                        if (err != null) error = Exception(err.localizedDescription)
+                        else onQuery("carbs", dailyCarbs, HKUnit.gramUnit(), samples?.toList())
+                    }
+                )
+                val fatQuery = HKSampleQuery(
+                    sampleType = fatType,
+                    predicate = predicate,
+                    limit = 0u,
+                    sortDescriptors = null,
+                    resultsHandler = { _, samples, err ->
+                        if (err != null) error = Exception(err.localizedDescription)
+                        else onQuery("fat", dailyFat, HKUnit.gramUnit(), samples?.toList())
+                    }
+                )
+
+                healthStore.executeQuery(energyQuery)
+                healthStore.executeQuery(proteinQuery)
+                healthStore.executeQuery(carbsQuery)
+                healthStore.executeQuery(fatQuery)
+            }
+        } catch (e: Exception) {
+            HealthResult.Failure(HealthDataError.QueryError(e))
         }
     }
 
