@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.ui.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,34 +12,52 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.ui.MiOrange
+import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.formatTimeAgo
 import com.mettyoung.fitbro.util.minusDays
 import com.mettyoung.fitbro.util.plusDays
 import com.mettyoung.fitbro.util.toDisplayRange
 import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 @Composable
 fun DashboardScreen(
@@ -66,14 +85,12 @@ fun DashboardContent(
     var wasRefreshing by remember { mutableStateOf(false) }
     var showSuccessToast by remember { mutableStateOf(false) }
     var refreshError by remember { mutableStateOf<String?>(null) }
-    var chartListState by remember { mutableStateOf<LazyListState?>(null) }
 
     val today = todayString()
     val startDate = state.selectedDateRange.startDate
     val canGoNext = startDate.plusDays(7) <= today
     val isLoading = state.uiState is DashboardUiState.Loading
 
-    // Detect Loading → Success/Error transition triggered by user refresh
     LaunchedEffect(state.uiState) {
         if (wasRefreshing) {
             when (val uiState = state.uiState) {
@@ -97,122 +114,167 @@ fun DashboardContent(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            // Title row
+            Spacer(Modifier.height(24.dp))
+            
+            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Calorie Balance",
-                    style = MaterialTheme.typography.headlineMedium
-                )
+                Column {
+                    Text(
+                        text = "Dashboard",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                    )
+                    Text(
+                        text = "Mi Fitness Style",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MiOrange,
+                        letterSpacing = 0.5.sp
+                    )
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                    IconButton(
+                        onClick = { wasRefreshing = true; onRefresh() },
+                        enabled = !isLoading
+                    ) {
                         if (isLoading && wasRefreshing) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MiOrange)
                         } else {
-                            TextButton(
-                                onClick = { wasRefreshing = true; onRefresh() },
-                                enabled = !isLoading
-                            ) { Text("🔄") }
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MiOrange)
                         }
                     }
-                    TextButton(onClick = { showPicker = true }) {
-                        Text("📅")
+                    IconButton(onClick = { showPicker = true }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Select Date", tint = MiOrange)
                     }
                 }
             }
 
-            // Week navigation row
+            Spacer(Modifier.height(20.dp))
+
+            // Date Navigator
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(28.dp))
+                    .padding(vertical = 4.dp, horizontal = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = {
+                IconButton(onClick = {
                     val newStart = startDate.minusDays(7)
                     onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
-                }) { Text("‹ Prev") }
+                }) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev", tint = MiOrange)
+                }
 
                 Text(
                     text = startDate.toDisplayRange(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold
                 )
 
-                TextButton(
+                IconButton(
                     onClick = {
                         val newStart = startDate.plusDays(7)
                         onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
                     },
                     enabled = canGoNext
-                ) { Text("Next ›") }
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "Next",
+                        tint = if (canGoNext) MiOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                    )
+                }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(20.dp))
 
             when (val uiState = state.uiState) {
                 is DashboardUiState.Loading -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.height(300.dp).fillMaxWidth(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(color = MiOrange)
                     }
                 }
                 is DashboardUiState.Success -> {
-                    Column(modifier = Modifier.weight(1f)) {
-                        chartListState?.let { listState ->
-                            RollingWindowHeader(
-                                balances = uiState.balances,
-                                listState = listState,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 8.dp)
-                            )
-                        }
-                        CalorieBalanceChart(
-                            balances = uiState.balances,
-                            onBarClick = { selectedBreakdown = it },
-                            onListStateCreated = { chartListState = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                        )
-                    }
-                    if (uiState.warnings.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        uiState.warnings.forEach { warning ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(
-                                        color = MaterialTheme.colorScheme.errorContainer,
-                                        shape = RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "⚠ $warning",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
+                    // Summary Card with Chart - Representing the 7-day sliding window
+                    SlidingWindowInsightCard(
+                        balances = uiState.balances,
+                        onBarClick = { selectedBreakdown = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Spacer(Modifier.height(24.dp))
+                    
+                    // Condensed Daily History Section
+                    Text(
+                        text = "Daily History",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
+                    )
+                    
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            uiState.balances.forEachIndexed { index, balance ->
+                                CondensedLogItem(
+                                    balance = balance,
+                                    onClick = { selectedBreakdown = balance }
                                 )
+                                if (index < uiState.balances.size - 1) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 24.dp),
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                    )
+                                }
                             }
-                            Spacer(Modifier.height(4.dp))
+                        }
+                    }
+                    
+                    if (uiState.warnings.isNotEmpty()) {
+                        Spacer(Modifier.height(20.dp))
+                        uiState.warnings.forEach { warning ->
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("⚠️", fontSize = 16.sp)
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(
+                                        text = warning,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFFC62828),
+                                        lineHeight = 16.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
                 is DashboardUiState.Error -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.height(300.dp).fillMaxWidth(),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -224,7 +286,11 @@ fun DashboardContent(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.error
                             )
-                            Button(onClick = onRefresh) {
+                            Button(
+                                onClick = onRefresh,
+                                shape = RoundedCornerShape(24.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                            ) {
                                 Text("Retry")
                             }
                         }
@@ -232,23 +298,24 @@ fun DashboardContent(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(24.dp))
             SyncStatusBar(state = state)
+            Spacer(Modifier.height(32.dp))
         }
 
-        // Success toast overlay
         if (showSuccessToast) {
-            Snackbar(
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(16.dp)
+                    .padding(bottom = 64.dp)
+                    .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
             ) {
-                Text("Data updated")
+                Text("Sync successful", color = Color.White, style = MaterialTheme.typography.bodySmall)
             }
         }
     }
 
-    // Error dialog for user-triggered refresh failures
     refreshError?.let { error ->
         AlertDialog(
             onDismissRequest = { refreshError = null },
@@ -264,7 +331,7 @@ fun DashboardContent(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { refreshError = null }) { Text("OK") }
+                TextButton(onClick = { refreshError = null }) { Text("OK", color = MiOrange) }
             }
         )
     }
@@ -289,78 +356,171 @@ fun DashboardContent(
 }
 
 @Composable
-private fun RollingWindowHeader(
+private fun SlidingWindowInsightCard(
     balances: List<DailyBalance>,
-    listState: LazyListState,
+    onBarClick: (DailyBalance) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val visibleWindowBalance by remember {
-        derivedStateOf {
-            val startIdx = listState.firstVisibleItemIndex
-            val endIdx = minOf(startIdx + 7, balances.size)
-            if (startIdx < balances.size) {
-                balances.subList(startIdx, endIdx)
-            } else {
-                emptyList()
-            }
-        }
+    val metrics = remember(balances) { com.mettyoung.fitbro.data.model.calculateWindowMetrics(balances) }
+    val trendColor = when (metrics.trend) {
+        com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING -> Color(0xFF4CAF50)
+        com.mettyoung.fitbro.data.model.TrendDirection.DECLINING -> Color(0xFFF44336)
+        com.mettyoung.fitbro.data.model.TrendDirection.STABLE -> MiOrange
+    }
+    val trendIcon = when (metrics.trend) {
+        com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING -> "↑"
+        com.mettyoung.fitbro.data.model.TrendDirection.DECLINING -> "↓"
+        com.mettyoung.fitbro.data.model.TrendDirection.STABLE -> "→"
     }
 
-    visibleWindowBalance.let { window ->
-        if (window.isNotEmpty()) {
-            val metrics = com.mettyoung.fitbro.data.model.calculateWindowMetrics(window)
-            val positiveColor = androidx.compose.ui.graphics.Color(0xFF4CAF50)
-            val negativeColor = androidx.compose.ui.graphics.Color(0xFFF44336)
-            val trendColor = when (metrics.trend) {
-                com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING -> positiveColor
-                com.mettyoung.fitbro.data.model.TrendDirection.DECLINING -> negativeColor
-                com.mettyoung.fitbro.data.model.TrendDirection.STABLE ->
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            }
-            val trendIcon = when (metrics.trend) {
-                com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING -> "↗"
-                com.mettyoung.fitbro.data.model.TrendDirection.DECLINING -> "↘"
-                com.mettyoung.fitbro.data.model.TrendDirection.STABLE -> "→"
-            }
-
-            Card(
-                modifier = modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(32.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                Column {
+                    Text(
+                        text = "Average Daily Balance",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MiTextSecondary,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "${formatCalorieValue(metrics.avgDailyBalance)} kcal",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(trendColor))
+                        Spacer(Modifier.width(6.dp))
                         Text(
-                            text = "${window.first().date} – ${window.last().date}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = "Avg: ${formatCalorieValue(metrics.avgDailyBalance)}/day",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Total: ${formatCalorieValue(metrics.totalBalance)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = "Weekly Total: ${formatCalorieValue(metrics.totalBalance)} kcal",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MiTextSecondary
                         )
                     }
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(trendColor.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
                         text = trendIcon,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = trendColor,
-                        modifier = Modifier.padding(start = 8.dp)
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = trendColor
                     )
                 }
             }
+            
+            Spacer(Modifier.height(32.dp))
+            
+            CalorieBalanceChart(
+                balances = balances,
+                onBarClick = onBarClick,
+                modifier = Modifier.fillMaxWidth().height(180.dp)
+            )
         }
     }
+}
+
+@Composable
+private fun CondensedLogItem(
+    balance: DailyBalance,
+    onClick: () -> Unit
+) {
+    val balanceColor = if (balance.balance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            // Very compact date/day
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(32.dp)) {
+                Text(
+                    text = balance.date.toDayAbbr(),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = MiTextSecondary,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = balance.date.split("-").last(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            
+            Spacer(Modifier.width(20.dp))
+            
+            // Intake/Burn summary
+            Column {
+                Text(
+                    text = "${balance.intake.roundToInt()} kcal in",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "${balance.burn.roundToInt()} kcal out",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = MiTextSecondary
+                )
+            }
+        }
+        
+        // Net balance
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "${if (balance.balance >= 0) "+" else ""}${balance.balance.roundToInt()}",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = balanceColor
+            )
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MiTextSecondary.copy(alpha = 0.5f)
+            )
+        }
+    }
+}
+
+private fun String.toDayAbbr(): String {
+    val parts = split("-")
+    if (parts.size != 3) return ""
+    val year = parts[0].toIntOrNull() ?: return ""
+    val month = parts[1].toIntOrNull() ?: return ""
+    val day = parts[2].toIntOrNull() ?: return ""
+    return dayOfWeekAbbr(year, month, day)
+}
+
+private fun dayOfWeekAbbr(year: Int, month: Int, day: Int): String {
+    val m = if (month < 3) month + 12 else month
+    val y = if (month < 3) year - 1 else year
+    val k = y % 100
+    val j = y / 100
+    val h = (day + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 - 2 * j).mod(7)
+    // 0: Saturday, 1: Sunday, 2: Monday, 3: Tuesday, 4: Wednesday, 5: Thursday, 6: Friday
+    return listOf("SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI")[h]
 }
 
 private fun formatCalorieValue(value: Double): String {
@@ -383,32 +543,33 @@ private fun SyncStatusBar(state: DashboardState) {
     val latestSyncMs = state.lastSyncTime.values.filterNotNull().maxOrNull()
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.Center
     ) {
         val statusText = when {
-            isLoading -> "Syncing..."
-            latestSyncMs != null -> "Last synced: ${formatTimeAgo(latestSyncMs)}"
+            isLoading -> "Syncing data..."
+            latestSyncMs != null -> "Last updated: ${formatTimeAgo(latestSyncMs)}"
             else -> "Never synced"
         }
         Text(
             text = statusText,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
         )
         if (isOffline && !isLoading) {
-            Text(
-                text = "OFFLINE",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onError,
+            Spacer(Modifier.width(8.dp))
+            Box(
                 modifier = Modifier
-                    .background(
-                        color = MaterialTheme.colorScheme.error,
-                        shape = RoundedCornerShape(4.dp)
-                    )
-                    .padding(horizontal = 4.dp, vertical = 1.dp)
-            )
+                    .background(Color(0xFFFFEBEE), CircleShape)
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = "Offline",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFFC62828)
+                )
+            }
         }
     }
 }

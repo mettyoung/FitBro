@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,12 +27,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BasalMetabolicRateRecord
 import androidx.health.connect.client.records.NutritionRecord
+import com.mettyoung.fitbro.ui.FitBroTheme
+import com.mettyoung.fitbro.ui.MiOrange
 
 private val REQUIRED_PERMISSIONS = setOf(
     HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
@@ -45,11 +50,10 @@ fun PermissionGateApp() {
         HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
     }
 
-    MaterialTheme {
+    FitBroTheme {
         if (sdkAvailable) {
             PermissionGateContent()
         } else {
-            // Health Connect unavailable — show app; data source returns NotAvailable error state
             App()
         }
     }
@@ -92,7 +96,7 @@ private fun PermissionGateContent() {
             modifier = Modifier.fillMaxSize().safeContentPadding(),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = MiOrange)
         }
         allGranted -> App()
         else -> PermissionScreen(onGrant = { launcher.launch(REQUIRED_PERMISSIONS) })
@@ -110,27 +114,26 @@ private fun PermissionScreen(onGrant: () -> Unit) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Health Connect Access Required",
-            style = MaterialTheme.typography.headlineSmall,
+            text = "Health Access",
+            style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "FitBro needs Health Connect permissions to read your calorie data (intake, BMR, and activity).",
-            style = MaterialTheme.typography.bodyMedium,
+            text = "FitBro needs your health data to calculate your daily calorie balance. Please grant access in Health Connect.",
+            style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = onGrant) {
-            Text("Grant Permissions")
-        }
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = "Permissions required to show data",
-            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            lineHeight = 24.sp
         )
+        Spacer(Modifier.height(40.dp))
+        Button(
+            onClick = onGrant,
+            modifier = Modifier.height(56.dp).padding(horizontal = 32.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+        ) {
+            Text("Grant Permissions", fontSize = 16.sp)
+        }
     }
 }

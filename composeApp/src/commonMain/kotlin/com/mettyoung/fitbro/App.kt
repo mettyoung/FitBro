@@ -2,7 +2,6 @@ package com.mettyoung.fitbro
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -11,6 +10,7 @@ import androidx.compose.ui.Modifier
 import com.mettyoung.fitbro.data.cache.createCacheDataSource
 import com.mettyoung.fitbro.data.health.createHealthDataSource
 import com.mettyoung.fitbro.data.repository.CalorieMathRepositoryImpl
+import com.mettyoung.fitbro.ui.FitBroTheme
 import com.mettyoung.fitbro.ui.dashboard.DashboardScreen
 import com.mettyoung.fitbro.ui.dashboard.DashboardStateHolder
 import com.mettyoung.fitbro.ui.dashboard.DateRange
@@ -19,7 +19,7 @@ import com.mettyoung.fitbro.util.todayString
 
 @Composable
 fun App() {
-    MaterialTheme {
+    FitBroTheme {
         val healthDataSource = remember { createHealthDataSource() }
         val cacheDataSource = remember { createCacheDataSource() }
         val calorieMathRepository = remember { CalorieMathRepositoryImpl() }

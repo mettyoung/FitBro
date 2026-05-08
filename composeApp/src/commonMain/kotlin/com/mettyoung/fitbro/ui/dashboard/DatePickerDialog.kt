@@ -11,8 +11,14 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,9 +31,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.util.MONTH_ABBR
 import com.mettyoung.fitbro.util.dayOfWeekMonBased
 import com.mettyoung.fitbro.util.daysInMonth
@@ -49,43 +59,61 @@ fun DatePickerDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(
+                    text = "Select Week",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
                 // Month navigation
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = {
+                    IconButton(onClick = {
                         if (displayMonth == 1) { displayYear--; displayMonth = 12 }
                         else displayMonth--
-                    }) { Text("‹") }
+                    }) {
+                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Prev", tint = MiOrange)
+                    }
+                    
                     Text(
                         text = "${MONTH_ABBR[displayMonth]} $displayYear",
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold
                     )
+                    
                     val canGoNext = run {
                         val nextYear = if (displayMonth == 12) displayYear + 1 else displayYear
                         val nextMonth = if (displayMonth == 12) 1 else displayMonth + 1
                         "$nextYear-${nextMonth.toString().padStart(2, '0')}-01" <= today
                     }
-                    TextButton(
+                    
+                    IconButton(
                         onClick = {
                             if (displayMonth == 12) { displayYear++; displayMonth = 1 }
                             else displayMonth++
                         },
                         enabled = canGoNext
-                    ) { Text("›") }
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowRight, 
+                            contentDescription = "Next", 
+                            tint = if (canGoNext) MiOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                        )
+                    }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // Day of week headers
-                val dowHeaders = listOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+                val dowHeaders = listOf("M", "T", "W", "T", "F", "S", "S")
                 Row(modifier = Modifier.fillMaxWidth()) {
                     dowHeaders.forEach { label ->
                         Text(
@@ -93,12 +121,12 @@ fun DatePickerDialog(
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.labelSmall,
                             textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     }
                 }
 
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(8.dp))
 
                 // Day grid
                 val firstOffset = dayOfWeekMonBased(displayYear, displayMonth, 1)
@@ -121,14 +149,14 @@ fun DatePickerDialog(
                                     val inRange = dayStr in selectedStart..selectedEnd
 
                                     val bgColor = when {
-                                        isStart || isEnd -> MaterialTheme.colorScheme.primary
-                                        inRange -> MaterialTheme.colorScheme.primaryContainer
-                                        else -> MaterialTheme.colorScheme.surface
+                                        isStart || isEnd -> MiOrange
+                                        inRange -> MiOrange.copy(alpha = 0.1f)
+                                        else -> Color.Transparent
                                     }
                                     val textColor = when {
-                                        isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                                        isStart || isEnd -> MaterialTheme.colorScheme.onPrimary
-                                        inRange -> MaterialTheme.colorScheme.onPrimaryContainer
+                                        isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                        isStart || isEnd -> Color.White
+                                        inRange -> MiOrange
                                         else -> MaterialTheme.colorScheme.onSurface
                                     }
 
@@ -146,7 +174,10 @@ fun DatePickerDialog(
                                     ) {
                                         Text(
                                             text = dayNum.toString(),
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontWeight = if (isStart || isEnd || inRange) FontWeight.Bold else FontWeight.Normal,
+                                                fontSize = 13.sp
+                                            ),
                                             color = textColor,
                                             textAlign = TextAlign.Center
                                         )
@@ -157,18 +188,30 @@ fun DatePickerDialog(
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(24.dp))
 
                 // Confirm / Cancel
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    TextButton(onClick = {
-                        onDateRangeSelected(DateRange(selectedStart, selectedStart.plusDays(6)))
-                        onDismiss()
-                    }) { Text("OK") }
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(
+                        onClick = {
+                            onDateRangeSelected(DateRange(selectedStart, selectedStart.plusDays(6)))
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f).background(MiOrange.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Text("OK", color = MiOrange, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

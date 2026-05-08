@@ -9,19 +9,28 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.ui.MiOrange
+import com.mettyoung.fitbro.ui.MiTextSecondary
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -32,75 +41,104 @@ fun BreakdownDialog(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(modifier = Modifier.padding(24.dp)) {
                 Text(
                     text = balance.date,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(Modifier.height(4.dp))
-                val balanceSign = if (balance.balance >= 0) "+" else ""
-                val balanceColor = if (balance.balance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
-                Text(
-                    text = "$balanceSign${balance.balance.roundToInt()} kcal",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = balanceColor
-                )
-
+                
                 Spacer(Modifier.height(16.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(12.dp))
-
-                // Intake
-                ComponentRow(
-                    label = "Intake",
-                    value = balance.intake,
-                    total = balance.intake,
-                    color = Color(0xFF2196F3)
-                )
-
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = "Burn breakdown",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(8.dp))
-
-                // Burn components
-                val components = listOf(
-                    Triple("BMR", balance.bmr, Color(0xFF9C27B0)),
-                    Triple("TEF", balance.tef, Color(0xFFFF9800)),
-                    Triple("Activity", balance.neat, Color(0xFF4CAF50))
-                )
-                components.forEach { (label, value, color) ->
-                    ComponentRow(label = label, value = value, total = balance.burn, color = color)
-                    Spacer(Modifier.height(6.dp))
-                }
-
-                Spacer(Modifier.height(4.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(4.dp))
-
+                
+                val balanceColor = if (balance.balance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
                 ) {
-                    Text("Total burn", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        "${balance.burn.roundToInt()} kcal",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Column {
+                        Text(
+                            text = "Net Balance",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MiTextSecondary
+                        )
+                        Text(
+                            text = "${if (balance.balance >= 0) "+" else ""}${balance.balance.roundToInt()} kcal",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = balanceColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                Spacer(Modifier.height(20.dp))
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("Close") }
+                // Intake Section
+                SectionTitle("Intake")
+                ComponentRow(
+                    label = "Total Intake",
+                    value = balance.intake,
+                    total = balance.intake,
+                    color = MiOrange
+                )
+
+                Spacer(Modifier.height(24.dp))
+
+                // Burn Section
+                SectionTitle("Burn Breakdown")
+                val components = listOf(
+                    Triple("BMR (Resting)", balance.bmr, Color(0xFF5C6BC0)),
+                    Triple("Activity", balance.neat, Color(0xFF66BB6A)),
+                    Triple("TEF (Digestion)", balance.tef, Color(0xFFFFA726))
+                )
+                
+                components.forEachIndexed { index, (label, value, color) ->
+                    ComponentRow(label = label, value = value, total = balance.burn, color = color)
+                    if (index < components.size - 1) Spacer(Modifier.height(16.dp))
+                }
+
+                Spacer(Modifier.height(20.dp))
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background, RoundedCornerShape(16.dp))
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Total Burned",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            "${balance.burn.roundToInt()} kcal",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MiOrange
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(26.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onSurface)
+                ) {
+                    Text("Close", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -108,37 +146,53 @@ fun BreakdownDialog(
 }
 
 @Composable
+private fun SectionTitle(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelSmall,
+        color = MiTextSecondary,
+        modifier = Modifier.padding(bottom = 12.dp),
+        letterSpacing = 1.sp
+    )
+}
+
+@Composable
 private fun ComponentRow(label: String, value: Double, total: Double, color: Color) {
     val pct = if (total > 0) (value / total * 100).roundToInt() else 0
     val fraction = if (total > 0) (value / total).toFloat().coerceIn(0f, 1f) else 0f
+    
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(label, style = MaterialTheme.typography.bodySmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
+                Spacer(Modifier.width(8.dp))
+                Text(label, style = MaterialTheme.typography.bodyMedium)
+            }
             Text(
-                "${value.roundToInt()} kcal  ($pct%)",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                "${value.roundToInt()} kcal",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
             )
         }
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(8.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(6.dp)
+                .height(8.dp)
                 .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(3.dp)
+                    color = color.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(4.dp)
                 )
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(fraction)
-                    .height(6.dp)
-                    .background(color = color, shape = RoundedCornerShape(3.dp))
+                    .height(8.dp)
+                    .background(color = color, shape = RoundedCornerShape(4.dp))
             )
         }
     }
