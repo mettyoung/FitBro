@@ -55,9 +55,9 @@ fun MacroDailyCounterDetail(
     val canGoNext = selectedDate.plusDays(1) <= today
     val selectedBalance = balances.lastOrNull()
 
-    val proteinGoal = remember { userSettingsDataSource.getProteinGoalG() }
-    val carbsGoal = remember { userSettingsDataSource.getCarbsGoalG() }
-    val fatGoal = remember { userSettingsDataSource.getFatGoalG() }
+    var proteinGoal by remember { mutableStateOf(userSettingsDataSource.getProteinGoalG()) }
+    var carbsGoal by remember { mutableStateOf(userSettingsDataSource.getCarbsGoalG()) }
+    var fatGoal by remember { mutableStateOf(userSettingsDataSource.getFatGoalG()) }
 
     Column(
         modifier = modifier
@@ -171,25 +171,48 @@ fun MacroDailyCounterDetail(
 
                     Spacer(Modifier.height(12.dp))
 
+                    val caloriesFromMacros = (balance.proteinG * 4) + (balance.carbG * 4) + (balance.fatG * 9)
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(Color(0xFFF5F5F5), RoundedCornerShape(12.dp))
                             .padding(16.dp)
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                text = "Total Calories from Macros",
-                                fontSize = 12.sp,
-                                color = Color(0xFF999999)
-                            )
-                            val caloriesFromMacros = (balance.proteinG * 4) + (balance.carbG * 4) + (balance.fatG * 9)
-                            Text(
-                                text = "${caloriesFromMacros.toInt()} kcal",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    text = "Total Calories",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF999999)
+                                )
+                                Text(
+                                    text = "${balance.intake.toInt()} kcal",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
+                            }
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                horizontalAlignment = Alignment.End
+                            ) {
+                                Text(
+                                    text = "From Macros",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF999999)
+                                )
+                                Text(
+                                    text = "${caloriesFromMacros.toInt()} kcal",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF757575)
+                                )
+                            }
                         }
                     }
                 }
@@ -209,9 +232,9 @@ fun MacroDailyCounterDetail(
             onDismiss = { showGoalEditDialog = null },
             onSave = { newGoal ->
                 when (showGoalEditDialog) {
-                    "protein" -> userSettingsDataSource.setProteinGoalG(newGoal)
-                    "carbs" -> userSettingsDataSource.setCarbsGoalG(newGoal)
-                    "fat" -> userSettingsDataSource.setFatGoalG(newGoal)
+                    "protein" -> { userSettingsDataSource.setProteinGoalG(newGoal); proteinGoal = newGoal }
+                    "carbs" -> { userSettingsDataSource.setCarbsGoalG(newGoal); carbsGoal = newGoal }
+                    "fat" -> { userSettingsDataSource.setFatGoalG(newGoal); fatGoal = newGoal }
                 }
                 showGoalEditDialog = null
             }
