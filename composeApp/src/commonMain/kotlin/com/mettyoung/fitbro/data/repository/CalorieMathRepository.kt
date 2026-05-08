@@ -53,7 +53,10 @@ class CalorieMathRepositoryImpl : CalorieMathRepository {
                 bmr = metabolism.bmr,
                 tef = tef,
                 neat = neat,
-                eat = eat
+                eat = eat,
+                proteinG = intake.proteinG,
+                carbG = intake.carbG,
+                fatG = intake.fatG
             )
         )
     }

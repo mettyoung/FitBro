@@ -8,5 +8,8 @@ data class DailyBalance(
     val bmr: Double = 0.0,
     val tef: Double = 0.0,
     val neat: Double = 0.0,
-    val eat: Double = 0.0
+    val eat: Double = 0.0,
+    val proteinG: Double = 0.0,
+    val carbG: Double = 0.0,
+    val fatG: Double = 0.0
 )
