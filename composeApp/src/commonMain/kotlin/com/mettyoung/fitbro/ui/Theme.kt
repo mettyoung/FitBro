@@ -8,7 +8,6 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
@@ -17,6 +16,11 @@ val MiBackground = Color(0xFFF6F6F6)
 val MiCardBackground = Color(0xFFFFFFFF)
 val MiTextPrimary = Color(0xFF000000)
 val MiTextSecondary = Color(0xFF888888)
+
+// Macro Colors
+val ColorProtein = Color(0xFF5C6BC0)
+val ColorCarbs = Color(0xFFFFA726)
+val ColorFat = Color(0xFF66BB6A)
 
 private val LightColorScheme = lightColorScheme(
     primary = MiOrange,

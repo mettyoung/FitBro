@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.ui.MiTextSecondary
 import kotlin.math.abs
 
 @Composable
@@ -35,28 +36,38 @@ fun CalorieBalanceChart(
 ) {
     if (balances.isEmpty()) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Text("No data available", style = MaterialTheme.typography.bodyMedium)
+            Text("No data available", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
         }
         return
     }
 
-    val maxAbsBalance = balances.maxOf { abs(it.balance) }.coerceAtLeast(1.0)
+    val maxAbsBalance = balances.maxOf { abs(it.balance) }.coerceAtLeast(100.0).coerceAtMost(2000.0)
 
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom
-    ) {
-        // Ensure we always show 7 days if possible, or exactly what's provided
-        val displayBalances = if (balances.size > 7) balances.takeLast(7) else balances
-        
-        displayBalances.forEach { balance ->
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                CalorieBarItem(
-                    balance = balance,
-                    maxAbsBalance = maxAbsBalance,
-                    onClick = { onBarClick(balance) }
-                )
+    Box(modifier = modifier) {
+        // Zero Line
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .align(Alignment.Center)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+        )
+
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            val displayBalances = if (balances.size > 7) balances.takeLast(7) else balances
+            
+            displayBalances.forEach { balance ->
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    CalorieBarItem(
+                        balance = balance,
+                        maxAbsBalance = maxAbsBalance,
+                        onClick = { onBarClick(balance) }
+                    )
+                }
             }
         }
     }
@@ -71,47 +82,55 @@ private fun CalorieBarItem(
     val positiveColor = Color(0xFF4CAF50)
     val negativeColor = Color(0xFFF44336)
     val color = if (balance.balance >= 0) positiveColor else negativeColor
-    val heightFactor = (abs(balance.balance) / maxAbsBalance).toFloat().coerceIn(0.1f, 1f)
+    val heightFactor = (abs(balance.balance) / maxAbsBalance).toFloat().coerceIn(0.05f, 1f)
 
     Column(
         modifier = Modifier
             .fillMaxHeight()
-            .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Bottom
+            .padding(horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Top half (positive)
         Box(
-            modifier = Modifier
-                .weight(1f)
-                .width(14.dp),
-            contentAlignment = if (balance.balance >= 0) Alignment.BottomCenter else Alignment.TopCenter
+            modifier = Modifier.weight(1f).width(16.dp),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            // Background track
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(BarShape)
-                    .background(color.copy(alpha = 0.08f))
-            )
-            
-            // The actual bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(heightFactor)
-                    .clip(BarShape)
-                    .background(color)
-            )
+            if (balance.balance > 0) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(heightFactor)
+                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                        .background(color)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(4.dp)) // Space for the zero line area
+
+        // Bottom half (negative)
+        Box(
+            modifier = Modifier.weight(1f).width(16.dp),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            if (balance.balance < 0) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(heightFactor)
+                        .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
+                        .background(color)
+                )
+            }
         }
 
         Spacer(Modifier.height(8.dp))
 
         Text(
             text = balance.date.toDayInitial(),
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            color = MiTextSecondary,
             fontWeight = FontWeight.Bold
         )
     }
@@ -132,8 +151,5 @@ private fun dayOfWeekInitial(year: Int, month: Int, day: Int): String {
     val k = y % 100
     val j = y / 100
     val h = (day + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 - 2 * j).mod(7)
-    // 0: Sat, 1: Sun, 2: Mon, 3: Tue, 4: Wed, 5: Thu, 6: Fri
     return listOf("S", "S", "M", "T", "W", "T", "F")[h]
 }
-
-private val BarShape = RoundedCornerShape(12.dp)

@@ -7,11 +7,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -46,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
@@ -57,6 +61,7 @@ import com.mettyoung.fitbro.util.plusDays
 import com.mettyoung.fitbro.util.toDisplayRange
 import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -114,233 +119,187 @@ fun DashboardContent(
         }
     }
 
+    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(24.dp))
-            
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Dashboard",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
-                    )
-                    Text(
-                        text = "Mi Fitness Style",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MiOrange,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = { wasRefreshing = true; onRefresh() },
-                        enabled = !isLoading
-                    ) {
-                        if (isLoading && wasRefreshing) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MiOrange)
-                        } else {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MiOrange)
-                        }
-                    }
-                    IconButton(onClick = { showPicker = true }) {
-                        Icon(Icons.Default.DateRange, contentDescription = "Select Date", tint = MiOrange)
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            // Date Navigator
-            Row(
+            // Immersive Header Area
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(28.dp))
-                    .padding(vertical = 4.dp, horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(top = statusBarPadding, bottom = 24.dp, start = 20.dp, end = 20.dp)
             ) {
-                IconButton(onClick = {
-                    val newStart = startDate.minusDays(7)
-                    onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
-                }) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev", tint = MiOrange)
-                }
-
-                Text(
-                    text = startDate.toDisplayRange(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold
-                )
-
-                IconButton(
-                    onClick = {
-                        val newStart = startDate.plusDays(7)
-                        onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
-                    },
-                    enabled = canGoNext
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "Next",
-                        tint = if (canGoNext) MiOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            when (val uiState = state.uiState) {
-                is DashboardUiState.Loading -> {
-                    Box(
-                        modifier = Modifier.height(300.dp).fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = MiOrange)
-                    }
-                }
-                is DashboardUiState.Success -> {
-                    // Summary Card with Chart - Representing the 7-day sliding window
-                    SlidingWindowInsightCard(
-                        balances = uiState.balances,
-                        onBarClick = { selectedBreakdown = it },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    
-                    Spacer(Modifier.height(24.dp))
-                    
-                    // Condensed Daily History Section
-                    Text(
-                        text = "Daily History",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
-                    )
-                    
-                    Card(
+                Column {
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(28.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                            uiState.balances.forEachIndexed { index, balance ->
-                                CondensedLogItem(
-                                    balance = balance,
-                                    onClick = { selectedBreakdown = balance }
-                                )
-                                if (index < uiState.balances.size - 1) {
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 24.dp),
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (uiState.warnings.isNotEmpty()) {
-                        Spacer(Modifier.height(20.dp))
-                        uiState.warnings.forEach { warning ->
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
-                                shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("⚠️", fontSize = 16.sp)
-                                    Spacer(Modifier.width(12.dp))
-                                    Text(
-                                        text = warning,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFFC62828),
-                                        lineHeight = 16.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                is DashboardUiState.Error -> {
-                    Box(
-                        modifier = Modifier.height(300.dp).fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
+                        Column {
                             Text(
-                                text = uiState.message,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
+                                text = "Balance",
+                                style = MaterialTheme.typography.headlineMedium.copy(fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
                             )
-                            Button(
-                                onClick = onRefresh,
-                                shape = RoundedCornerShape(24.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                            Text(
+                                text = "Your metabolic journey",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MiOrange,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = { wasRefreshing = true; onRefresh() },
+                                enabled = !isLoading
                             ) {
-                                Text("Retry")
+                                if (isLoading && wasRefreshing) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MiOrange)
+                                } else {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MiOrange)
+                                }
                             }
+                            IconButton(onClick = { showPicker = true }) {
+                                Icon(Icons.Default.DateRange, contentDescription = "Select Date", tint = MiOrange)
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+
+                    // Date Navigator
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background, RoundedCornerShape(28.dp))
+                            .padding(vertical = 4.dp, horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = {
+                            val newStart = startDate.minusDays(7)
+                            onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev", tint = MiOrange)
+                        }
+
+                        Text(
+                            text = startDate.toDisplayRange(),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        IconButton(
+                            onClick = {
+                                val newStart = startDate.plusDays(7)
+                                onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
+                            },
+                            enabled = canGoNext
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = "Next",
+                                tint = if (canGoNext) MiOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            )
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
-            SyncStatusBar(state = state)
-            Spacer(Modifier.height(32.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp)
+            ) {
+                Spacer(Modifier.height(20.dp))
+
+                when (val uiState = state.uiState) {
+                    is DashboardUiState.Loading -> {
+                        Box(
+                            modifier = Modifier.height(300.dp).fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = MiOrange)
+                        }
+                    }
+                    is DashboardUiState.Success -> {
+                        // Today's Quick Status (if today is in range)
+                        uiState.balances.find { it.date == today }?.let { todayBalance ->
+                            TodayStatusCard(balance = todayBalance, onClick = { selectedBreakdown = todayBalance })
+                            Spacer(Modifier.height(24.dp))
+                        }
+
+                        // Summary Card with Chart
+                        SlidingWindowInsightCard(
+                            balances = uiState.balances,
+                            onBarClick = { selectedBreakdown = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        
+                        Spacer(Modifier.height(24.dp))
+                        
+                        // Daily History Section
+                        Text(
+                            text = "Daily History",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
+                        )
+                        
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(28.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                uiState.balances.reversed().forEachIndexed { index, balance ->
+                                    CondensedLogItem(
+                                        balance = balance,
+                                        onClick = { selectedBreakdown = balance }
+                                    )
+                                    if (index < uiState.balances.size - 1) {
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(horizontal = 24.dp),
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (uiState.warnings.isNotEmpty()) {
+                            Spacer(Modifier.height(20.dp))
+                            uiState.warnings.forEach { warning ->
+                                WarningCard(message = warning)
+                            }
+                        }
+                    }
+                    is DashboardUiState.Error -> {
+                        ErrorView(message = uiState.message, onRetry = onRefresh)
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+                SyncStatusBar(state = state)
+                Spacer(Modifier.height(32.dp))
+            }
         }
 
         if (showSuccessToast) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 64.dp)
-                    .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(24.dp))
-                    .padding(horizontal = 24.dp, vertical = 12.dp)
-            ) {
-                Text("Sync successful", color = Color.White, style = MaterialTheme.typography.bodySmall)
-            }
+            SuccessToast(modifier = Modifier.align(Alignment.BottomCenter))
         }
     }
 
     refreshError?.let { error ->
-        AlertDialog(
-            onDismissRequest = { refreshError = null },
-            title = { Text("Sync Failed") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(error, style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        suggestAction(error),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { refreshError = null }) { Text("OK", color = MiOrange) }
-            }
-        )
+        ErrorDialog(error = error, onDismiss = { refreshError = null })
     }
 
     selectedBreakdown?.let { breakdown ->
-        BreakdownDialog(
-            balance = breakdown,
-            onDismiss = { selectedBreakdown = null }
-        )
+        BreakdownDialog(balance = breakdown, onDismiss = { selectedBreakdown = null })
     }
 
     if (showPicker) {
@@ -353,6 +312,126 @@ fun DashboardContent(
             }
         )
     }
+}
+
+@Composable
+private fun TodayStatusCard(balance: DailyBalance, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MiOrange)
+    ) {
+        Row(
+            modifier = Modifier.padding(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Today's Balance", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "${if (balance.balance >= 0) "+" else ""}${balance.balance.roundToInt()} kcal",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(if (balance.balance >= 0) "↑" else "↓", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun WarningCard(message: String) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("⚠️", fontSize = 16.sp)
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFFC62828),
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun ErrorView(message: String, onRetry: () -> Unit) {
+    Box(
+        modifier = Modifier.height(300.dp).fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp)
+            )
+            Button(
+                onClick = onRetry,
+                shape = RoundedCornerShape(24.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+            ) {
+                Text("Retry")
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuccessToast(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .padding(bottom = 32.dp)
+            .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(24.dp))
+            .padding(horizontal = 24.dp, vertical = 12.dp)
+    ) {
+        Text("Sync successful", color = Color.White, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun ErrorDialog(error: String, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Sync Failed", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(error, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    suggestAction(error),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("OK", color = MiOrange, fontWeight = FontWeight.Bold) }
+        },
+        shape = RoundedCornerShape(28.dp)
+    )
 }
 
 @Composable
@@ -389,7 +468,8 @@ private fun SlidingWindowInsightCard(
                         text = "Average Daily Balance",
                         style = MaterialTheme.typography.labelSmall,
                         color = MiTextSecondary,
-                        letterSpacing = 1.sp
+                        letterSpacing = 1.sp,
+                        fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -405,7 +485,8 @@ private fun SlidingWindowInsightCard(
                         Text(
                             text = "Weekly Total: ${formatCalorieValue(metrics.totalBalance)} kcal",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MiTextSecondary
+                            color = MiTextSecondary,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -448,13 +529,12 @@ private fun CondensedLogItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            // Very compact date/day
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(32.dp)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(36.dp)) {
                 Text(
                     text = balance.date.toDayAbbr(),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
@@ -463,42 +543,40 @@ private fun CondensedLogItem(
                 )
                 Text(
                     text = balance.date.split("-").last(),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.ExtraBold
                 )
             }
             
-            Spacer(Modifier.width(20.dp))
+            Spacer(Modifier.width(24.dp))
             
-            // Intake/Burn summary
             Column {
                 Text(
-                    text = "${balance.intake.roundToInt()} kcal in",
+                    text = "${balance.intake.roundToInt()} in",
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "${balance.burn.roundToInt()} kcal out",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    text = "${balance.burn.roundToInt()} out",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MiTextSecondary
                 )
             }
         }
         
-        // Net balance
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "${if (balance.balance >= 0) "+" else ""}${balance.balance.roundToInt()}",
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold,
                 color = balanceColor
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(12.dp))
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
-                tint = MiTextSecondary.copy(alpha = 0.5f)
+                tint = MiTextSecondary.copy(alpha = 0.3f)
             )
         }
     }
@@ -519,13 +597,12 @@ private fun dayOfWeekAbbr(year: Int, month: Int, day: Int): String {
     val k = y % 100
     val j = y / 100
     val h = (day + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 - 2 * j).mod(7)
-    // 0: Saturday, 1: Sunday, 2: Monday, 3: Tuesday, 4: Wednesday, 5: Thursday, 6: Friday
     return listOf("SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI")[h]
 }
 
 private fun formatCalorieValue(value: Double): String {
     val v = value.toInt()
-    return if (v >= 1000) "${v / 1000}.${(v % 1000) / 100}k" else v.toString()
+    return if (abs(v) >= 1000) "${v / 1000}.${(abs(v) % 1000) / 100}k" else v.toString()
 }
 
 private fun suggestAction(errorMessage: String): String = when {
@@ -555,7 +632,8 @@ private fun SyncStatusBar(state: DashboardState) {
         Text(
             text = statusText,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            fontWeight = FontWeight.Medium
         )
         if (isOffline && !isLoading) {
             Spacer(Modifier.width(8.dp))
@@ -567,7 +645,8 @@ private fun SyncStatusBar(state: DashboardState) {
                 Text(
                     text = "Offline",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFC62828)
+                    color = Color(0xFFC62828),
+                    fontWeight = FontWeight.Bold
                 )
             }
         }

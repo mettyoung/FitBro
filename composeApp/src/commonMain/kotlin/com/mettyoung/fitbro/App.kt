@@ -1,7 +1,6 @@
 package com.mettyoung.fitbro
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -54,9 +53,7 @@ fun App() {
             stateHolder = stateHolder,
             balances = balances,
             userSettingsDataSource = userSettingsDataSource,
-            modifier = Modifier
-                .safeContentPadding()
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         )
     }
 }
