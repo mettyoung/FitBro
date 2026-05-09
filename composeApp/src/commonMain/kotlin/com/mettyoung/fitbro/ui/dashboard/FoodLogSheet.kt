@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.food.FoodResult
 import com.mettyoung.fitbro.data.food.FoodSearchResult
 import com.mettyoung.fitbro.data.food.OpenFoodFactsDataSource
+import com.mettyoung.fitbro.data.food.OpenFoodFactsError
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.ServingUnit
 import com.mettyoung.fitbro.ui.MiOrange
@@ -68,7 +69,7 @@ private sealed class SearchState {
     object Loading : SearchState()
     data class Results(val items: List<FoodSearchResult>) : SearchState()
     object Empty : SearchState()
-    object Error : SearchState()
+    data class Error(val isNetwork: Boolean) : SearchState()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -181,7 +182,10 @@ private fun FoodSearchContent(
                             is FoodResult.Success ->
                                 if (r.value.isEmpty()) SearchState.Empty
                                 else SearchState.Results(r.value)
-                            is FoodResult.Failure -> SearchState.Error
+                            is FoodResult.Failure -> when (r.error) {
+                                is OpenFoodFactsError.EmptyResults -> SearchState.Empty
+                                else -> SearchState.Error(isNetwork = true)
+                            }
                         }
                     }
                 } else {
@@ -233,12 +237,15 @@ private fun FoodSearchContent(
                     modifier = Modifier.fillMaxWidth().height(200.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Search failed. Try again.", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        text = if (state.isNetwork) "Search failed. Try again." else "Something went wrong.",
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
             is SearchState.Results -> {
                 LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
-                    items(state.items, key = { "${it.name}_${it.brand}" }) { food ->
+                    itemsIndexed(state.items, key = { index, food -> "${index}_${food.name}_${food.brand}" }) { _, food ->
                         FoodResultRow(food = food, onClick = { onSelectFood(food) })
                         HorizontalDivider(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
