@@ -9,6 +9,9 @@ interface UserSettingsDataSource {
 
     fun getFatGoalG(): Double
     fun setFatGoalG(grams: Double)
+
+    fun getCalorieGoalKcal(): Double
+    fun setCalorieGoalKcal(kcal: Double)
 }
 
 expect fun createUserSettingsDataSource(): UserSettingsDataSource

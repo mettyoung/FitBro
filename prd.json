@@ -1,15 +1,18 @@
 {
   "project": "FitBro",
-  "branchName": "ralph/tef-macro-precision",
-  "description": "Improve TEF (Thermic Effect of Food) accuracy by computing it from macronutrient breakdown (protein, carbs, fat) instead of a flat 10% of total calories. Requires fetching macro data from Health Connect (Android) and HealthKit (iOS), adding macro fields to DailyIntake, and updating CalorieMathRepository with the macro-weighted formula.",
+  "branchName": "ralph/macro-food-diary",
+  "description": "Redesign Macros tab with circle chart macro summary header and meal-grouped food diary. Food search via OpenFoodFacts API. Persist diary to local SQLDelight DB (source of truth) with supplemental HealthConnect write. Includes edit/delete, shared date state with Balance tab, and weekly macro trends.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add macro fields to DailyIntake model",
-      "description": "As a developer, I need protein, carb, and fat gram fields on DailyIntake so the repository can compute precise TEF.",
+      "title": "SQLDelight schema for food diary",
+      "description": "As a developer, I need a local relational store for food diary entries so data persists and is queryable across days.",
       "acceptanceCriteria": [
-        "Add `proteinG: Double = 0.0`, `carbG: Double = 0.0`, `fatG: Double = 0.0` to DailyIntake data class",
-        "All fields default to 0.0 so existing code compiles without changes",
+        "Add SQLDelight dependency to composeApp/build.gradle.kts: app.cash.sqldelight:gradle-plugin, android-driver, native-driver, coroutines-extensions",
+        "Create composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/FoodDiary.sq with FoodDiaryEntry table: id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, mealType TEXT NOT NULL (BREAKFAST|LUNCH|DINNER|SNACKS), foodName TEXT NOT NULL, brandName TEXT, calories REAL NOT NULL, proteinG REAL NOT NULL, carbG REAL NOT NULL, fatG REAL NOT NULL, servingSizeG REAL NOT NULL, servingUnit TEXT NOT NULL (g|oz|serving)",
+        "Generate typesafe queries in .sq file: insertEntry, getEntriesByDate, getEntriesByDateAndMeal, updateEntry, deleteEntry, getDailyTotals (SUM aggregation)",
+        "Wire AndroidSqliteDriver in androidMain and NativeSqliteDriver in iosMain via expect/actual createDatabaseDriver()",
+        "Database class FitBroDatabase accessible from commonMain",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -18,27 +21,32 @@
     },
     {
       "id": "US-002",
-      "title": "Fetch macro data from Health Connect (Android)",
-      "description": "As a developer, I need to read daily protein, carb, and fat totals from Health Connect so Android users get precise TEF.",
+      "title": "OpenFoodFacts data source",
+      "description": "As a developer, I need a data source that queries OpenFoodFacts so users can search for real foods.",
       "acceptanceCriteria": [
-        "readDailyIntake in HealthDataSource.android.kt fetches NutritionRecord.PROTEIN_TOTAL, NutritionRecord.TOTAL_CARBOHYDRATE, NutritionRecord.TOTAL_FAT using aggregateGroupByPeriod with Period.ofDays(1)",
-        "Populate proteinG, carbG, fatG fields on DailyIntake (grams, not kcal)",
-        "If a macro aggregate returns null for a day, default that field to 0.0",
-        "Add READ_NUTRITION permission is already present in AndroidManifest.xml — no manifest changes needed",
+        "Create data class FoodSearchResult(name: String, brand: String?, caloriesPer100g: Double, proteinPer100g: Double, carbPer100g: Double, fatPer100g: Double, servingSizeG: Double?) in com.mettyoung.fitbro.data.model",
+        "Create sealed class OpenFoodFactsError: NetworkError(message), ParseError, EmptyResults in com.mettyoung.fitbro.data.food",
+        "Create interface OpenFoodFactsDataSource in commonMain with suspend fun search(query: String): Result<List<FoodSearchResult>, OpenFoodFactsError>",
+        "Implement OpenFoodFactsDataSourceImpl using existing Ktor client: GET https://world.openfoodfacts.org/cgi/search.pl?search_terms={query}&action=process&json=1&page_size=20",
+        "Include User-Agent header: FitBro/1.0 (Android; emmettyoung92@gmail.com)",
+        "Map response: product.product_name -> name, product.brands -> brand, product.nutriments.energy-kcal_100g -> caloriesPer100g, nutriments.proteins_100g -> proteinPer100g, nutriments.carbohydrates_100g -> carbPer100g, nutriments.fat_100g -> fatPer100g, product.serving_quantity -> servingSizeG",
+        "Return EmptyResults when products array is empty or null",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "IMPLEMENTED: NutritionRecord.PROTEIN_TOTAL fetches successfully. NutritionRecord.TOTAL_CARBOHYDRATE and TOTAL_FAT constants unavailable in Health Connect v1.1.0-alpha12 (API limitation, not code issue). Carbs/fats properly defaulted to 0.0 per AC. TEF formula in US-004 handles zero macro values correctly. HealthKit (iOS) provides all three metrics, suggesting they may be added to Health Connect in future versions."
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Fetch macro data from HealthKit (iOS)",
-      "description": "As a developer, I need to read daily protein, carb, and fat totals from HealthKit so iOS users get precise TEF.",
+      "title": "Food diary repository",
+      "description": "As a developer, I need a repository that orchestrates diary reads/writes and computes daily macro totals so the UI has a single source of truth.",
       "acceptanceCriteria": [
-        "readDailyIntake in HealthDataSource.ios.kt fetches HKQuantityTypeIdentifierDietaryProtein, HKQuantityTypeIdentifierDietaryCarbohydrates, HKQuantityTypeIdentifierDietaryFatTotal using HKSampleQuery summed per day",
-        "Populate proteinG, carbG, fatG on DailyIntake in grams",
-        "If no samples exist for a macro on a given day, default to 0.0",
+        "Create data class DailyMacroTotals(date: String, calories: Double, proteinG: Double, carbG: Double, fatG: Double) in com.mettyoung.fitbro.data.model",
+        "Create data class FoodDiaryEntry(id: Long = 0, date: String, mealType: String, foodName: String, brandName: String? = null, calories: Double, proteinG: Double, carbG: Double, fatG: Double, servingSizeG: Double, servingUnit: String) in com.mettyoung.fitbro.data.model",
+        "Create interface FoodDiaryRepository in commonMain with: getEntriesForDate(date: String): Flow<List<FoodDiaryEntry>>, addEntry(entry: FoodDiaryEntry): Long, updateEntry(entry: FoodDiaryEntry), deleteEntry(id: Long), getDailyTotals(date: String): Flow<DailyMacroTotals>",
+        "Implement FoodDiaryRepositoryImpl using SQLDelight generated queries from US-001",
+        "getDailyTotals returns DailyMacroTotals with all fields 0.0 when no entries exist for date (no null)",
         "Typecheck passes"
       ],
       "priority": 3,
@@ -47,17 +55,176 @@
     },
     {
       "id": "US-004",
-      "title": "Update CalorieMathRepository to compute macro-based TEF",
-      "description": "As a developer, I need the TEF formula to use macros when available so calorie burn estimates are more accurate.",
+      "title": "FoodDiaryStateHolder",
+      "description": "As a developer, I need a state holder that exposes food diary entries and daily macro totals as StateFlow so composables can observe changes reactively.",
       "acceptanceCriteria": [
-        "TEF formula: `(proteinG * 4 * 0.25) + (carbG * 4 * 0.08) + (fatG * 9 * 0.03)`",
-        "Fall back to `totalCalories * 0.10` when all three macro fields are 0.0 (data unavailable)",
-        "Update Metabolism.tef field with computed value (existing `tef` field on Metabolism, or compute inline in repository)",
-        "Existing CalorieMathRepositoryTest still compiles; update tests if needed to cover macro path and fallback path",
-        "Typecheck passes",
-        "Tests pass"
+        "Create FoodDiaryState data class: entries: Map<String, List<FoodDiaryEntry>> (keyed by MealType string), dailyTotals: DailyMacroTotals, isLoading: Boolean, error: String?",
+        "Create FoodDiaryStateHolder(repository: FoodDiaryRepository, userSettingsDataSource: UserSettingsDataSource, scope: CoroutineScope) in com.mettyoung.fitbro.ui.dashboard",
+        "Expose state: StateFlow<FoodDiaryState> computed from repository.getEntriesForDate + getDailyTotals for current date",
+        "Expose selectedDate: StateFlow<String> defaulting to today (use DateUtil for today's date string)",
+        "Function setDate(date: String) updates selectedDate and re-loads entries/totals for new date",
+        "Function addEntry(entry: FoodDiaryEntry), updateEntry(entry: FoodDiaryEntry), deleteEntry(id: Long) delegate to repository",
+        "Typecheck passes"
       ],
       "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "HealthConnect sync on diary write",
+      "description": "As a developer, I need diary writes to also push a NutritionRecord to HealthConnect so other health apps see the user's food data.",
+      "acceptanceCriteria": [
+        "Add suspend fun writeNutritionRecord(entry: FoodDiaryEntry) to HealthDataSource expect interface in commonMain",
+        "androidMain implementation: insert HealthConnect NutritionRecord with energy (calories as Calories), protein (Mass.grams(proteinG)), totalCarbohydrate (Mass.grams(carbG)), totalFat (Mass.grams(fatG)), mealType mapped from entry.mealType (BREAKFAST->MEAL_TYPE_BREAKFAST, LUNCH->MEAL_TYPE_LUNCH, DINNER->MEAL_TYPE_DINNER, SNACKS->MEAL_TYPE_SNACK)",
+        "iosMain implementation: no-op stub (fun writeNutritionRecord(entry: FoodDiaryEntry) = Unit)",
+        "FoodDiaryStateHolder.addEntry and updateEntry call healthDataSource.writeNutritionRecord in a fire-and-forget launch (exception caught and logged, does NOT propagate to caller)",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Macro summary header composable",
+      "description": "As a user, I want to see my macro progress at a glance in the top of the Macros tab so I know where I stand for the day.",
+      "acceptanceCriteria": [
+        "Create MacroCircleChart(label: String, consumed: Double, goal: Double, color: Color, modifier: Modifier) composable using Canvas drawArc: background arc (surfaceVariant, 270deg sweep), foreground arc (color, sweep = min(consumed/goal, 1f) * 270deg), center text shows consumed rounded to 0 decimal places",
+        "Create MacroSummaryHeader(totals: DailyMacroTotals, goals: MacroGoals, modifier: Modifier) composable: Row with three MacroCircleChart (Carbs=primary, Protein=error, Fat=tertiary), below that calorie text '1,450 / 2,000 kcal' (manual number formatting, no String.format), LinearProgressIndicator with progress = min(calories/goalCalories, 1f)",
+        "Progress indicator color: green (Color(0xFF4CAF50)) when progress < 0.85f, amber (Color(0xFFFFC107)) when 0.85f..1.0f, red (MaterialTheme.colorScheme.error) when > 1.0f",
+        "MacroGoals data class (or reuse existing goal fields from UserSettingsDataSource): calorieGoal, proteinGoalG, carbGoalG, fatGoalG",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Food diary list grouped by meal",
+      "description": "As a user, I want to see my logged foods organized by meal so I can track what I ate and when.",
+      "acceptanceCriteria": [
+        "Refactor MacroDailyCounterDetail to accept FoodDiaryStateHolder as param alongside existing UserSettingsDataSource",
+        "Top ~1/3: MacroSummaryHeader(totals = state.dailyTotals, goals = userGoals)",
+        "Bottom ~2/3: LazyColumn with four FoodDiarySection composables in order: BREAKFAST, LUNCH, DINNER, SNACKS",
+        "FoodDiarySection(mealType: String, entries: List<FoodDiaryEntry>, sectionCalories: Double, onAddClick: () -> Unit, onEntryClick: (FoodDiaryEntry) -> Unit, onDeleteClick: (Long) -> Unit): section header Row with meal name + sectionCalories + add icon button; if entries empty show 'No foods logged' placeholder text; each entry row shows foodName, servingSizeG+servingUnit, calories, macros in small text",
+        "Empty meal sections are always visible (never hidden)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Food search sheet",
+      "description": "As a user, I want to search for foods by name so I can find what I want to log.",
+      "acceptanceCriteria": [
+        "Create FoodSearchSheet(mealType: String, date: String, onDismiss: () -> Unit, dataSource: OpenFoodFactsDataSource) as ModalBottomSheet",
+        "Search bar (TextField) auto-focused on sheet open using FocusRequester + LaunchedEffect",
+        "Typing in search bar debounces 500ms then calls dataSource.search(query)",
+        "Loading state: CircularProgressIndicator centered",
+        "Results: LazyColumn of FoodSearchResultRow(result: FoodSearchResult, onClick) showing foodName, brand (if not null), caloriesPer100g + 'kcal/100g'",
+        "Empty state: Text('No results for \"<query>\"') centered",
+        "Error state (NetworkError/ParseError): Text with error message + TextButton('Retry') that re-triggers search",
+        "Tapping result transitions sheet content to FoodEntryContent (US-009) passing selected FoodSearchResult + mealType + date",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Food entry sheet — add to diary",
+      "description": "As a user, I want to set a serving size and add a food to my diary so I can log what I ate.",
+      "acceptanceCriteria": [
+        "Create FoodEntryContent(result: FoodSearchResult, mealType: String, date: String, repository: FoodDiaryRepository, onAdded: () -> Unit, prefillEntry: FoodDiaryEntry? = null) composable (used inside FoodSearchSheet and standalone for edit)",
+        "When prefillEntry is null (add mode): initial servingSize = result.servingSizeG ?: 100.0, unit = if servingSizeG != null then 'serving' else 'g'",
+        "When prefillEntry not null (edit mode): prefill servingSize and unit from entry",
+        "TextField for serving size (numeric input), SegmentedButton or DropdownMenu for unit: g / oz / serving (serving option hidden if result.servingSizeG == null)",
+        "Macro preview updates live: servingG = when unit: 'g' -> value, 'oz' -> value * 28.3495, 'serving' -> result.servingSizeG * value; then macroG = (macroPer100g * servingG) / 100.0 rounded to 1 decimal",
+        "Preview row: calories, protein, carbs, fat (all recalculated from servingG)",
+        "Add/Save button: calls repository.addEntry (add mode) or repository.updateEntry (edit mode), then onAdded()",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Edit diary entry",
+      "description": "As a user, I want to edit the serving size of a logged food so I can correct mistakes.",
+      "acceptanceCriteria": [
+        "Tapping a food entry row in FoodDiarySection calls onEntryClick(entry)",
+        "MacroDailyCounterDetail shows ModalBottomSheet containing FoodEntryContent(result = reconstructed FoodSearchResult from entry, prefillEntry = entry)",
+        "Reconstruct FoodSearchResult from FoodDiaryEntry: name=foodName, brand=brandName, macrosPer100g computed as (macro/servingSizeG)*100, servingSizeG=entry.servingSizeG",
+        "Save button calls repository.updateEntry; sheet dismisses; diary list refreshes via StateFlow",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Delete diary entry with undo",
+      "description": "As a user, I want to remove a logged food with an undo option so I can fix mistakes safely.",
+      "acceptanceCriteria": [
+        "onDeleteClick(id) in FoodDiarySection triggers optimistic removal: entry removed from local state immediately",
+        "SnackbarHostState shows snackbar: 'Removed <foodName>' with 'Undo' action (3s duration)",
+        "If Undo tapped: entry restored to list; repository.deleteEntry NOT called",
+        "If snackbar dismissed or timeout: repository.deleteEntry(id) called",
+        "Snackbar host wired in MacroDailyCounterDetail via Scaffold or Box + SnackbarHost",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Shared date state between Balance and Macros tabs",
+      "description": "As a user, I want date changes on either tab to be reflected everywhere so the two views stay in sync.",
+      "acceptanceCriteria": [
+        "DashboardStateHolder exposes selectedDate: StateFlow<String> (today by default, using DateUtil)",
+        "Function setSelectedDate(date: String) on DashboardStateHolder updates selectedDate",
+        "DashboardWithTabs passes stateHolder.selectedDate to FoodDiaryStateHolder.setDate when date changes (collect in LaunchedEffect)",
+        "Macros tab date selector (date chip row or reused DatePickerDialog) calls stateHolder.setSelectedDate on change",
+        "Balance tab date range selector: when user picks a single day, update stateHolder.setSelectedDate to that day",
+        "FoodDiaryStateHolder re-loads entries and totals whenever selectedDate changes",
+        "Default date is today on app launch",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Weekly macro trends chart",
+      "description": "As a user, I want to see a 7-day macro trend so I can understand my weekly eating patterns.",
+      "acceptanceCriteria": [
+        "Add getDailyTotalsForRange(startDate: String, endDate: String): Flow<List<DailyMacroTotals>> to FoodDiaryRepository and FoodDiaryRepositoryImpl",
+        "FoodDiaryStateHolder exposes weeklyTotals: StateFlow<List<DailyMacroTotals>> (last 7 days including today); days with no entries included with all-zero values",
+        "Create WeeklyTrendsCard(weeklyTotals: List<DailyMacroTotals>, modifier: Modifier) composable: collapsible Card with expand/collapse toggle",
+        "Inside card: Canvas-based grouped bar chart — for each of 7 days, 4 bars (calories, protein, carbs, fat) scaled to max value in dataset; day label (Mon/Tue/etc.) below each group; legend row at top",
+        "Days with zero data render as empty bars (not hidden)",
+        "WeeklyTrendsCard placed below food diary sections in MacroDailyCounterDetail LazyColumn",
+        "Day-of-week label derived from date string using Zeller's congruence (already documented in progress.txt: h=0→Sat, h=1→Sun, h=2→Mon, h=3→Tue, h=4→Wed, h=5→Thu, h=6→Fri)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
       "passes": true,
       "notes": ""
     }

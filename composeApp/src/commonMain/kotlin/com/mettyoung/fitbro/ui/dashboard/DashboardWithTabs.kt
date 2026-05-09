@@ -17,6 +17,8 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
+import com.mettyoung.fitbro.data.food.OpenFoodFactsDataSource
 import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.settings.MacroGoalsSettings
@@ -32,11 +35,18 @@ import com.mettyoung.fitbro.ui.settings.MacroGoalsSettings
 @Composable
 fun DashboardWithTabs(
     stateHolder: DashboardStateHolder,
+    foodDiaryStateHolder: FoodDiaryStateHolder,
+    openFoodFactsDataSource: OpenFoodFactsDataSource,
     balances: List<DailyBalance>,
     userSettingsDataSource: UserSettingsDataSource,
     modifier: Modifier = Modifier
 ) {
     var selectedTabIndex by remember { mutableStateOf(0) }
+
+    val dashboardDate by stateHolder.selectedDate.collectAsState()
+    LaunchedEffect(dashboardDate) {
+        foodDiaryStateHolder.setDate(dashboardDate)
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -87,8 +97,10 @@ fun DashboardWithTabs(
             when (selectedTabIndex) {
                 0 -> DashboardScreen(stateHolder = stateHolder)
                 1 -> MacroDailyCounterDetail(
-                    balances = balances,
-                    userSettingsDataSource = userSettingsDataSource
+                    userSettingsDataSource = userSettingsDataSource,
+                    foodDiaryStateHolder = foodDiaryStateHolder,
+                    openFoodFactsDataSource = openFoodFactsDataSource,
+                    onDateSelected = stateHolder::setSelectedDate
                 )
                 2 -> MacroGoalsSettings(userSettingsDataSource = userSettingsDataSource)
             }

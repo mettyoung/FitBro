@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -33,9 +34,11 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.androidx.security.crypto)
             implementation(libs.androidx.health.connect)
+            implementation(libs.sqldelight.android)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.sqldelight.native)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -53,6 +56,8 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.multiplatform.settings)
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -89,5 +94,13 @@ android {
 
 dependencies {
     debugImplementation(libs.compose.uiTooling)
+}
+
+sqldelight {
+    databases {
+        create("FitBroDatabase") {
+            packageName.set("com.mettyoung.fitbro.data.db")
+        }
+    }
 }
 

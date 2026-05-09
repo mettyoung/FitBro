@@ -1,0 +1,57 @@
+CREATE TABLE FoodDiaryEntry (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    mealType TEXT NOT NULL,
+    foodName TEXT NOT NULL,
+    brandName TEXT,
+    calories REAL NOT NULL,
+    proteinG REAL NOT NULL,
+    carbG REAL NOT NULL,
+    fatG REAL NOT NULL,
+    servingSizeG REAL NOT NULL,
+    servingUnit TEXT NOT NULL
+);
+
+CREATE INDEX food_diary_date_idx ON FoodDiaryEntry(date);
+
+insertEntry:
+INSERT INTO FoodDiaryEntry (date, mealType, foodName, brandName, calories, proteinG, carbG, fatG, servingSizeG, servingUnit)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+getEntriesByDate:
+SELECT * FROM FoodDiaryEntry WHERE date = ? ORDER BY id ASC;
+
+getEntriesByDateAndMeal:
+SELECT * FROM FoodDiaryEntry WHERE date = ? AND mealType = ? ORDER BY id ASC;
+
+updateEntry:
+UPDATE FoodDiaryEntry
+SET foodName = ?, brandName = ?, calories = ?, proteinG = ?, carbG = ?, fatG = ?, servingSizeG = ?, servingUnit = ?
+WHERE id = ?;
+
+deleteEntry:
+DELETE FROM FoodDiaryEntry WHERE id = ?;
+
+getDailyTotals:
+SELECT
+    COALESCE(SUM(calories), 0.0) AS calories,
+    COALESCE(SUM(proteinG), 0.0) AS proteinG,
+    COALESCE(SUM(carbG), 0.0) AS carbG,
+    COALESCE(SUM(fatG), 0.0) AS fatG
+FROM FoodDiaryEntry
+WHERE date = ?;
+
+getDailyTotalsForDateRange:
+SELECT
+    date,
+    COALESCE(SUM(calories), 0.0) AS calories,
+    COALESCE(SUM(proteinG), 0.0) AS proteinG,
+    COALESCE(SUM(carbG), 0.0) AS carbG,
+    COALESCE(SUM(fatG), 0.0) AS fatG
+FROM FoodDiaryEntry
+WHERE date >= ? AND date <= ?
+GROUP BY date
+ORDER BY date ASC;

@@ -2,6 +2,7 @@ package com.mettyoung.fitbro.data.health
 
 import com.mettyoung.fitbro.data.model.ActivityBurn
 import com.mettyoung.fitbro.data.model.DailyIntake
+import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.Metabolism
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSCalendar
@@ -327,5 +328,9 @@ private class HealthKitDataSource : HealthDataSource {
             )
             healthStore.executeQuery(query)
         }
+    }
+
+    override suspend fun writeNutritionRecord(entry: FoodDiaryEntry) {
+        // iOS HealthKit write not implemented — no-op
     }
 }

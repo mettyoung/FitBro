@@ -11,6 +11,7 @@ import com.mettyoung.fitbro.data.model.Metabolism
 import com.mettyoung.fitbro.data.repository.CalorieMathRepository
 import com.mettyoung.fitbro.data.repository.CalorieResult
 import com.mettyoung.fitbro.util.currentEpochMs
+import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -36,6 +37,13 @@ class DashboardStateHolder(
         )
     )
     val state: StateFlow<DashboardState> = _state.asStateFlow()
+
+    private val _selectedDate = MutableStateFlow(todayString())
+    val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
+
+    fun setSelectedDate(date: String) {
+        _selectedDate.value = date
+    }
 
     fun refresh() {
         scope.launch(Dispatchers.Default) {
@@ -122,6 +130,9 @@ class DashboardStateHolder(
 
     fun selectDateRange(dateRange: DateRange) {
         _state.update { it.copy(selectedDateRange = dateRange) }
+        if (dateRange.startDate == dateRange.endDate) {
+            _selectedDate.value = dateRange.startDate
+        }
         refresh()
     }
 

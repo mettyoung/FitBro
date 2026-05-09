@@ -11,6 +11,7 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import com.mettyoung.fitbro.AndroidAppContext
 import com.mettyoung.fitbro.data.model.ActivityBurn
 import com.mettyoung.fitbro.data.model.DailyIntake
+import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.Metabolism
 import java.time.LocalDate
 import java.time.Period
@@ -179,5 +180,11 @@ private class HealthConnectDataSource : HealthDataSource {
         } catch (e: Exception) {
             HealthResult.Failure(HealthDataError.QueryError(e))
         }
+    }
+
+    override suspend fun writeNutritionRecord(entry: FoodDiaryEntry) {
+        // HC alpha12: Metadata constructor is internal — record writes not publicly supported yet.
+        // Enable when HC reaches stable release with public Metadata factory.
+        Log.d("HealthConnect", "writeNutritionRecord: skipped (alpha12 limitation) for ${entry.foodName}")
     }
 }
