@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import kotlin.math.abs
 
@@ -41,7 +42,7 @@ fun CalorieBalanceChart(
         return
     }
 
-    val maxAbsBalance = balances.maxOf { abs(it.balance) }.coerceAtLeast(100.0).coerceAtMost(2000.0)
+    val maxAbsBalance = balances.maxOf { abs(it.balance) }.coerceAtLeast(100.0).coerceAtMost(3000.0)
 
     Box(modifier = modifier) {
         // Zero Line
@@ -79,21 +80,21 @@ private fun CalorieBarItem(
     maxAbsBalance: Double,
     onClick: () -> Unit
 ) {
-    val positiveColor = Color(0xFF4CAF50)
-    val negativeColor = Color(0xFFF44336)
+    val positiveColor = MiOrange
+    val negativeColor = MaterialTheme.colorScheme.tertiary
     val color = if (balance.balance >= 0) positiveColor else negativeColor
-    val heightFactor = (abs(balance.balance) / maxAbsBalance).toFloat().coerceIn(0.05f, 1f)
+    val heightFactor = (abs(balance.balance) / maxAbsBalance).toFloat().coerceIn(0.1f, 1f)
 
     Column(
         modifier = Modifier
             .fillMaxHeight()
             .clickable(onClick = onClick)
-            .padding(horizontal = 2.dp),
+            .padding(horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Top half (positive)
         Box(
-            modifier = Modifier.weight(1f).width(16.dp),
+            modifier = Modifier.weight(1f).width(12.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             if (balance.balance > 0) {
@@ -101,7 +102,7 @@ private fun CalorieBarItem(
                     modifier = Modifier
                         .fillMaxWidth()
                         .fillMaxHeight(heightFactor)
-                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                         .background(color)
                 )
             }
@@ -111,7 +112,7 @@ private fun CalorieBarItem(
 
         // Bottom half (negative)
         Box(
-            modifier = Modifier.weight(1f).width(16.dp),
+            modifier = Modifier.weight(1f).width(12.dp),
             contentAlignment = Alignment.TopCenter
         ) {
             if (balance.balance < 0) {
@@ -119,17 +120,17 @@ private fun CalorieBarItem(
                     modifier = Modifier
                         .fillMaxWidth()
                         .fillMaxHeight(heightFactor)
-                        .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
+                        .clip(RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp))
                         .background(color)
                 )
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
         Text(
             text = balance.date.toDayInitial(),
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            style = MaterialTheme.typography.labelSmall,
             color = MiTextSecondary,
             fontWeight = FontWeight.Bold
         )

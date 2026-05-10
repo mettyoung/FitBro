@@ -1,5 +1,9 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -52,57 +57,55 @@ fun DashboardWithTabs(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
             NavigationBar(
-                containerColor = Color.White,
-                tonalElevation = 8.dp,
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp,
                 modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)
             ) {
-                NavigationBarItem(
-                    selected = selectedTabIndex == 0,
-                    onClick = { selectedTabIndex = 0 },
-                    icon = { Icon(Icons.Default.Info, contentDescription = null) },
-                    label = { Text("Balance") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MiOrange,
-                        selectedTextColor = MiOrange,
-                        indicatorColor = MiOrange.copy(alpha = 0.1f)
-                    )
+                val items = listOf(
+                    Triple(0, Icons.Default.Info, "Balance"),
+                    Triple(1, Icons.AutoMirrored.Filled.List, "Macros"),
+                    Triple(2, Icons.Default.Settings, "Settings")
                 )
-                NavigationBarItem(
-                    selected = selectedTabIndex == 1,
-                    onClick = { selectedTabIndex = 1 },
-                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
-                    label = { Text("Macros") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MiOrange,
-                        selectedTextColor = MiOrange,
-                        indicatorColor = MiOrange.copy(alpha = 0.1f)
+
+                items.forEach { (index, icon, label) ->
+                    NavigationBarItem(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        icon = { Icon(icon, contentDescription = null) },
+                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MiOrange,
+                            selectedTextColor = MiOrange,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            indicatorColor = Color.Transparent
+                        )
                     )
-                )
-                NavigationBarItem(
-                    selected = selectedTabIndex == 2,
-                    onClick = { selectedTabIndex = 2 },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text("Settings") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MiOrange,
-                        selectedTextColor = MiOrange,
-                        indicatorColor = MiOrange.copy(alpha = 0.1f)
-                    )
-                )
+                }
             }
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) {
-            when (selectedTabIndex) {
-                0 -> DashboardScreen(stateHolder = stateHolder)
-                1 -> MacroDailyCounterDetail(
-                    userSettingsDataSource = userSettingsDataSource,
-                    foodDiaryStateHolder = foodDiaryStateHolder,
-                    openFoodFactsDataSource = openFoodFactsDataSource,
-                    onDateSelected = stateHolder::setSelectedDate
-                )
-                2 -> MacroGoalsSettings(userSettingsDataSource = userSettingsDataSource)
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = paddingValues.calculateBottomPadding())
+        ) {
+            AnimatedContent(
+                targetState = selectedTabIndex,
+                transitionSpec = {
+                    fadeIn() togetherWith fadeOut()
+                }
+            ) { targetIndex ->
+                when (targetIndex) {
+                    0 -> DashboardScreen(stateHolder = stateHolder)
+                    1 -> MacroDailyCounterDetail(
+                        userSettingsDataSource = userSettingsDataSource,
+                        foodDiaryStateHolder = foodDiaryStateHolder,
+                        openFoodFactsDataSource = openFoodFactsDataSource,
+                        onDateSelected = stateHolder::setSelectedDate
+                    )
+                    2 -> MacroGoalsSettings(userSettingsDataSource = userSettingsDataSource)
+                }
             }
         }
     }

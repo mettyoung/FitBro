@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -45,6 +46,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
+import com.mettyoung.fitbro.ui.ColorCarbs
+import com.mettyoung.fitbro.ui.ColorFat
+import com.mettyoung.fitbro.ui.ColorProtein
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import kotlinx.coroutines.delay
@@ -57,6 +61,7 @@ fun MacroGoalsSettings(
     var proteinGoal by remember { mutableStateOf("") }
     var carbsGoal by remember { mutableStateOf("") }
     var fatGoal by remember { mutableStateOf("") }
+    var calorieGoal by remember { mutableStateOf("") }
     var isSaving by remember { mutableStateOf(false) }
     var showSuccess by remember { mutableStateOf(false) }
 
@@ -64,6 +69,7 @@ fun MacroGoalsSettings(
         proteinGoal = userSettingsDataSource.getProteinGoalG().toInt().toString()
         carbsGoal = userSettingsDataSource.getCarbsGoalG().toInt().toString()
         fatGoal = userSettingsDataSource.getFatGoalG().toInt().toString()
+        calorieGoal = userSettingsDataSource.getCalorieGoalKcal().toInt().toString()
     }
 
     LaunchedEffect(showSuccess) {
@@ -81,23 +87,23 @@ fun MacroGoalsSettings(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Immersive Header Area
+            // Premium Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
-                    .padding(top = statusBarPadding, bottom = 24.dp, start = 20.dp, end = 20.dp)
+                    .padding(top = statusBarPadding + 16.dp, bottom = 32.dp, start = 24.dp, end = 24.dp)
             ) {
                 Column {
                     Text(
                         text = "Settings",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                        style = MaterialTheme.typography.displayMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Configure your targets",
+                        text = "Customize your metabolic targets",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MiOrange,
-                        letterSpacing = 0.5.sp
+                        color = MiOrange
                     )
                 }
             }
@@ -105,49 +111,60 @@ fun MacroGoalsSettings(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                    .padding(horizontal = 24.dp)
             ) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(24.dp))
 
                 Text(
-                    text = "Daily Macro Goals",
+                    text = "Daily Goals",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 4.dp)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+                
+                Spacer(Modifier.height(16.dp))
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                         SettingsInputField(
-                            label = "Protein",
+                            label = "Daily Calorie Target",
+                            value = calorieGoal,
+                            onValueChange = { calorieGoal = it },
+                            unit = "kcal",
+                            color = MiOrange
+                        )
+
+                        SettingsInputField(
+                            label = "Protein Goal",
                             value = proteinGoal,
                             onValueChange = { proteinGoal = it },
                             unit = "g",
-                            color = Color(0xFF5C6BC0)
+                            color = ColorProtein
                         )
 
                         SettingsInputField(
-                            label = "Carbohydrates",
+                            label = "Carbohydrates Goal",
                             value = carbsGoal,
                             onValueChange = { carbsGoal = it },
                             unit = "g",
-                            color = Color(0xFFFFA726)
+                            color = ColorCarbs
                         )
 
                         SettingsInputField(
-                            label = "Fats",
+                            label = "Total Fats Goal",
                             value = fatGoal,
                             onValueChange = { fatGoal = it },
                             unit = "g",
-                            color = Color(0xFF66BB6A)
+                            color = ColorFat
                         )
                     }
                 }
+
+                Spacer(Modifier.height(32.dp))
 
                 Button(
                     onClick = {
@@ -155,35 +172,37 @@ fun MacroGoalsSettings(
                         val p = proteinGoal.toDoubleOrNull() ?: 0.0
                         val c = carbsGoal.toDoubleOrNull() ?: 0.0
                         val f = fatGoal.toDoubleOrNull() ?: 0.0
+                        val cal = calorieGoal.toDoubleOrNull() ?: 0.0
 
                         if (p > 0) userSettingsDataSource.setProteinGoalG(p)
                         if (c > 0) userSettingsDataSource.setCarbsGoalG(c)
                         if (f > 0) userSettingsDataSource.setFatGoalG(f)
+                        if (cal > 0) userSettingsDataSource.setCalorieGoalKcal(cal)
                         
                         isSaving = false
                         showSuccess = true
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(28.dp),
+                        .height(64.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MiOrange),
-                    enabled = !isSaving && proteinGoal.isNotEmpty() && carbsGoal.isNotEmpty() && fatGoal.isNotEmpty()
+                    enabled = !isSaving
                 ) {
                     if (isSaving) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
                     } else if (showSuccess) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Saved Successfully", fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(24.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text("Updated Successfully", style = MaterialTheme.typography.titleMedium, color = Color.White)
                         }
                     } else {
-                        Text("Save All Goals", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("Apply New Goals", style = MaterialTheme.typography.titleMedium, color = Color.White)
                     }
                 }
 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(48.dp))
             }
         }
     }
@@ -200,15 +219,21 @@ private fun SettingsInputField(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MiTextSecondary,
-            fontWeight = FontWeight.Bold
+            style = MaterialTheme.typography.labelSmall,
+            color = MiTextSecondary
         )
         TextField(
             value = value,
             onValueChange = { if (it.all { char -> char.isDigit() }) onValueChange(it) },
             modifier = Modifier.fillMaxWidth(),
-            trailingIcon = { Text(unit, color = color, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 12.dp)) },
+            trailingIcon = { 
+                Text(
+                    text = unit, 
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color,
+                    modifier = Modifier.padding(end = 16.dp)
+                ) 
+            },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
             shape = RoundedCornerShape(16.dp),
@@ -217,7 +242,8 @@ private fun SettingsInputField(
                 unfocusedIndicatorColor = Color.Transparent,
                 focusedContainerColor = MaterialTheme.colorScheme.background,
                 unfocusedContainerColor = MaterialTheme.colorScheme.background,
-                cursorColor = color
+                cursorColor = color,
+                focusedLabelColor = color
             )
         )
     }

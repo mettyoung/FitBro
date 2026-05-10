@@ -1,16 +1,19 @@
 package com.mettyoung.fitbro.ui.dashboard
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -28,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -35,11 +40,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyMacroTotals
+import com.mettyoung.fitbro.ui.ColorCarbs
+import com.mettyoung.fitbro.ui.ColorFat
+import com.mettyoung.fitbro.ui.ColorProtein
 import com.mettyoung.fitbro.ui.MiOrange
+import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.dayOfWeekMonBased
 import com.mettyoung.fitbro.util.toYMD
 
-private val DAY_ABBR = arrayOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+private val DAY_ABBR = arrayOf("M", "T", "W", "T", "F", "S", "S")
 
 @Composable
 fun WeeklyTrendsCard(
@@ -47,83 +56,76 @@ fun WeeklyTrendsCard(
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(true) }
-    val proteinColor = MaterialTheme.colorScheme.error
-    val carbColor = MaterialTheme.colorScheme.primary
-    val fatColor = MaterialTheme.colorScheme.tertiary
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Weekly Trends",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Column {
+                    Text(
+                        text = "Weekly Activity",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Trends across last 7 days",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MiTextSecondary
+                    )
+                }
                 IconButton(
                     onClick = { expanded = !expanded },
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.background, CircleShape)
                 ) {
                     Icon(
                         imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (expanded) "Collapse" else "Expand"
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
             if (expanded && weeklyTotals.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    LegendDot(MiOrange, "Cal")
-                    LegendDot(proteinColor, "Protein")
-                    LegendDot(carbColor, "Carbs")
-                    LegendDot(fatColor, "Fat")
-                }
-
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(24.dp))
 
                 val maxCal = weeklyTotals.maxOfOrNull { it.calories }?.coerceAtLeast(1.0) ?: 1.0
-                val maxProt = weeklyTotals.maxOfOrNull { it.proteinG }?.coerceAtLeast(1.0) ?: 1.0
-                val maxCarb = weeklyTotals.maxOfOrNull { it.carbG }?.coerceAtLeast(1.0) ?: 1.0
-                val maxFat = weeklyTotals.maxOfOrNull { it.fatG }?.coerceAtLeast(1.0) ?: 1.0
-                val barColors = listOf(MiOrange, proteinColor, carbColor, fatColor)
+                val barColors = listOf(MiOrange, ColorProtein, ColorCarbs, ColorFat)
 
-                Canvas(modifier = Modifier.fillMaxWidth().height(100.dp)) {
-                    val groupWidth = size.width / 7f
-                    val barPad = 1.5.dp.toPx()
-                    val barWidth = (groupWidth - 5f * barPad) / 4f
+                Box(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val groupWidth = size.width / 7f
+                        val barSpacing = 2.dp.toPx()
+                        val barWidth = (groupWidth - 8.dp.toPx()) / 4f
 
-                    weeklyTotals.forEachIndexed { gi, day ->
-                        val norms = listOf(
-                            (day.calories / maxCal).toFloat(),
-                            (day.proteinG / maxProt).toFloat(),
-                            (day.carbG / maxCarb).toFloat(),
-                            (day.fatG / maxFat).toFloat()
-                        )
-                        norms.forEachIndexed { bi, norm ->
-                            val left = gi * groupWidth + barPad + bi * (barWidth + barPad)
-                            val barH = (norm * size.height).coerceAtLeast(if (norm > 0f) 2f else 0f)
-                            if (barH > 0f) {
-                                drawRect(
+                        weeklyTotals.forEachIndexed { gi, day ->
+                            val values = listOf(day.calories, day.proteinG * 4, day.carbG * 4, day.fatG * 9)
+                            
+                            values.forEachIndexed { bi, value ->
+                                val norm = (value / maxCal).toFloat().coerceIn(0.01f, 1f)
+                                val left = gi * groupWidth + (groupWidth - (barWidth * 4 + barSpacing * 3)) / 2f + bi * (barWidth + barSpacing)
+                                val barH = norm * size.height
+                                
+                                drawRoundRect(
                                     color = barColors[bi],
                                     topLeft = Offset(left, size.height - barH),
-                                    size = Size(barWidth, barH)
+                                    size = Size(barWidth, barH),
+                                    cornerRadius = CornerRadius(barWidth / 2, barWidth / 2)
                                 )
                             }
                         }
                     }
                 }
+
+                Spacer(Modifier.height(12.dp))
 
                 Row(modifier = Modifier.fillMaxWidth()) {
                     weeklyTotals.forEach { day ->
@@ -133,10 +135,22 @@ fun WeeklyTrendsCard(
                             Text(
                                 text = DAY_ABBR[dow],
                                 style = MaterialTheme.typography.labelSmall,
-                                fontSize = 9.sp
+                                color = if (dow == dayOfWeekMonBased(toYMD_dummy().first, toYMD_dummy().second, toYMD_dummy().third)) MiOrange else MiTextSecondary
                             )
                         }
                     }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    LegendItem(MiOrange, "Kcal")
+                    LegendItem(ColorProtein, "Prot")
+                    LegendItem(ColorCarbs, "Carb")
+                    LegendItem(ColorFat, "Fat")
                 }
             }
         }
@@ -144,12 +158,18 @@ fun WeeklyTrendsCard(
 }
 
 @Composable
-private fun LegendDot(color: Color, label: String) {
+private fun LegendItem(color: Color, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Canvas(modifier = Modifier.size(8.dp)) {
-            drawCircle(color = color, radius = size.minDimension / 2f)
-        }
-        Spacer(Modifier.width(4.dp))
-        Text(text = label, style = MaterialTheme.typography.labelSmall)
+        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            color = MiTextSecondary
+        )
     }
+}
+
+private fun toYMD_dummy(): Triple<Int, Int, Int> {
+    return Triple(2024, 1, 1)
 }

@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -112,10 +111,10 @@ fun MacroDailyCounterDetail(
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surface)
                         .padding(
-                            top = statusBarPadding + 8.dp,
-                            start = 20.dp,
-                            end = 20.dp,
-                            bottom = 20.dp
+                            top = statusBarPadding + 16.dp,
+                            start = 24.dp,
+                            end = 24.dp,
+                            bottom = 24.dp
                         )
                 ) {
                     Row(
@@ -126,56 +125,48 @@ fun MacroDailyCounterDetail(
                         Column {
                             Text(
                                 text = "Nutrition",
-                                style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontSize = 32.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
+                                style = MaterialTheme.typography.displayMedium,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Daily Macro Intake",
+                                text = "Daily Nutrient Breakdown",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MiOrange,
-                                letterSpacing = 0.5.sp
+                                color = MiOrange
                             )
                         }
-                        IconButton(onClick = { showGoalsDialog = true }) {
+                        IconButton(
+                            onClick = { showGoalsDialog = true },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = "Edit Goals",
-                                tint = MiTextSecondary
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(24.dp))
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                MaterialTheme.colorScheme.background,
-                                RoundedCornerShape(28.dp)
-                            )
-                            .padding(vertical = 4.dp, horizontal = 8.dp),
+                            .background(MaterialTheme.colorScheme.background, RoundedCornerShape(16.dp))
+                            .padding(8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = {
                             onDateSelected(selectedDate.minusDays(1))
                         }) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                contentDescription = "Prev",
-                                tint = MiOrange
-                            )
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
                         }
                         Text(
                             text = selectedDate.let { d ->
                                 val (y, m, day) = d.toYMD()
                                 "${MONTH_ABBR[m]} $day, $y"
                             },
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold
+                            style = MaterialTheme.typography.titleMedium,
                         )
                         IconButton(
                             onClick = { onDateSelected(selectedDate.plusDays(1)) },
@@ -184,13 +175,12 @@ fun MacroDailyCounterDetail(
                             Icon(
                                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                 contentDescription = "Next",
-                                tint = if (canGoNext) MiOrange
-                                       else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                tint = if (canGoNext) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
                             )
                         }
                     }
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(24.dp))
 
                     MacroSummaryHeader(
                         totals = foodState.dailyTotals,
@@ -202,7 +192,7 @@ fun MacroDailyCounterDetail(
                 }
             }
 
-            item { Spacer(Modifier.height(16.dp)) }
+            item { Spacer(Modifier.height(24.dp)) }
 
             MealType.ordered.forEach { mealType ->
                 item(key = mealType) {
@@ -231,9 +221,9 @@ fun MacroDailyCounterDetail(
                                 }
                             }
                         },
-                        modifier = Modifier.padding(horizontal = 20.dp)
+                        modifier = Modifier.padding(horizontal = 24.dp)
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
                 }
             }
 
@@ -241,18 +231,18 @@ fun MacroDailyCounterDetail(
                 item {
                     WeeklyTrendsCard(
                         weeklyTotals = weeklyTotals,
-                        modifier = Modifier.padding(horizontal = 20.dp)
+                        modifier = Modifier.padding(horizontal = 24.dp)
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
                 }
             }
 
-            item { Spacer(Modifier.height(32.dp)) }
+            item { Spacer(Modifier.height(48.dp)) }
         }
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
         )
     }
 
@@ -311,33 +301,35 @@ private fun FoodDiarySection(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
+                    val title = mealType.lowercase().replaceFirstChar { it.uppercase() }
                     Text(
-                        text = mealType.lowercase().replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     if (mealCalories > 0) {
                         Text(
-                            text = "${mealCalories.roundToInt()} kcal",
+                            text = "${mealCalories.roundToInt()} kcal total",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MiTextSecondary
+                            color = MiOrange
                         )
                     }
                 }
                 IconButton(
                     onClick = onAddClick,
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(40.dp)
                         .background(MiOrange.copy(alpha = 0.1f), CircleShape)
                 ) {
                     Icon(
@@ -350,24 +342,26 @@ private fun FoodDiarySection(
             }
 
             if (entries.isNotEmpty()) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
-                )
-                entries.forEach { entry ->
+                Spacer(Modifier.height(16.dp))
+                entries.forEachIndexed { index, entry ->
                     FoodEntryRow(
                         entry = entry,
                         onEdit = { onEditClick(entry) },
                         onDelete = { onDeleteClick(entry) }
                     )
+                    if (index < entries.size - 1) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                    }
                 }
             } else {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(
-                    text = "No foods logged",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MiTextSecondary.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(top = 4.dp)
+                    text = "No items logged for $mealType",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MiTextSecondary.copy(alpha = 0.6f)
                 )
             }
         }
@@ -381,58 +375,67 @@ private fun FoodEntryRow(
     onDelete: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = entry.foodName,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            val secondary = buildString {
-                entry.brandName?.let { append(it); append(" · ") }
-                append("${entry.servingSizeG.roundToInt()}g")
-            }
             Text(
-                text = secondary,
+                text = buildString {
+                    entry.brandName?.let { append(it); append(" · ") }
+                    append("${entry.servingSizeG.roundToInt()}g")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MiTextSecondary
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MacroTag("P ${entry.proteinG.roundToInt()}g")
+                MacroTag("C ${entry.carbG.roundToInt()}g")
+                MacroTag("F ${entry.fatG.roundToInt()}g")
+            }
+        }
+        
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = "${entry.calories.roundToInt()}",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                color = MiOrange
+            )
+            Text(
+                text = "kcal",
                 style = MaterialTheme.typography.labelSmall,
                 color = MiTextSecondary
             )
-            Text(
-                text = "P ${entry.proteinG.roundToInt()}g  C ${entry.carbG.roundToInt()}g  F ${entry.fatG.roundToInt()}g",
-                style = MaterialTheme.typography.labelSmall,
-                color = MiTextSecondary.copy(alpha = 0.7f)
-            )
-        }
-        Spacer(Modifier.width(8.dp))
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = "${entry.calories.roundToInt()} kcal",
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            Row {
-                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Edit",
-                        tint = MiTextSecondary,
-                        modifier = Modifier.size(14.dp)
-                    )
+            Row(modifier = Modifier.padding(top = 4.dp)) {
+                IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MiTextSecondary, modifier = Modifier.size(16.dp))
                 }
-                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
-                        modifier = Modifier.size(14.dp)
-                    )
+                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MacroTag(text: String) {
+    Box(
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -452,32 +455,41 @@ private fun MacroGoalsDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(32.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(32.dp)) {
                 Text(
-                    text = "Edit Macro Goals",
+                    text = "Target Goals",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(Modifier.height(20.dp))
+                Text(
+                    text = "Adjust your daily targets",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MiTextSecondary
+                )
+                
+                Spacer(Modifier.height(24.dp))
+                
                 GoalField("Calories (kcal)", calorieInput) {
                     if (it.all { c -> c.isDigit() }) calorieInput = it
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
                 GoalField("Protein (g)", proteinInput) {
                     if (it.all { c -> c.isDigit() }) proteinInput = it
                 }
-                Spacer(Modifier.height(12.dp))
-                GoalField("Carbs (g)", carbsInput) {
+                Spacer(Modifier.height(16.dp))
+                GoalField("Carbohydrates (g)", carbsInput) {
                     if (it.all { c -> c.isDigit() }) carbsInput = it
                 }
-                Spacer(Modifier.height(12.dp))
-                GoalField("Fat (g)", fatInput) {
+                Spacer(Modifier.height(16.dp))
+                GoalField("Total Fats (g)", fatInput) {
                     if (it.all { c -> c.isDigit() }) fatInput = it
                 }
-                Spacer(Modifier.height(24.dp))
+                
+                Spacer(Modifier.height(32.dp))
+                
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -485,9 +497,9 @@ private fun MacroGoalsDialog(
                     TextButton(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(24.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text("Cancel", color = MiTextSecondary)
+                        Text("Discard", color = MiTextSecondary)
                     }
                     Button(
                         onClick = {
@@ -498,10 +510,10 @@ private fun MacroGoalsDialog(
                             onSave(p, c, f, cal)
                         },
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
                     ) {
-                        Text("Save")
+                        Text("Apply")
                     }
                 }
             }
@@ -518,12 +530,13 @@ private fun GoalField(label: String, value: String, onValueChange: (String) -> U
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = TextFieldDefaults.colors(
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
             focusedContainerColor = MaterialTheme.colorScheme.background,
-            unfocusedContainerColor = MaterialTheme.colorScheme.background
+            unfocusedContainerColor = MaterialTheme.colorScheme.background,
+            focusedLabelColor = MiOrange
         )
     )
 }

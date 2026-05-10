@@ -1,5 +1,6 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -34,8 +36,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,18 +48,23 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.food.FoodResult
 import com.mettyoung.fitbro.data.food.FoodSearchResult
 import com.mettyoung.fitbro.data.food.OpenFoodFactsDataSource
 import com.mettyoung.fitbro.data.food.OpenFoodFactsError
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.ServingUnit
+import com.mettyoung.fitbro.ui.ColorCarbs
+import com.mettyoung.fitbro.ui.ColorFat
+import com.mettyoung.fitbro.ui.ColorProtein
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import kotlinx.coroutines.Job
@@ -87,7 +95,9 @@ fun FoodSearchSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        tonalElevation = 0.dp
     ) {
         if (selectedFood == null) {
             FoodSearchContent(
@@ -133,7 +143,8 @@ fun EditEntrySheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
     ) {
         FoodEntryContent(
             food = reconstructed,
@@ -141,7 +152,7 @@ fun EditEntrySheet(
             date = entry.date,
             initialServingAmount = entry.servingSizeG,
             initialUnit = ServingUnit.GRAMS,
-            actionLabel = "Save Changes",
+            actionLabel = "Update Entry",
             onBack = onDismiss,
             onAdd = { updated -> onSave(updated.copy(id = entry.id)) }
         )
@@ -161,15 +172,22 @@ private fun FoodSearchContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 24.dp)
     ) {
         Text(
-            text = "Search Food",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
+            text = "Log Food",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface
         )
-        Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
+        Text(
+            text = "Find nutrition data for millions of items",
+            style = MaterialTheme.typography.labelSmall,
+            color = MiOrange
+        )
+        
+        Spacer(Modifier.height(24.dp))
+        
+        TextField(
             value = query,
             onValueChange = { q ->
                 query = q
@@ -192,8 +210,8 @@ private fun FoodSearchContent(
                     searchState = SearchState.Idle
                 }
             },
-            placeholder = { Text("Type food name...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            placeholder = { Text("Search ingredients, snacks, meals...", style = MaterialTheme.typography.bodyMedium) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MiOrange) },
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { query = ""; searchState = SearchState.Idle }) {
@@ -204,57 +222,65 @@ private fun FoodSearchContent(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            colors = TextFieldDefaults.colors(
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                focusedContainerColor = MaterialTheme.colorScheme.background,
+                unfocusedContainerColor = MaterialTheme.colorScheme.background
+            )
         )
-        Spacer(Modifier.height(12.dp))
+        
+        Spacer(Modifier.height(16.dp))
+        
         when (val state = searchState) {
             is SearchState.Idle -> {
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    modifier = Modifier.fillMaxWidth().height(300.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Type to search foods", color = MiTextSecondary)
+                    Text("Search results will appear here", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
                 }
             }
             is SearchState.Loading -> {
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    modifier = Modifier.fillMaxWidth().height(300.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = MiOrange)
+                    CircularProgressIndicator(color = MiOrange, strokeWidth = 3.dp)
                 }
             }
             is SearchState.Empty -> {
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    modifier = Modifier.fillMaxWidth().height(300.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No results found", color = MiTextSecondary)
+                    Text("No foods found matching \"$query\"", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
                 }
             }
             is SearchState.Error -> {
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    modifier = Modifier.fillMaxWidth().height(300.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = if (state.isNetwork) "Search failed. Try again." else "Something went wrong.",
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Text("Check your connection and try again", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                 }
             }
             is SearchState.Results -> {
-                LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
-                    itemsIndexed(state.items, key = { index, food -> "${index}_${food.name}_${food.brand}" }) { _, food ->
+                LazyColumn(modifier = Modifier.heightIn(max = 500.dp)) {
+                    itemsIndexed(state.items, key = { index, food -> "${index}_${food.name}_${food.brand}" }) { index, food ->
                         FoodResultRow(food = food, onClick = { onSelectFood(food) })
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                        )
+                        if (index < state.items.size - 1) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                        }
                     }
                 }
             }
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -264,38 +290,44 @@ private fun FoodResultRow(food: FoodSearchResult, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = food.name,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             if (food.brand != null) {
                 Text(
                     text = food.brand,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MiTextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
         }
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = "${food.caloriesPer100g.roundToInt()} kcal/100g",
-            style = MaterialTheme.typography.labelSmall,
-            color = MiTextSecondary
-        )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(16.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = "${food.caloriesPer100g.roundToInt()}",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                color = MiOrange
+            )
+            Text(
+                text = "kcal / 100g",
+                style = MaterialTheme.typography.labelSmall,
+                color = MiTextSecondary
+            )
+        }
+        Spacer(Modifier.width(12.dp))
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = MiTextSecondary,
+            tint = MiTextSecondary.copy(alpha = 0.4f),
             modifier = Modifier.size(20.dp)
         )
     }
@@ -330,67 +362,71 @@ internal fun FoodEntryContent(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 24.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                     contentDescription = null,
-                    tint = MiOrange
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = food.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (food.brand != null) {
                     Text(
                         text = food.brand,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MiTextSecondary
                     )
                 }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(24.dp))
 
         Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MiOrange.copy(alpha = 0.08f))
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(24.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 MacroPreviewItem("Calories", "${calories.roundToInt()}", "kcal", MiOrange)
-                MacroPreviewItem("Protein", formatMacroG(proteinG), "g", MaterialTheme.colorScheme.error)
-                MacroPreviewItem("Carbs", formatMacroG(carbG), "g", MaterialTheme.colorScheme.primary)
-                MacroPreviewItem("Fat", formatMacroG(fatG), "g", MaterialTheme.colorScheme.tertiary)
+                MacroPreviewItem("Protein", formatMacroG(proteinG), "g", ColorProtein)
+                MacroPreviewItem("Carbs", formatMacroG(carbG), "g", ColorCarbs)
+                MacroPreviewItem("Fat", formatMacroG(fatG), "g", ColorFat)
             }
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(32.dp))
 
         Text(
-            text = "Serving Size",
-            style = MaterialTheme.typography.labelMedium,
+            text = "SERVING SIZE",
+            style = MaterialTheme.typography.labelSmall,
             color = MiTextSecondary
         )
-        Spacer(Modifier.height(8.dp))
+        
+        Spacer(Modifier.height(12.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedTextField(
+            TextField(
                 value = servingInput,
                 onValueChange = { v ->
                     if (v.all { it.isDigit() || it == '.' } && v.count { it == '.' } <= 1) {
@@ -400,9 +436,17 @@ internal fun FoodEntryContent(
                 modifier = Modifier.weight(1f),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedContainerColor = MaterialTheme.colorScheme.background,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.background,
+                    focusedLabelColor = MiOrange
+                )
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ServingUnitChip(ServingUnit.GRAMS, servingUnit) { servingUnit = it }
                 ServingUnitChip(ServingUnit.OZ, servingUnit) { servingUnit = it }
                 if (food.servingSizeG != null) {
@@ -411,7 +455,7 @@ internal fun FoodEntryContent(
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(40.dp))
 
         Button(
             onClick = {
@@ -432,15 +476,15 @@ internal fun FoodEntryContent(
                     )
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth().height(64.dp),
+            shape = RoundedCornerShape(20.dp),
             colors = ButtonDefaults.buttonColors(containerColor = MiOrange),
             enabled = actualG > 0
         ) {
-            Text(actionLabel)
+            Text(actionLabel, style = MaterialTheme.typography.titleMedium, color = Color.White)
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(32.dp))
     }
 }
 
@@ -448,14 +492,19 @@ internal fun FoodEntryContent(
 private fun MacroPreviewItem(label: String, value: String, unit: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = "$value$unit",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
+            text = value,
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
             color = color
         )
         Text(
-            text = label,
+            text = unit,
             style = MaterialTheme.typography.labelSmall,
+            color = color,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
             color = MiTextSecondary
         )
     }
@@ -470,8 +519,17 @@ private fun ServingUnitChip(unit: String, selectedUnit: String, onSelect: (Strin
         label = { Text(unit, style = MaterialTheme.typography.labelSmall) },
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = MiOrange,
-            selectedLabelColor = Color.White
-        )
+            selectedLabelColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.background,
+            labelColor = MiTextSecondary
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = unit == selectedUnit,
+            borderColor = Color.Transparent,
+            selectedBorderColor = Color.Transparent
+        ),
+        shape = RoundedCornerShape(12.dp)
     )
 }
 
