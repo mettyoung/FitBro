@@ -63,6 +63,7 @@ import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
 import com.mettyoung.fitbro.data.food.OpenFoodFactsDataSource
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.MealType
+import com.mettyoung.fitbro.ui.FitroBroIcon
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.MONTH_ABBR
@@ -87,7 +88,6 @@ fun MacroDailyCounterDetail(
     val weeklyTotals by foodDiaryStateHolder.weeklyTotals.collectAsState()
 
     val today = todayString()
-    val canGoNext = selectedDate.plusDays(1) <= today
 
     var proteinGoal by remember { mutableStateOf(userSettingsDataSource.getProteinGoalG()) }
     var carbsGoal by remember { mutableStateOf(userSettingsDataSource.getCarbsGoalG()) }
@@ -122,17 +122,26 @@ fun MacroDailyCounterDetail(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "Nutrition",
-                                style = MaterialTheme.typography.displayMedium,
-                                color = MaterialTheme.colorScheme.onSurface
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = FitroBroIcon,
+                                contentDescription = null,
+                                tint = MiOrange,
+                                modifier = Modifier.size(32.dp)
                             )
-                            Text(
-                                text = "Daily Nutrient Breakdown",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MiOrange
-                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Nutrition",
+                                    style = MaterialTheme.typography.displayMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Daily Nutrient Breakdown",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MiOrange
+                                )
+                            }
                         }
                         IconButton(
                             onClick = { showGoalsDialog = true },
@@ -169,13 +178,11 @@ fun MacroDailyCounterDetail(
                             style = MaterialTheme.typography.titleMedium,
                         )
                         IconButton(
-                            onClick = { onDateSelected(selectedDate.plusDays(1)) },
-                            enabled = canGoNext
+                            onClick = { onDateSelected(selectedDate.plusDays(1)) }
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = "Next",
-                                tint = if (canGoNext) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                contentDescription = "Next"
                             )
                         }
                     }

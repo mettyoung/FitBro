@@ -51,6 +51,7 @@ import com.mettyoung.fitbro.ui.MiTextSecondary
 private val REQUIRED_PERMISSIONS = setOf(
     HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
     HealthPermission.getReadPermission(NutritionRecord::class),
+    HealthPermission.getWritePermission(NutritionRecord::class),
     HealthPermission.getReadPermission(BasalMetabolicRateRecord::class)
 )
 

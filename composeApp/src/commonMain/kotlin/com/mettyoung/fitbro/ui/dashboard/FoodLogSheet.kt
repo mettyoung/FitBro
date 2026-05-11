@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -56,15 +57,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mettyoung.fitbro.data.food.BarcodeScanResult
 import com.mettyoung.fitbro.data.food.FoodResult
 import com.mettyoung.fitbro.data.food.FoodSearchResult
 import com.mettyoung.fitbro.data.food.OpenFoodFactsDataSource
 import com.mettyoung.fitbro.data.food.OpenFoodFactsError
+import com.mettyoung.fitbro.data.food.rememberBarcodeScanner
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.ServingUnit
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
+import com.mettyoung.fitbro.ui.FitroBroIcon
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import kotlinx.coroutines.Job
@@ -105,10 +109,13 @@ fun FoodSearchSheet(
                 onSelectFood = { selectedFood = it }
             )
         } else {
+            val food = selectedFood!!
             FoodEntryContent(
-                food = selectedFood!!,
+                food = food,
                 mealType = mealType,
                 date = date,
+                initialServingAmount = if (food.servingSizeG != null) 1.0 else 100.0,
+                initialUnit = if (food.servingSizeG != null) ServingUnit.SERVING else ServingUnit.GRAMS,
                 actionLabel = "Add to ${mealType.lowercase().replaceFirstChar { it.uppercase() }}",
                 onBack = { selectedFood = null },
                 onAdd = onAddEntry
@@ -168,68 +175,116 @@ private fun FoodSearchContent(
     var query by remember { mutableStateOf("") }
     var searchState by remember { mutableStateOf<SearchState>(SearchState.Idle) }
     var searchJob by remember { mutableStateOf<Job?>(null) }
+    val barcodeScanner = rememberBarcodeScanner()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp)
     ) {
-        Text(
-            text = "Log Food",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = "Find nutrition data for millions of items",
-            style = MaterialTheme.typography.labelSmall,
-            color = MiOrange
-        )
-        
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = FitroBroIcon,
+                contentDescription = null,
+                tint = MiOrange,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(
+                    text = "Log Food",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Find nutrition data for millions of items",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MiOrange
+                )
+            }
+        }
+
         Spacer(Modifier.height(24.dp))
-        
-        TextField(
-            value = query,
-            onValueChange = { q ->
-                query = q
-                searchJob?.cancel()
-                if (q.length >= 2) {
-                    searchState = SearchState.Loading
-                    searchJob = scope.launch {
-                        delay(400)
-                        searchState = when (val r = openFoodFactsDataSource.search(q)) {
-                            is FoodResult.Success ->
-                                if (r.value.isEmpty()) SearchState.Empty
-                                else SearchState.Results(r.value)
-                            is FoodResult.Failure -> when (r.error) {
-                                is OpenFoodFactsError.EmptyResults -> SearchState.Empty
-                                else -> SearchState.Error(isNetwork = true)
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TextField(
+                value = query,
+                onValueChange = { q ->
+                    query = q
+                    searchJob?.cancel()
+                    if (q.length >= 2) {
+                        searchState = SearchState.Loading
+                        searchJob = scope.launch {
+                            delay(400)
+                            searchState = when (val r = openFoodFactsDataSource.search(q)) {
+                                is FoodResult.Success ->
+                                    if (r.value.isEmpty()) SearchState.Empty
+                                    else SearchState.Results(r.value)
+                                is FoodResult.Failure -> when (r.error) {
+                                    is OpenFoodFactsError.EmptyResults -> SearchState.Empty
+                                    else -> SearchState.Error(isNetwork = true)
+                                }
                             }
                         }
+                    } else {
+                        searchState = SearchState.Idle
                     }
-                } else {
-                    searchState = SearchState.Idle
-                }
-            },
-            placeholder = { Text("Search ingredients, snacks, meals...", style = MaterialTheme.typography.bodyMedium) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MiOrange) },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { query = ""; searchState = SearchState.Idle }) {
-                        Icon(Icons.Default.Close, contentDescription = null)
+                },
+                placeholder = { Text("Search ingredients, snacks, meals...", style = MaterialTheme.typography.bodyMedium) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MiOrange) },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = ""; searchState = SearchState.Idle }) {
+                            Icon(Icons.Default.Close, contentDescription = null)
+                        }
                     }
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            colors = TextFieldDefaults.colors(
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                focusedContainerColor = MaterialTheme.colorScheme.background,
-                unfocusedContainerColor = MaterialTheme.colorScheme.background
+                },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(16.dp),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                colors = TextFieldDefaults.colors(
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedContainerColor = MaterialTheme.colorScheme.background,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.background
+                )
             )
-        )
+
+            if (barcodeScanner != null) {
+                IconButton(
+                    onClick = {
+                        scope.launch {
+                            searchState = SearchState.Loading
+                            when (val scanResult = barcodeScanner()) {
+                                is BarcodeScanResult.Success -> {
+                                    searchState = when (val r = openFoodFactsDataSource.searchByBarcode(scanResult.barcode)) {
+                                        is FoodResult.Success -> SearchState.Results(listOf(r.value))
+                                        is FoodResult.Failure -> SearchState.Empty
+                                    }
+                                }
+                                is BarcodeScanResult.Cancelled -> searchState = SearchState.Idle
+                                is BarcodeScanResult.Error -> searchState = SearchState.Error(isNetwork = true)
+                                is BarcodeScanResult.NotAvailable -> searchState = SearchState.Idle
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(MaterialTheme.colorScheme.background, RoundedCornerShape(16.dp))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.QrCodeScanner,
+                        contentDescription = "Scan barcode",
+                        tint = MiOrange
+                    )
+                }
+            }
+        }
         
         Spacer(Modifier.height(16.dp))
         
@@ -255,7 +310,8 @@ private fun FoodSearchContent(
                     modifier = Modifier.fillMaxWidth().height(300.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No foods found matching \"$query\"", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
+                    val emptyMsg = if (query.isNotBlank()) "No foods found matching \"$query\"" else "No food found for that barcode"
+                    Text(emptyMsg, style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
                 }
             }
             is SearchState.Error -> {
@@ -312,13 +368,19 @@ private fun FoodResultRow(food: FoodSearchResult, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(16.dp))
         Column(horizontalAlignment = Alignment.End) {
+            val (displayKcal, displayLabel) = if (food.servingSizeG != null) {
+                (food.caloriesPer100g * food.servingSizeG / 100.0).roundToInt() to
+                    "kcal / serving (${food.servingSizeG.roundToInt()}g)"
+            } else {
+                food.caloriesPer100g.roundToInt() to "kcal / 100g"
+            }
             Text(
-                text = "${food.caloriesPer100g.roundToInt()}",
+                text = "$displayKcal",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
                 color = MiOrange
             )
             Text(
-                text = "kcal / 100g",
+                text = displayLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = MiTextSecondary
             )
@@ -445,7 +507,7 @@ internal fun FoodEntryContent(
                     focusedLabelColor = MiOrange
                 )
             )
-            
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ServingUnitChip(ServingUnit.GRAMS, servingUnit) { servingUnit = it }
                 ServingUnitChip(ServingUnit.OZ, servingUnit) { servingUnit = it }
@@ -453,6 +515,19 @@ internal fun FoodEntryContent(
                     ServingUnitChip(ServingUnit.SERVING, servingUnit) { servingUnit = it }
                 }
             }
+        }
+
+        if (servingUnit != ServingUnit.GRAMS && actualG > 0) {
+            Spacer(Modifier.height(6.dp))
+            val gramLabel = when (servingUnit) {
+                ServingUnit.SERVING -> "= ${actualG.roundToInt()}g  (1 serving = ${(food.servingSizeG ?: 100.0).roundToInt()}g)"
+                else -> "= ${actualG.roundToInt()}g"
+            }
+            Text(
+                text = gramLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MiTextSecondary
+            )
         }
 
         Spacer(Modifier.height(40.dp))

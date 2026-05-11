@@ -47,11 +47,38 @@ class OpenFoodFactsDataSourceImpl : OpenFoodFactsDataSource {
             FoodResult.Failure(OpenFoodFactsError.NetworkError(e.message ?: "Network error"))
         }
     }
+
+    override suspend fun searchByBarcode(barcode: String): FoodResult<FoodSearchResult> {
+        return try {
+            val response = httpClient.get("https://world.openfoodfacts.org/api/v2/product/$barcode.json") {
+                parameter("fields", "product_name,brands,serving_quantity,nutriments")
+                header("User-Agent", "FitBro/1.0 (Android; emmettyoung92@gmail.com)")
+            }
+            val body = response.body<OpenFoodFactsBarcodeResponse>()
+            val product = body.product
+            val result = product?.toFoodSearchResult()
+            if (result != null) {
+                FoodResult.Success(result)
+            } else {
+                FoodResult.Failure(OpenFoodFactsError.EmptyResults)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            FoodResult.Failure(OpenFoodFactsError.NetworkError(e.message ?: "Network error"))
+        }
+    }
 }
 
 @Serializable
 private data class OpenFoodFactsResponse(
     val products: List<OpenFoodFactsProduct>? = null
+)
+
+@Serializable
+private data class OpenFoodFactsBarcodeResponse(
+    val product: OpenFoodFactsProduct? = null,
+    val status: Int? = null
 )
 
 @Serializable

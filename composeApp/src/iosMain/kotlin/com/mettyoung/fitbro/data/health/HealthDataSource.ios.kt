@@ -16,6 +16,7 @@ import platform.HealthKit.HKHealthStore
 import platform.HealthKit.HKObjectType
 import platform.HealthKit.HKQuery
 import platform.HealthKit.HKQueryOptionNone
+import platform.HealthKit.HKQuantity
 import platform.HealthKit.HKQuantitySample
 import platform.HealthKit.HKQuantityType
 import platform.HealthKit.HKQuantityTypeIdentifierActiveEnergyBurned
@@ -330,7 +331,44 @@ private class HealthKitDataSource : HealthDataSource {
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     override suspend fun writeNutritionRecord(entry: FoodDiaryEntry) {
-        // iOS HealthKit write not implemented — no-op
+        if (!HKHealthStore.isHealthDataAvailable()) return
+
+        val energyType = HKQuantityType.quantityTypeForIdentifier(HKQuantityTypeIdentifierDietaryEnergyConsumed) ?: return
+        val proteinType = HKQuantityType.quantityTypeForIdentifier(HKQuantityTypeIdentifierDietaryProtein) ?: return
+        val carbType = HKQuantityType.quantityTypeForIdentifier(HKQuantityTypeIdentifierDietaryCarbohydrates) ?: return
+        val fatType = HKQuantityType.quantityTypeForIdentifier(HKQuantityTypeIdentifierDietaryFatTotal) ?: return
+
+        val shareTypes = setOf(energyType, proteinType, carbType, fatType).map { it as HKObjectType }.toSet()
+        val authorized = suspendCancellableCoroutine<Boolean> { cont ->
+            healthStore.requestAuthorizationToShareTypes(shareTypes, readTypes = null) { success, _ ->
+                cont.resume(success)
+            }
+        }
+        if (!authorized) return
+
+        val now = NSDate()
+        val kcalUnit = HKUnit.kilocalorieUnit()
+        val gramUnit = HKUnit.gramUnit()
+
+        val samples = listOf(
+            HKQuantitySample.quantitySampleWithType(
+                energyType, HKQuantity.quantityWithUnit(kcalUnit, entry.calories), now, now
+            ),
+            HKQuantitySample.quantitySampleWithType(
+                proteinType, HKQuantity.quantityWithUnit(gramUnit, entry.proteinG), now, now
+            ),
+            HKQuantitySample.quantitySampleWithType(
+                carbType, HKQuantity.quantityWithUnit(gramUnit, entry.carbG), now, now
+            ),
+            HKQuantitySample.quantitySampleWithType(
+                fatType, HKQuantity.quantityWithUnit(gramUnit, entry.fatG), now, now
+            )
+        )
+
+        for (sample in samples) {
+            healthStore.saveObject(sample) { _, _ -> }
+        }
     }
 }

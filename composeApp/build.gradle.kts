@@ -35,6 +35,7 @@ kotlin {
             implementation(libs.androidx.security.crypto)
             implementation(libs.androidx.health.connect)
             implementation(libs.sqldelight.android)
+            implementation(libs.gms.code.scanner)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)

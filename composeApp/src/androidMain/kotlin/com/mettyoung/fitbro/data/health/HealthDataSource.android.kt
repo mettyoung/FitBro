@@ -5,9 +5,12 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BasalMetabolicRateRecord
 import androidx.health.connect.client.records.NutritionRecord
+import androidx.health.connect.client.records.metadata.Metadata as HCMetadata
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import androidx.health.connect.client.units.Energy
+import androidx.health.connect.client.units.Mass
 import com.mettyoung.fitbro.AndroidAppContext
 import com.mettyoung.fitbro.data.model.ActivityBurn
 import com.mettyoung.fitbro.data.model.DailyIntake
@@ -183,8 +186,43 @@ private class HealthConnectDataSource : HealthDataSource {
     }
 
     override suspend fun writeNutritionRecord(entry: FoodDiaryEntry) {
-        // HC alpha12: Metadata constructor is internal — record writes not publicly supported yet.
-        // Enable when HC reaches stable release with public Metadata factory.
-        Log.d("HealthConnect", "writeNutritionRecord: skipped (alpha12 limitation) for ${entry.foodName}")
+        val healthClient = client ?: return
+
+        val required = setOf(HealthPermission.getWritePermission(NutritionRecord::class))
+        val granted = try {
+            healthClient.permissionController.getGrantedPermissions()
+        } catch (e: Exception) {
+            Log.w("HealthConnect", "writeNutritionRecord: permission check failed: ${e.message}")
+            return
+        }
+        if (!granted.containsAll(required)) {
+            Log.w("HealthConnect", "writeNutritionRecord: WRITE_NUTRITION not granted")
+            return
+        }
+
+        try {
+            val zone = ZoneId.systemDefault()
+            val date = LocalDate.parse(entry.date)
+            val startInstant = date.atStartOfDay(zone).toInstant()
+            val endInstant = startInstant.plusSeconds(60)
+            val zoneOffset = zone.rules.getOffset(date.atStartOfDay())
+
+            val record = NutritionRecord(
+                startTime = startInstant,
+                startZoneOffset = zoneOffset,
+                endTime = endInstant,
+                endZoneOffset = zoneOffset,
+                energy = Energy.kilocalories(entry.calories),
+                protein = Mass.grams(entry.proteinG),
+                totalCarbohydrate = Mass.grams(entry.carbG),
+                totalFat = Mass.grams(entry.fatG),
+                name = entry.foodName,
+                metadata = HCMetadata.manualEntry()
+            )
+            healthClient.insertRecords(listOf(record))
+            Log.d("HealthConnect", "writeNutritionRecord: wrote ${entry.foodName} (${entry.calories.toInt()} kcal)")
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "writeNutritionRecord: failed for ${entry.foodName}: ${e.message}", e)
+        }
     }
 }
