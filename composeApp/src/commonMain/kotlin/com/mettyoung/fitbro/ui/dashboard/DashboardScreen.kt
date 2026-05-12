@@ -570,7 +570,6 @@ private fun formatCalorieValue(value: Double): String {
 }
 
 private fun suggestAction(errorMessage: String): String = when {
-    "Auth expired" in errorMessage -> "Suggestion: Re-login to Cronometer"
     "Permission denied" in errorMessage -> "Suggestion: Grant Health Connect permission in Settings"
     "Network" in errorMessage -> "Suggestion: Check your internet connection"
     "Rate limited" in errorMessage -> "Suggestion: Wait a moment and try again"

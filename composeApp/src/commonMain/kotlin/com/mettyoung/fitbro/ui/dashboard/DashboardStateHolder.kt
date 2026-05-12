@@ -68,7 +68,7 @@ class DashboardStateHolder(
             val intakes: List<DailyIntake> = when (intakeResult) {
                 is HealthResult.Success -> {
                     cacheDataSource.saveDailyIntake(range.startDate, range.endDate, intakeResult.value)
-                    cacheDataSource.saveSyncTimestamp(CacheSource.CRONOMETER_INTAKE, now)
+                    cacheDataSource.saveSyncTimestamp(CacheSource.HEALTH_INTAKE, now)
                     intakeResult.value
                 }
                 is HealthResult.Failure -> {
@@ -80,7 +80,7 @@ class DashboardStateHolder(
             val metabolisms: List<Metabolism> = when (metabolismResult) {
                 is HealthResult.Success -> {
                     cacheDataSource.saveMetabolism(range.startDate, range.endDate, metabolismResult.value)
-                    cacheDataSource.saveSyncTimestamp(CacheSource.CRONOMETER_METABOLISM, now)
+                    cacheDataSource.saveSyncTimestamp(CacheSource.HEALTH_METABOLISM, now)
                     metabolismResult.value
                 }
                 is HealthResult.Failure -> {
@@ -104,8 +104,8 @@ class DashboardStateHolder(
             val balances = computeBalances(intakes, metabolisms, activities)
 
             val updatedSyncTime = mapOf(
-                CacheSource.CRONOMETER_INTAKE to cacheDataSource.getSyncTimestamp(CacheSource.CRONOMETER_INTAKE),
-                CacheSource.CRONOMETER_METABOLISM to cacheDataSource.getSyncTimestamp(CacheSource.CRONOMETER_METABOLISM),
+                CacheSource.HEALTH_INTAKE to cacheDataSource.getSyncTimestamp(CacheSource.HEALTH_INTAKE),
+                CacheSource.HEALTH_METABOLISM to cacheDataSource.getSyncTimestamp(CacheSource.HEALTH_METABOLISM),
                 CacheSource.HEALTH_ACTIVITY to cacheDataSource.getSyncTimestamp(CacheSource.HEALTH_ACTIVITY),
             )
 

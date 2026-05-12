@@ -19,7 +19,7 @@ FitBro is a Kotlin Multiplatform (KMP) calorie-tracking app targeting Android an
 
 ### Data Layer
 - **Repositories** (`data/repository/`): Abstract data operations with explicit error types (sealed `CalorieResult`).
-- **Data Sources** (`data/{health,cache,food,cronometer,db}/`): Concrete implementations (Health Connect, local cache, OpenFoodFacts, SQLDelight).
+- **Data Sources** (`data/{health,cache,food,db}/`): Concrete implementations (Health Connect/HealthKit, local cache, OpenFoodFacts, SQLDelight).
 - **Models** (`data/model/`): Domain objects (DailyBalance, FoodDiaryEntry, Metabolism).
 - **Database**: SQLDelight (SQLite). Queries live in `src/commonMain/sqldelight/`. Generated code in `data/db/`.
 
@@ -30,7 +30,6 @@ FitBro is a Kotlin Multiplatform (KMP) calorie-tracking app targeting Android an
 
 ### Entry Points
 - **Android**: `MainActivity.kt` → `PermissionGateApp.kt` → `App()` (shared Composable).
-  - Handles OAuth deep links (Cronometer integration).
   - Manages permission gates (Health Connect, barcode scanner).
 - **iOS**: Framework generated from `iosMain/`; Xcode entry point in `iosApp/`.
 
@@ -143,8 +142,8 @@ fun myCalculation() {
 ## Recent Changes & Context
 
 - **Food Diary**: Macro tracking, serving-size defaults, OpenFoodFacts integration.
-- **HealthConnect**: Write capability for workouts.
-- **Deep Links**: OAuth callback handling for Cronometer auth.
+- **HealthConnect**: Write capability for workouts. Primary data source for intake, BMR, activity.
+- **Cleanup**: Removed unused Cronometer OAuth integration (CronometerDataSource, token storage, OAuth infrastructure).
 - **UI Redesign**: Recent Gemini-based redesign; Compose patterns align with Material 3.
 
 ## Gotchas & Non-Obvious Details

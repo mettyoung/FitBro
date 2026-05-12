@@ -4,7 +4,7 @@ import com.mettyoung.fitbro.data.model.ActivityBurn
 import com.mettyoung.fitbro.data.model.DailyIntake
 import com.mettyoung.fitbro.data.model.Metabolism
 
-enum class CacheSource { CRONOMETER_INTAKE, CRONOMETER_METABOLISM, HEALTH_ACTIVITY }
+enum class CacheSource { HEALTH_INTAKE, HEALTH_METABOLISM, HEALTH_ACTIVITY }
 
 interface CacheDataSource {
     suspend fun saveDailyIntake(startDate: String, endDate: String, data: List<DailyIntake>)
