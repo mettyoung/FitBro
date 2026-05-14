@@ -141,10 +141,12 @@ fun EditEntrySheet(
             proteinPer100g = entry.proteinG * factor,
             carbPer100g = entry.carbG * factor,
             fatPer100g = entry.fatG * factor,
-            servingSizeG = null
+            servingSizeG = null,
+            servingDescription = null,
+            source = null
         )
     } else {
-        FoodSearchResult(entry.foodName, entry.brandName, 0.0, 0.0, 0.0, 0.0, null)
+        FoodSearchResult(entry.foodName, entry.brandName, 0.0, 0.0, 0.0, 0.0, null, null, null)
     }
 
     ModalBottomSheet(
@@ -365,22 +367,20 @@ private fun FoodResultRow(food: FoodSearchResult, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            if (food.servingDescription != null) {
+                Text(
+                    text = food.servingDescription,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MiTextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         Spacer(Modifier.width(16.dp))
-        Column(horizontalAlignment = Alignment.End) {
-            val (displayKcal, displayLabel) = if (food.servingSizeG != null) {
-                (food.caloriesPer100g * food.servingSizeG / 100.0).roundToInt() to
-                    "kcal / serving (${food.servingSizeG.roundToInt()}g)"
-            } else {
-                food.caloriesPer100g.roundToInt() to "kcal / 100g"
-            }
+        if (food.source != null) {
             Text(
-                text = "$displayKcal",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
-                color = MiOrange
-            )
-            Text(
-                text = displayLabel,
+                text = food.source,
                 style = MaterialTheme.typography.labelSmall,
                 color = MiTextSecondary
             )

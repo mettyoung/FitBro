@@ -5,6 +5,7 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
@@ -28,8 +29,12 @@ class UsdaFoodDataSource : FoodDataSource {
             val response = httpClient.get("https://api.nal.usda.gov/fdc/v1/foods/search") {
                 parameter("query", query)
                 parameter("pageSize", 20)
-                parameter("dataType", "SR Legacy,Foundation")
+                parameter("dataType", "SR Legacy")
+                parameter("dataType", "Foundation")
                 parameter("api_key", API_KEY)
+            }
+            if (response.status == HttpStatusCode.TooManyRequests) {
+                return FoodResult.Failure(FoodError.NetworkError("USDA API rate limit exceeded. Wait an hour or use a free API key from api.data.gov"))
             }
             val body = response.body<UsdaSearchResponse>()
             val results = body.foods
@@ -65,10 +70,20 @@ private data class UsdaFood(
     val description: String? = null,
     val brandOwner: String? = null,
     val servingSize: Double? = null,
+    val servingSizeUnit: String? = null,
+    val householdServingFullText: String? = null,
     val foodNutrients: List<UsdaNutrient> = emptyList()
 ) {
     fun toFoodSearchResult(): FoodSearchResult? {
         val name = description?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        val servingDescription = if (servingSize != null) {
+            val household = householdServingFullText?.trim()?.takeIf { it.isNotBlank() }
+            if (household != null) "$household - ${servingSize.toInt()}g"
+            else {
+                val unit = servingSizeUnit?.trim()?.takeIf { it.isNotBlank() } ?: "g"
+                "${servingSize.toInt()} $unit"
+            }
+        } else null
         return FoodSearchResult(
             name = name,
             brand = brandOwner?.trim()?.takeIf { it.isNotBlank() },
@@ -76,7 +91,9 @@ private data class UsdaFood(
             proteinPer100g = nutrientValue("Protein"),
             carbPer100g = nutrientValue("Carbohydrate, by difference"),
             fatPer100g = nutrientValue("Total lipid (fat)"),
-            servingSizeG = servingSize
+            servingSizeG = servingSize,
+            servingDescription = servingDescription,
+            source = "USDA"
         )
     }
 

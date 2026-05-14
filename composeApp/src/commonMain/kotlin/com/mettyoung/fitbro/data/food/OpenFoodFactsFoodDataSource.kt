@@ -53,7 +53,7 @@ class OpenFoodFactsFoodDataSource : FoodDataSource {
     override suspend fun searchByBarcode(barcode: String): FoodResult<FoodSearchResult> {
         return try {
             val response = httpClient.get("https://world.openfoodfacts.org/api/v2/product/$barcode.json") {
-                parameter("fields", "product_name,brands,serving_quantity,nutriments")
+                parameter("fields", "product_name,brands,serving_size,serving_quantity,nutriments")
                 header("User-Agent", "FitBro/1.0 (Android; emmettyoung92@gmail.com)")
             }
             val body = response.body<OpenFoodFactsBarcodeResponse>()
@@ -86,11 +86,15 @@ private data class OpenFoodFactsBarcodeResponse(
 private data class OpenFoodFactsProduct(
     @SerialName("product_name") val productName: String? = null,
     val brands: String? = null,
+    @SerialName("serving_size") val servingSize: String? = null,
     @SerialName("serving_quantity") val servingQuantity: String? = null,
     val nutriments: OpenFoodFactsNutriments? = null
 ) {
     fun toFoodSearchResult(): FoodSearchResult? {
         val name = productName?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        val servingSizeG = servingQuantity?.toDoubleOrNull()
+        val servingDescription = servingSize?.trim()?.takeIf { it.isNotBlank() }
+            ?: servingSizeG?.let { "${it.toInt()}g" }
         return FoodSearchResult(
             name = name,
             brand = brands?.trim()?.takeIf { it.isNotBlank() },
@@ -98,7 +102,9 @@ private data class OpenFoodFactsProduct(
             proteinPer100g = nutriments?.proteins100g ?: 0.0,
             carbPer100g = nutriments?.carbohydrates100g ?: 0.0,
             fatPer100g = nutriments?.fat100g ?: 0.0,
-            servingSizeG = servingQuantity?.toDoubleOrNull()
+            servingSizeG = servingSizeG,
+            servingDescription = servingDescription,
+            source = "OpenFoodFacts"
         )
     }
 }
