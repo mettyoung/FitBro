@@ -1,5 +1,7 @@
 package com.mettyoung.fitbro.data.cache
 
+import com.mettyoung.fitbro.data.food.FoodDatabase
+
 interface UserSettingsDataSource {
     fun getProteinGoalG(): Double
     fun setProteinGoalG(grams: Double)
@@ -12,6 +14,9 @@ interface UserSettingsDataSource {
 
     fun getCalorieGoalKcal(): Double
     fun setCalorieGoalKcal(kcal: Double)
+
+    fun getFoodDatabase(): FoodDatabase
+    fun setFoodDatabase(db: FoodDatabase)
 }
 
 expect fun createUserSettingsDataSource(): UserSettingsDataSource

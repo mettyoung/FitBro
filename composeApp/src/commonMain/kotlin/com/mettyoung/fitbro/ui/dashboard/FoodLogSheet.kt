@@ -58,10 +58,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.food.BarcodeScanResult
+import com.mettyoung.fitbro.data.food.FoodDataSource
+import com.mettyoung.fitbro.data.food.FoodError
 import com.mettyoung.fitbro.data.food.FoodResult
 import com.mettyoung.fitbro.data.food.FoodSearchResult
-import com.mettyoung.fitbro.data.food.OpenFoodFactsDataSource
-import com.mettyoung.fitbro.data.food.OpenFoodFactsError
 import com.mettyoung.fitbro.data.food.rememberBarcodeScanner
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.ServingUnit
@@ -89,7 +89,7 @@ private sealed class SearchState {
 fun FoodSearchSheet(
     mealType: String,
     date: String,
-    openFoodFactsDataSource: OpenFoodFactsDataSource,
+    foodDataSource: FoodDataSource,
     onDismiss: () -> Unit,
     onAddEntry: (FoodDiaryEntry) -> Unit
 ) {
@@ -105,7 +105,7 @@ fun FoodSearchSheet(
     ) {
         if (selectedFood == null) {
             FoodSearchContent(
-                openFoodFactsDataSource = openFoodFactsDataSource,
+                foodDataSource = foodDataSource,
                 onSelectFood = { selectedFood = it }
             )
         } else {
@@ -168,7 +168,7 @@ fun EditEntrySheet(
 
 @Composable
 private fun FoodSearchContent(
-    openFoodFactsDataSource: OpenFoodFactsDataSource,
+    foodDataSource: FoodDataSource,
     onSelectFood: (FoodSearchResult) -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -220,12 +220,12 @@ private fun FoodSearchContent(
                         searchState = SearchState.Loading
                         searchJob = scope.launch {
                             delay(400)
-                            searchState = when (val r = openFoodFactsDataSource.search(q)) {
+                            searchState = when (val r = foodDataSource.search(q)) {
                                 is FoodResult.Success ->
                                     if (r.value.isEmpty()) SearchState.Empty
                                     else SearchState.Results(r.value)
                                 is FoodResult.Failure -> when (r.error) {
-                                    is OpenFoodFactsError.EmptyResults -> SearchState.Empty
+                                    is FoodError.EmptyResults -> SearchState.Empty
                                     else -> SearchState.Error(isNetwork = true)
                                 }
                             }
@@ -255,14 +255,14 @@ private fun FoodSearchContent(
                 )
             )
 
-            if (barcodeScanner != null) {
+            if (barcodeScanner != null && foodDataSource.supportsBarcode) {
                 IconButton(
                     onClick = {
                         scope.launch {
                             searchState = SearchState.Loading
                             when (val scanResult = barcodeScanner()) {
                                 is BarcodeScanResult.Success -> {
-                                    searchState = when (val r = openFoodFactsDataSource.searchByBarcode(scanResult.barcode)) {
+                                    searchState = when (val r = foodDataSource.searchByBarcode(scanResult.barcode)) {
                                         is FoodResult.Success -> SearchState.Results(listOf(r.value))
                                         is FoodResult.Failure -> SearchState.Empty
                                     }

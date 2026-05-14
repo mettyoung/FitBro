@@ -12,7 +12,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-class OpenFoodFactsDataSourceImpl : OpenFoodFactsDataSource {
+class OpenFoodFactsFoodDataSource : FoodDataSource {
+
+    override val supportsBarcode = true
 
     private val httpClient = HttpClient {
         install(ContentNegotiation) {
@@ -37,14 +39,14 @@ class OpenFoodFactsDataSourceImpl : OpenFoodFactsDataSource {
                 ?.mapNotNull { it.toFoodSearchResult() }
                 ?: emptyList()
             if (results.isEmpty()) {
-                FoodResult.Failure(OpenFoodFactsError.EmptyResults)
+                FoodResult.Failure(FoodError.EmptyResults)
             } else {
                 FoodResult.Success(results)
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            FoodResult.Failure(OpenFoodFactsError.NetworkError(e.message ?: "Network error"))
+            FoodResult.Failure(FoodError.NetworkError(e.message ?: "Network error"))
         }
     }
 
@@ -55,17 +57,16 @@ class OpenFoodFactsDataSourceImpl : OpenFoodFactsDataSource {
                 header("User-Agent", "FitBro/1.0 (Android; emmettyoung92@gmail.com)")
             }
             val body = response.body<OpenFoodFactsBarcodeResponse>()
-            val product = body.product
-            val result = product?.toFoodSearchResult()
+            val result = body.product?.toFoodSearchResult()
             if (result != null) {
                 FoodResult.Success(result)
             } else {
-                FoodResult.Failure(OpenFoodFactsError.EmptyResults)
+                FoodResult.Failure(FoodError.EmptyResults)
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            FoodResult.Failure(OpenFoodFactsError.NetworkError(e.message ?: "Network error"))
+            FoodResult.Failure(FoodError.NetworkError(e.message ?: "Network error"))
         }
     }
 }

@@ -60,7 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
-import com.mettyoung.fitbro.data.food.OpenFoodFactsDataSource
+import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.MealType
 import com.mettyoung.fitbro.ui.FitroBroIcon
@@ -78,7 +78,7 @@ import kotlin.math.roundToInt
 fun MacroDailyCounterDetail(
     userSettingsDataSource: UserSettingsDataSource,
     foodDiaryStateHolder: FoodDiaryStateHolder,
-    openFoodFactsDataSource: OpenFoodFactsDataSource,
+    foodDataSource: FoodDataSource,
     onDateSelected: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -257,7 +257,7 @@ fun MacroDailyCounterDetail(
         FoodSearchSheet(
             mealType = mealType,
             date = selectedDate,
-            openFoodFactsDataSource = openFoodFactsDataSource,
+            foodDataSource = foodDataSource,
             onDismiss = { addingToMeal = null },
             onAddEntry = { entry ->
                 foodDiaryStateHolder.addEntry(entry)

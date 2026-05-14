@@ -1,5 +1,6 @@
 package com.mettyoung.fitbro.data.cache
 
+import com.mettyoung.fitbro.data.food.FoodDatabase
 import com.russhwolf.settings.Settings
 
 class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsDataSource {
@@ -8,6 +9,7 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         private const val CARBS_GOAL_KEY = "macro_goal_carbs_g"
         private const val FAT_GOAL_KEY = "macro_goal_fat_g"
         private const val CALORIE_GOAL_KEY = "macro_goal_calorie_kcal"
+        private const val FOOD_DATABASE_KEY = "food_database"
         private const val DEFAULT_PROTEIN_GOAL = 150.0
         private const val DEFAULT_CARBS_GOAL = 200.0
         private const val DEFAULT_FAT_GOAL = 65.0
@@ -40,5 +42,14 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
 
     override fun setCalorieGoalKcal(kcal: Double) {
         settings.putDouble(CALORIE_GOAL_KEY, kcal)
+    }
+
+    override fun getFoodDatabase(): FoodDatabase {
+        val stored = settings.getStringOrNull(FOOD_DATABASE_KEY)
+        return FoodDatabase.entries.firstOrNull { it.name == stored } ?: FoodDatabase.OPEN_FOOD_FACTS
+    }
+
+    override fun setFoodDatabase(db: FoodDatabase) {
+        settings.putString(FOOD_DATABASE_KEY, db.name)
     }
 }
