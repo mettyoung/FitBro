@@ -46,7 +46,7 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
 
     override fun getFoodDatabase(): FoodDatabase {
         val stored = settings.getStringOrNull(FOOD_DATABASE_KEY)
-        return FoodDatabase.entries.firstOrNull { it.name == stored } ?: FoodDatabase.OPEN_FOOD_FACTS
+        return FoodDatabase.entries.firstOrNull { it.name == stored } ?: FoodDatabase.FATSECRET
     }
 
     override fun setFoodDatabase(db: FoodDatabase) {

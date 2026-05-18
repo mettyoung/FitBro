@@ -1,7 +1,6 @@
 package com.mettyoung.fitbro.ui.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -28,11 +26,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -45,12 +40,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
-import com.mettyoung.fitbro.data.food.FoodDatabase
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
@@ -61,8 +53,6 @@ import kotlinx.coroutines.delay
 @Composable
 fun MacroGoalsSettings(
     userSettingsDataSource: UserSettingsDataSource,
-    selectedFoodDatabase: FoodDatabase,
-    onFoodDatabaseChanged: (FoodDatabase) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var proteinGoal by remember { mutableStateOf("") }
@@ -171,53 +161,7 @@ fun MacroGoalsSettings(
                     }
                 }
 
-                Spacer(Modifier.height(32.dp))
-
-                Text(
-                    text = "Food Database",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Column(modifier = Modifier.padding(8.dp)) {
-                        FoodDatabaseOption(
-                            label = "OpenFoodFacts",
-                            description = "Community-sourced, includes barcode scanning",
-                            selected = selectedFoodDatabase == FoodDatabase.OPEN_FOOD_FACTS,
-                            onClick = { onFoodDatabaseChanged(FoodDatabase.OPEN_FOOD_FACTS) }
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                        )
-                        FoodDatabaseOption(
-                            label = "USDA FoodData Central",
-                            description = "Lab-analyzed, high accuracy, no barcode",
-                            selected = selectedFoodDatabase == FoodDatabase.USDA,
-                            onClick = { onFoodDatabaseChanged(FoodDatabase.USDA) }
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                        )
-                        FoodDatabaseOption(
-                            label = "FatSecret",
-                            description = "Large database, barcode scanning supported",
-                            selected = selectedFoodDatabase == FoodDatabase.FATSECRET,
-                            onClick = { onFoodDatabaseChanged(FoodDatabase.FATSECRET) }
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(40.dp))
 
                 Button(
                     onClick = {
@@ -257,41 +201,6 @@ fun MacroGoalsSettings(
 
                 Spacer(Modifier.height(48.dp))
             }
-        }
-    }
-}
-
-@Composable
-private fun FoodDatabaseOption(
-    label: String,
-    description: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        RadioButton(
-            selected = selected,
-            onClick = onClick,
-            colors = RadioButtonDefaults.colors(selectedColor = MiOrange)
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.labelSmall,
-                color = MiTextSecondary
-            )
         }
     }
 }
