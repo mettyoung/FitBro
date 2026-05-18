@@ -3,6 +3,10 @@ package com.mettyoung.fitbro.data.food
 import com.mettyoung.fitbro.util.currentEpochMs
 import com.mettyoung.fitbro.util.hmacSha1
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.logging.DEFAULT
+import io.ktor.client.plugins.logging.LogLevel
+import io.ktor.client.plugins.logging.Logger
+import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -100,7 +104,12 @@ class FatSecretFoodDataSource : FoodDataSource {
 
     override val supportsBarcode = true
 
-    private val httpClient = HttpClient()
+    private val httpClient = HttpClient {
+        install(Logging) {
+            logger = Logger.DEFAULT
+            level = LogLevel.ALL
+        }
+    }
 
     override suspend fun search(query: String): FoodResult<List<FoodSearchResult>> {
         return try {
