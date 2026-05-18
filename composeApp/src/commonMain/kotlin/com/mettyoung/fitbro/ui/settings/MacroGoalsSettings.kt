@@ -204,6 +204,16 @@ fun MacroGoalsSettings(
                             selected = selectedFoodDatabase == FoodDatabase.USDA,
                             onClick = { onFoodDatabaseChanged(FoodDatabase.USDA) }
                         )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                        )
+                        FoodDatabaseOption(
+                            label = "FatSecret",
+                            description = "Large database, barcode scanning supported",
+                            selected = selectedFoodDatabase == FoodDatabase.FATSECRET,
+                            onClick = { onFoodDatabaseChanged(FoodDatabase.FATSECRET) }
+                        )
                     }
                 }
 

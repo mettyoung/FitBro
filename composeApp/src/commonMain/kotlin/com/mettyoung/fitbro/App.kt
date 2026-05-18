@@ -16,6 +16,7 @@ import com.mettyoung.fitbro.data.db.FitBroDatabase
 import com.mettyoung.fitbro.data.db.createSqlDriver
 import com.mettyoung.fitbro.data.food.FoodDatabase
 import com.mettyoung.fitbro.data.food.FoodDataSource
+import com.mettyoung.fitbro.data.food.FatSecretFoodDataSource
 import com.mettyoung.fitbro.data.food.OpenFoodFactsFoodDataSource
 import com.mettyoung.fitbro.data.food.UsdaFoodDataSource
 import com.mettyoung.fitbro.data.health.createHealthDataSource
@@ -49,6 +50,7 @@ fun App() {
             when (activeFoodDatabase) {
                 FoodDatabase.OPEN_FOOD_FACTS -> OpenFoodFactsFoodDataSource()
                 FoodDatabase.USDA -> UsdaFoodDataSource()
+                FoodDatabase.FATSECRET -> FatSecretFoodDataSource()
             }
         }
 

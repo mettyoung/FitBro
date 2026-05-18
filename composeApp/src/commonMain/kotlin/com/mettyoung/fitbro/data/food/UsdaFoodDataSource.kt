@@ -31,6 +31,8 @@ class UsdaFoodDataSource : FoodDataSource {
                 parameter("pageSize", 20)
                 parameter("dataType", "SR Legacy")
                 parameter("dataType", "Foundation")
+                parameter("dataType", "Survey (FNDDS)")
+                parameter("dataType", "Branded")
                 parameter("api_key", API_KEY)
             }
             if (response.status == HttpStatusCode.TooManyRequests) {
@@ -69,6 +71,7 @@ private data class UsdaSearchResponse(
 private data class UsdaFood(
     val description: String? = null,
     val brandOwner: String? = null,
+    val brandName: String? = null,
     val servingSize: Double? = null,
     val servingSizeUnit: String? = null,
     val householdServingFullText: String? = null,
@@ -86,7 +89,7 @@ private data class UsdaFood(
         } else null
         return FoodSearchResult(
             name = name,
-            brand = brandOwner?.trim()?.takeIf { it.isNotBlank() },
+            brand = (brandName ?: brandOwner)?.trim()?.takeIf { it.isNotBlank() },
             caloriesPer100g = nutrientValue("Energy", unitName = "KCAL"),
             proteinPer100g = nutrientValue("Protein"),
             carbPer100g = nutrientValue("Carbohydrate, by difference"),
