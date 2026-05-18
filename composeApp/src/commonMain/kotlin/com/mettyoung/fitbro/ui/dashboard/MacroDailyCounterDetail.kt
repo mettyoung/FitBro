@@ -269,6 +269,7 @@ fun MacroDailyCounterDetail(
     editingEntry?.let { entry ->
         EditEntrySheet(
             entry = entry,
+            foodDataSource = foodDataSource,
             onDismiss = { editingEntry = null },
             onSave = { updated ->
                 foodDiaryStateHolder.updateEntry(updated)

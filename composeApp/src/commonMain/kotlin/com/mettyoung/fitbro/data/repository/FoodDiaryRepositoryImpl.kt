@@ -31,7 +31,8 @@ class FoodDiaryRepositoryImpl(private val database: FitBroDatabase) : FoodDiaryR
                 carbG = entry.carbG,
                 fatG = entry.fatG,
                 servingSizeG = entry.servingSizeG,
-                servingUnit = entry.servingUnit
+                servingUnit = entry.servingUnit,
+                food_id = entry.foodId
             )
             database.foodDiaryQueries.lastInsertRowId().executeAsOne()
         }
@@ -47,6 +48,7 @@ class FoodDiaryRepositoryImpl(private val database: FitBroDatabase) : FoodDiaryR
             fatG = entry.fatG,
             servingSizeG = entry.servingSizeG,
             servingUnit = entry.servingUnit,
+            food_id = entry.foodId,
             id = entry.id
         )
     }
@@ -97,5 +99,6 @@ private fun com.mettyoung.fitbro.data.db.FoodDiaryEntry.toDomain() = FoodDiaryEn
     carbG = carbG,
     fatG = fatG,
     servingSizeG = servingSizeG,
-    servingUnit = servingUnit
+    servingUnit = servingUnit,
+    foodId = food_id
 )

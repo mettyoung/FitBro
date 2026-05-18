@@ -11,7 +11,8 @@ data class FoodDiaryEntry(
     val carbG: Double,
     val fatG: Double,
     val servingSizeG: Double,
-    val servingUnit: String
+    val servingUnit: String,
+    val foodId: String? = null
 )
 
 object MealType {

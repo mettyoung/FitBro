@@ -29,7 +29,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -42,6 +46,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,7 +54,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -59,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.food.BarcodeScanResult
 import com.mettyoung.fitbro.data.food.FoodDataSource
+import com.mettyoung.fitbro.data.food.FoodDetail
 import com.mettyoung.fitbro.data.food.FoodError
 import com.mettyoung.fitbro.data.food.FoodResult
 import com.mettyoung.fitbro.data.food.FoodSearchResult
@@ -84,6 +89,28 @@ private sealed class SearchState {
     data class Error(val isNetwork: Boolean) : SearchState()
 }
 
+// Unified state for FoodSearchSheet — controls which "screen" is shown
+private sealed class SheetContent {
+    object Search : SheetContent()
+    object Loading : SheetContent()
+    data class Entry(
+        val name: String,
+        val brand: String?,
+        val foodId: String?,
+        val detail: FoodDetail
+    ) : SheetContent()
+    object Error : SheetContent()
+}
+
+// Per-100g data for gram-mode editing of legacy entries (no foodId stored)
+internal data class GramModeData(
+    val caloriesPer100g: Double,
+    val proteinPer100g: Double,
+    val carbPer100g: Double,
+    val fatPer100g: Double,
+    val servingSizeG: Double?
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FoodSearchSheet(
@@ -93,8 +120,9 @@ fun FoodSearchSheet(
     onDismiss: () -> Unit,
     onAddEntry: (FoodDiaryEntry) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var selectedFood by remember { mutableStateOf<FoodSearchResult?>(null) }
+    var content by remember { mutableStateOf<SheetContent>(SheetContent.Search) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -103,23 +131,87 @@ fun FoodSearchSheet(
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
         tonalElevation = 0.dp
     ) {
-        if (selectedFood == null) {
-            FoodSearchContent(
-                foodDataSource = foodDataSource,
-                onSelectFood = { selectedFood = it }
-            )
-        } else {
-            val food = selectedFood!!
-            FoodEntryContent(
-                food = food,
-                mealType = mealType,
-                date = date,
-                initialServingAmount = if (food.servingSizeG != null) 1.0 else 100.0,
-                initialUnit = if (food.servingSizeG != null) ServingUnit.SERVING else ServingUnit.GRAMS,
-                actionLabel = "Add to ${mealType.lowercase().replaceFirstChar { it.uppercase() }}",
-                onBack = { selectedFood = null },
-                onAdd = onAddEntry
-            )
+        when (val c = content) {
+            is SheetContent.Search -> {
+                FoodSearchContent(
+                    foodDataSource = foodDataSource,
+                    onSelectFood = { food ->
+                        val foodId = food.foodId
+                        if (foodId != null && foodDataSource.supportsFoodDetail) {
+                            content = SheetContent.Loading
+                            scope.launch {
+                                content = when (val r = foodDataSource.getFoodDetail(foodId)) {
+                                    is FoodResult.Success -> SheetContent.Entry(
+                                        name = food.name,
+                                        brand = food.brand,
+                                        foodId = foodId,
+                                        detail = r.value
+                                    )
+                                    is FoodResult.Failure -> SheetContent.Error
+                                }
+                            }
+                        } else {
+                            content = SheetContent.Error
+                        }
+                    },
+                    onBarcodeLoading = { content = SheetContent.Loading },
+                    onBarcodeDetail = { detail ->
+                        content = SheetContent.Entry(
+                            name = detail.name,
+                            brand = detail.brand,
+                            foodId = detail.foodId,
+                            detail = detail
+                        )
+                    },
+                    onBarcodeEmpty = { content = SheetContent.Search }
+                )
+            }
+            is SheetContent.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(300.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MiOrange, strokeWidth = 3.dp)
+                }
+            }
+            is SheetContent.Error -> {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Spacer(Modifier.height(48.dp))
+                    Text(
+                        text = "Couldn't load serving details",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Button(
+                        onClick = { content = SheetContent.Search },
+                        colors = ButtonDefaults.buttonColors(containerColor = MiOrange),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Go back", color = Color.White)
+                    }
+                    Spacer(Modifier.height(48.dp))
+                }
+            }
+            is SheetContent.Entry -> {
+                FoodEntryContent(
+                    name = c.name,
+                    brand = c.brand,
+                    foodId = c.foodId,
+                    foodDetail = c.detail,
+                    gramModeData = null,
+                    mealType = mealType,
+                    date = date,
+                    initialServingAmount = 1.0,
+                    initialUnit = ServingUnit.SERVING,
+                    actionLabel = "Add to ${mealType.lowercase().replaceFirstChar { it.uppercase() }}",
+                    onBack = { content = SheetContent.Search },
+                    onAdd = onAddEntry
+                )
+            }
         }
     }
 }
@@ -128,26 +220,46 @@ fun FoodSearchSheet(
 @Composable
 fun EditEntrySheet(
     entry: FoodDiaryEntry,
+    foodDataSource: FoodDataSource,
     onDismiss: () -> Unit,
     onSave: (FoodDiaryEntry) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val reconstructed = if (entry.servingSizeG > 0) {
+
+    // If entry has a foodId, start in Loading; otherwise go straight to gram mode
+    var detailState by remember {
+        mutableStateOf<SheetContent>(
+            if (entry.foodId != null) SheetContent.Loading else SheetContent.Search
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        val foodId = entry.foodId ?: return@LaunchedEffect
+        if (foodDataSource.supportsFoodDetail) {
+            detailState = when (val r = foodDataSource.getFoodDetail(foodId)) {
+                is FoodResult.Success -> SheetContent.Entry(
+                    name = entry.foodName,
+                    brand = entry.brandName,
+                    foodId = foodId,
+                    detail = r.value
+                )
+                is FoodResult.Failure -> SheetContent.Error
+            }
+        } else {
+            detailState = SheetContent.Search  // fall through to gram mode
+        }
+    }
+
+    val gramModeData: GramModeData? = if (entry.foodId == null && entry.servingSizeG > 0) {
         val factor = 100.0 / entry.servingSizeG
-        FoodSearchResult(
-            name = entry.foodName,
-            brand = entry.brandName,
+        GramModeData(
             caloriesPer100g = entry.calories * factor,
             proteinPer100g = entry.proteinG * factor,
             carbPer100g = entry.carbG * factor,
             fatPer100g = entry.fatG * factor,
-            servingSizeG = null,
-            servingDescription = null,
-            source = null
+            servingSizeG = null
         )
-    } else {
-        FoodSearchResult(entry.foodName, entry.brandName, 0.0, 0.0, 0.0, 0.0, null, null, null)
-    }
+    } else null
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -155,23 +267,66 @@ fun EditEntrySheet(
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
     ) {
-        FoodEntryContent(
-            food = reconstructed,
-            mealType = entry.mealType,
-            date = entry.date,
-            initialServingAmount = entry.servingSizeG,
-            initialUnit = ServingUnit.GRAMS,
-            actionLabel = "Update Entry",
-            onBack = onDismiss,
-            onAdd = { updated -> onSave(updated.copy(id = entry.id)) }
-        )
+        when (val s = detailState) {
+            is SheetContent.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(300.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MiOrange, strokeWidth = 3.dp)
+                }
+            }
+            is SheetContent.Error -> {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Spacer(Modifier.height(48.dp))
+                    Text(
+                        text = "Couldn't load serving details",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = MiOrange),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Go back", color = Color.White)
+                    }
+                    Spacer(Modifier.height(48.dp))
+                }
+            }
+            else -> {
+                // SheetContent.Search means "gram mode"; SheetContent.Entry means "detail mode"
+                val detail = (s as? SheetContent.Entry)?.detail
+                FoodEntryContent(
+                    name = entry.foodName,
+                    brand = entry.brandName,
+                    foodId = entry.foodId,
+                    foodDetail = detail,
+                    gramModeData = gramModeData,
+                    mealType = entry.mealType,
+                    date = entry.date,
+                    initialServingAmount = entry.servingSizeG,
+                    initialUnit = ServingUnit.GRAMS,
+                    actionLabel = "Update Entry",
+                    onBack = onDismiss,
+                    onAdd = { updated -> onSave(updated.copy(id = entry.id)) }
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun FoodSearchContent(
     foodDataSource: FoodDataSource,
-    onSelectFood: (FoodSearchResult) -> Unit
+    onSelectFood: (FoodSearchResult) -> Unit,
+    onBarcodeLoading: () -> Unit,
+    onBarcodeDetail: (FoodDetail) -> Unit,
+    onBarcodeEmpty: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
@@ -261,17 +416,17 @@ private fun FoodSearchContent(
                 IconButton(
                     onClick = {
                         scope.launch {
-                            searchState = SearchState.Loading
                             when (val scanResult = barcodeScanner()) {
                                 is BarcodeScanResult.Success -> {
-                                    searchState = when (val r = foodDataSource.searchByBarcode(scanResult.barcode)) {
-                                        is FoodResult.Success -> SearchState.Results(listOf(r.value))
-                                        is FoodResult.Failure -> SearchState.Empty
+                                    onBarcodeLoading()
+                                    when (val r = foodDataSource.searchByBarcode(scanResult.barcode)) {
+                                        is FoodResult.Success -> onBarcodeDetail(r.value)
+                                        is FoodResult.Failure -> onBarcodeEmpty()
                                     }
                                 }
-                                is BarcodeScanResult.Cancelled -> searchState = SearchState.Idle
+                                is BarcodeScanResult.Cancelled -> Unit
                                 is BarcodeScanResult.Error -> searchState = SearchState.Error(isNetwork = true)
-                                is BarcodeScanResult.NotAvailable -> searchState = SearchState.Idle
+                                is BarcodeScanResult.NotAvailable -> Unit
                             }
                         }
                     },
@@ -287,9 +442,9 @@ private fun FoodSearchContent(
                 }
             }
         }
-        
+
         Spacer(Modifier.height(16.dp))
-        
+
         when (val state = searchState) {
             is SearchState.Idle -> {
                 Box(
@@ -367,25 +522,15 @@ private fun FoodResultRow(food: FoodSearchResult, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (food.servingDescription != null) {
-                Text(
-                    text = food.servingDescription,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MiTextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        Spacer(Modifier.width(16.dp))
-        if (food.source != null) {
             Text(
-                text = food.source,
-                style = MaterialTheme.typography.labelSmall,
-                color = MiTextSecondary
+                text = food.displayText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MiTextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(16.dp))
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
@@ -395,9 +540,14 @@ private fun FoodResultRow(food: FoodSearchResult, onClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun FoodEntryContent(
-    food: FoodSearchResult,
+    name: String,
+    brand: String?,
+    foodId: String?,
+    foodDetail: FoodDetail?,
+    gramModeData: GramModeData?,
     mealType: String,
     date: String,
     initialServingAmount: Double = 100.0,
@@ -407,19 +557,63 @@ internal fun FoodEntryContent(
     onAdd: (FoodDiaryEntry) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val useServingDropdown = foodDetail != null && foodDetail.servings.isNotEmpty()
+
+    // Reference serving for custom proration — first serving with a valid metric amount
+    val referenceServing = remember(foodDetail) {
+        foodDetail?.servings?.firstOrNull { (it.metricAmount ?: 0.0) > 0 }
+    }
+    val customUnit = referenceServing?.metricUnit ?: "g"
+
+    // Serving dropdown mode state
+    var selectedServing by remember(foodDetail) {
+        mutableStateOf(foodDetail?.servings?.firstOrNull())
+    }
+    var customMode by remember { mutableStateOf(false) }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+    var quantityInput by remember { mutableStateOf("1") }
+
+    // Gram input mode state
     var servingInput by remember { mutableStateOf(initialServingAmount.roundToInt().toString()) }
     var servingUnit by remember { mutableStateOf(initialUnit) }
 
-    val servingAmount = servingInput.toDoubleOrNull() ?: 0.0
-    val actualG = when (servingUnit) {
-        ServingUnit.OZ -> servingAmount * ServingUnit.OZ_TO_GRAMS
-        ServingUnit.SERVING -> servingAmount * (food.servingSizeG ?: 100.0)
-        else -> servingAmount
+    val calories: Double
+    val proteinG: Double
+    val carbG: Double
+    val fatG: Double
+    val actualG: Double
+
+    if (useServingDropdown) {
+        val inputAmount = quantityInput.toDoubleOrNull() ?: 0.0
+        if (customMode && referenceServing != null && (referenceServing.metricAmount ?: 0.0) > 0) {
+            val factor = inputAmount / referenceServing.metricAmount!!
+            calories = referenceServing.calories * factor
+            proteinG = referenceServing.proteinG * factor
+            carbG = referenceServing.carbG * factor
+            fatG = referenceServing.fatG * factor
+            actualG = if (customUnit == "g") inputAmount else 0.0
+        } else if (!customMode && selectedServing != null) {
+            calories = selectedServing!!.calories * inputAmount
+            proteinG = selectedServing!!.proteinG * inputAmount
+            carbG = selectedServing!!.carbG * inputAmount
+            fatG = selectedServing!!.fatG * inputAmount
+            actualG = if (selectedServing!!.metricUnit == "g") (selectedServing!!.metricAmount ?: 0.0) * inputAmount else 0.0
+        } else {
+            calories = 0.0; proteinG = 0.0; carbG = 0.0; fatG = 0.0; actualG = 0.0
+        }
+    } else {
+        val grams = gramModeData
+        val servingAmount = servingInput.toDoubleOrNull() ?: 0.0
+        actualG = when (servingUnit) {
+            ServingUnit.OZ -> servingAmount * ServingUnit.OZ_TO_GRAMS
+            ServingUnit.SERVING -> servingAmount * (grams?.servingSizeG ?: 100.0)
+            else -> servingAmount
+        }
+        calories = (grams?.caloriesPer100g ?: 0.0) * actualG / 100.0
+        proteinG = (grams?.proteinPer100g ?: 0.0) * actualG / 100.0
+        carbG = (grams?.carbPer100g ?: 0.0) * actualG / 100.0
+        fatG = (grams?.fatPer100g ?: 0.0) * actualG / 100.0
     }
-    val calories = food.caloriesPer100g * actualG / 100.0
-    val proteinG = food.proteinPer100g * actualG / 100.0
-    val carbG = food.carbPer100g * actualG / 100.0
-    val fatG = food.fatPer100g * actualG / 100.0
 
     Column(
         modifier = modifier
@@ -440,14 +634,14 @@ internal fun FoodEntryContent(
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = food.name,
+                    text = name,
                     style = MaterialTheme.typography.titleLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (food.brand != null) {
+                if (brand != null) {
                     Text(
-                        text = food.brand,
+                        text = brand,
                         style = MaterialTheme.typography.bodySmall,
                         color = MiTextSecondary
                     )
@@ -480,73 +674,169 @@ internal fun FoodEntryContent(
             style = MaterialTheme.typography.labelSmall,
             color = MiTextSecondary
         )
-        
+
         Spacer(Modifier.height(12.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            TextField(
-                value = servingInput,
-                onValueChange = { v ->
-                    if (v.all { it.isDigit() || it == '.' } && v.count { it == '.' } <= 1) {
-                        servingInput = v
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                shape = RoundedCornerShape(16.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    focusedContainerColor = MaterialTheme.colorScheme.background,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.background,
-                    focusedLabelColor = MiOrange
+        if (useServingDropdown) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                TextField(
+                    value = quantityInput,
+                    onValueChange = { v ->
+                        if (v.all { it.isDigit() || it == '.' } && v.count { it == '.' } <= 1) {
+                            quantityInput = v
+                        }
+                    },
+                    label = if (customMode) {{ Text(customUnit, style = MaterialTheme.typography.labelSmall) }} else null,
+                    modifier = Modifier.width(80.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedContainerColor = MaterialTheme.colorScheme.background,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.background,
+                        focusedLabelColor = MiOrange
+                    )
                 )
-            )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ServingUnitChip(ServingUnit.GRAMS, servingUnit) { servingUnit = it }
-                ServingUnitChip(ServingUnit.OZ, servingUnit) { servingUnit = it }
-                if (food.servingSizeG != null) {
-                    ServingUnitChip(ServingUnit.SERVING, servingUnit) { servingUnit = it }
+                ExposedDropdownMenuBox(
+                    expanded = dropdownExpanded,
+                    onExpandedChange = { dropdownExpanded = it },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    TextField(
+                        value = if (customMode) "Custom amount ($customUnit)" else selectedServing?.description ?: "",
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
+                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedContainerColor = MaterialTheme.colorScheme.background,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.background
+                        )
+                    )
+                    ExposedDropdownMenu(
+                        expanded = dropdownExpanded,
+                        onDismissRequest = { dropdownExpanded = false }
+                    ) {
+                        foodDetail.servings.forEach { serving ->
+                            DropdownMenuItem(
+                                text = { Text(serving.description, style = MaterialTheme.typography.bodyMedium) },
+                                onClick = {
+                                    selectedServing = serving
+                                    customMode = false
+                                    quantityInput = "1"
+                                    dropdownExpanded = false
+                                }
+                            )
+                        }
+                        if (referenceServing != null) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Custom amount ($customUnit)",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MiOrange
+                                    )
+                                },
+                                onClick = {
+                                    customMode = true
+                                    selectedServing = null
+                                    quantityInput = ""
+                                    dropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
-        }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                TextField(
+                    value = servingInput,
+                    onValueChange = { v ->
+                        if (v.all { it.isDigit() || it == '.' } && v.count { it == '.' } <= 1) {
+                            servingInput = v
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedContainerColor = MaterialTheme.colorScheme.background,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.background,
+                        focusedLabelColor = MiOrange
+                    )
+                )
 
-        if (servingUnit != ServingUnit.GRAMS && actualG > 0) {
-            Spacer(Modifier.height(6.dp))
-            val gramLabel = when (servingUnit) {
-                ServingUnit.SERVING -> "= ${actualG.roundToInt()}g  (1 serving = ${(food.servingSizeG ?: 100.0).roundToInt()}g)"
-                else -> "= ${actualG.roundToInt()}g"
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ServingUnitChip(ServingUnit.GRAMS, servingUnit) { servingUnit = it }
+                    ServingUnitChip(ServingUnit.OZ, servingUnit) { servingUnit = it }
+                    if (gramModeData?.servingSizeG != null) {
+                        ServingUnitChip(ServingUnit.SERVING, servingUnit) { servingUnit = it }
+                    }
+                }
             }
-            Text(
-                text = gramLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = MiTextSecondary
-            )
+
+            if (servingUnit != ServingUnit.GRAMS && actualG > 0) {
+                Spacer(Modifier.height(6.dp))
+                val gramLabel = when (servingUnit) {
+                    ServingUnit.SERVING -> "= ${actualG.roundToInt()}g  (1 serving = ${(gramModeData?.servingSizeG ?: 100.0).roundToInt()}g)"
+                    else -> "= ${actualG.roundToInt()}g"
+                }
+                Text(
+                    text = gramLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MiTextSecondary
+                )
+            }
         }
 
         Spacer(Modifier.height(40.dp))
 
+        val addEnabled = if (useServingDropdown) {
+            val amount = quantityInput.toDoubleOrNull() ?: 0.0
+            if (customMode) amount > 0 && referenceServing != null
+            else amount > 0 && selectedServing != null
+        } else {
+            actualG > 0
+        }
+
         Button(
             onClick = {
-                if (actualG > 0) {
+                if (addEnabled) {
                     onAdd(
                         FoodDiaryEntry(
                             date = date,
                             mealType = mealType,
-                            foodName = food.name,
-                            brandName = food.brand,
+                            foodName = name,
+                            brandName = brand,
                             calories = calories,
                             proteinG = proteinG,
                             carbG = carbG,
                             fatG = fatG,
                             servingSizeG = actualG,
-                            servingUnit = servingUnit
+                            servingUnit = if (useServingDropdown && actualG > 0) ServingUnit.GRAMS
+                                         else if (useServingDropdown) ServingUnit.SERVING
+                                         else servingUnit,
+                            foodId = foodId
                         )
                     )
                 }
@@ -554,7 +844,7 @@ internal fun FoodEntryContent(
             modifier = Modifier.fillMaxWidth().height(64.dp),
             shape = RoundedCornerShape(20.dp),
             colors = ButtonDefaults.buttonColors(containerColor = MiOrange),
-            enabled = actualG > 0
+            enabled = addEnabled
         ) {
             Text(actionLabel, style = MaterialTheme.typography.titleMedium, color = Color.White)
         }

@@ -103,6 +103,7 @@ private fun Map<String, String>.toFormBody(): String =
 class FatSecretFoodDataSource : FoodDataSource {
 
     override val supportsBarcode = true
+    override val supportsFoodDetail = true
 
     private val httpClient = HttpClient {
         install(Logging) {
@@ -139,7 +140,29 @@ class FatSecretFoodDataSource : FoodDataSource {
         }
     }
 
-    override suspend fun searchByBarcode(barcode: String): FoodResult<FoodSearchResult> {
+    override suspend fun getFoodDetail(foodId: String): FoodResult<FoodDetail> {
+        return try {
+            val params = mapOf(
+                "method" to "food.get.v4",
+                "food_id" to foodId,
+                "format" to "json"
+            )
+            val sr = buildSignedRequest("POST", API_URL, params)
+            val response = httpClient.post(API_URL) {
+                header("Authorization", sr.authorizationHeader)
+                setBody(TextContent(sr.requestParams.toFormBody(), ContentType.Application.FormUrlEncoded))
+            }
+            val detail = fatSecretJson.decodeFromString<FatSecretFoodDetailResponse>(response.bodyAsText()).food?.toFoodDetail()
+            if (detail != null) FoodResult.Success(detail)
+            else FoodResult.Failure(FoodError.EmptyResults)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            FoodResult.Failure(FoodError.NetworkError(e.message ?: "Network error"))
+        }
+    }
+
+    override suspend fun searchByBarcode(barcode: String): FoodResult<FoodDetail> {
         return try {
             val idParams = mapOf(
                 "method" to "food.find_id_for_barcode",
@@ -153,20 +176,7 @@ class FatSecretFoodDataSource : FoodDataSource {
             }
             val foodId = fatSecretJson.decodeFromString<FatSecretBarcodeResponse>(idResponse.bodyAsText()).foodId?.value
                 ?: return FoodResult.Failure(FoodError.EmptyResults)
-
-            val foodParams = mapOf(
-                "method" to "food.get.v4",
-                "food_id" to foodId,
-                "format" to "json"
-            )
-            val foodSr = buildSignedRequest("POST", API_URL, foodParams)
-            val foodResponse = httpClient.post(API_URL) {
-                header("Authorization", foodSr.authorizationHeader)
-                setBody(TextContent(foodSr.requestParams.toFormBody(), ContentType.Application.FormUrlEncoded))
-            }
-            val result = fatSecretJson.decodeFromString<FatSecretFoodDetailResponse>(foodResponse.bodyAsText()).food?.toFoodSearchResult()
-            if (result != null) FoodResult.Success(result)
-            else FoodResult.Failure(FoodError.EmptyResults)
+            getFoodDetail(foodId)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -209,68 +219,39 @@ private data class FatSecretFood(
     @SerialName("food_description") val foodDescription: String? = null,
     val servings: FatSecretServings? = null
 ) {
+    fun toFoodDetail(): FoodDetail? {
+        val id = foodId ?: return null
+        val name = foodName?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        val servingList = servings?.serving?.toList<FatSecretServing>() ?: emptyList()
+        return FoodDetail(
+            foodId = id,
+            name = name,
+            brand = brandName?.trim()?.takeIf { it.isNotBlank() },
+            servings = servingList.map { it.toServingOption() },
+            source = "FatSecret"
+        )
+    }
+
+    // Only called from foods.search — no servings on search results, only food_description
     fun toFoodSearchResult(): FoodSearchResult? {
         val name = foodName?.trim()?.takeIf { it.isNotBlank() } ?: return null
-
-        // food.get.v4 returns structured servings; foods.search returns description string
-        val servingList = servings?.serving?.toList<FatSecretServing>() ?: emptyList()
-        return if (servingList.isNotEmpty()) {
-            fromServings(name, servingList)
-        } else {
-            fromDescription(name)
-        }
-    }
-
-    private fun fromServings(name: String, servingList: List<FatSecretServing>): FoodSearchResult? {
-        val display = servingList.firstOrNull { it.metricServingAmount?.toDoubleOrNull() != 100.0 }
-            ?: servingList.first()
-        val metricG = display.metricServingAmount?.toDoubleOrNull() ?: return null
-        if (metricG == 0.0) return null
-        val factor = 100.0 / metricG
-        val servingSizeG = metricG.takeIf { display.metricServingUnit == "g" }
-        val desc = display.servingDescription?.trim()?.takeIf { it.isNotBlank() }
-        val servingDescription = when {
-            desc == null -> null
-            servingSizeG != null && !desc.contains("g") -> "$desc - ${servingSizeG.roundToInt()}g"
-            else -> desc
-        }
-        return FoodSearchResult(
-            name = name,
-            brand = brandName?.trim()?.takeIf { it.isNotBlank() },
-            caloriesPer100g = (display.calories?.toDoubleOrNull() ?: 0.0) * factor,
-            proteinPer100g = (display.protein?.toDoubleOrNull() ?: 0.0) * factor,
-            carbPer100g = (display.carbohydrate?.toDoubleOrNull() ?: 0.0) * factor,
-            fatPer100g = (display.fat?.toDoubleOrNull() ?: 0.0) * factor,
-            servingSizeG = servingSizeG,
-            servingDescription = servingDescription,
-            source = "FatSecret"
-        )
-    }
-
-    // Parses "Per 100g - Calories: 77kcal | Fat: 4.78g | Carbs: 1.87g | Protein: 8.08g"
-    private fun fromDescription(name: String): FoodSearchResult? {
         val desc = foodDescription ?: return null
-        val servingG = Regex("Per (\\d+(?:\\.\\d+)?)g").find(desc)
-            ?.groupValues?.get(1)?.toDoubleOrNull()
-            ?: Regex("\\((\\d+(?:\\.\\d+)?) g\\)").find(desc)
-                ?.groupValues?.get(1)?.toDoubleOrNull()
-            ?: 100.0
-        val factor = 100.0 / servingG
-        val calories = Regex("Calories: (\\d+(?:\\.\\d+)?)kcal").find(desc)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
-        val fat = Regex("Fat: (\\d+(?:\\.\\d+)?)g").find(desc)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
-        val carbs = Regex("Carbs: (\\d+(?:\\.\\d+)?)g").find(desc)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
-        val protein = Regex("Protein: (\\d+(?:\\.\\d+)?)g").find(desc)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
         return FoodSearchResult(
             name = name,
             brand = brandName?.trim()?.takeIf { it.isNotBlank() },
-            caloriesPer100g = calories * factor,
-            proteinPer100g = protein * factor,
-            carbPer100g = carbs * factor,
-            fatPer100g = fat * factor,
-            servingSizeG = servingG.takeIf { it != 100.0 },
-            servingDescription = null,
-            source = "FatSecret"
+            foodId = foodId,
+            displayText = parseDisplayText(desc)
         )
+    }
+
+    // Parses "Per 100g - Calories: 77kcal | ..." → "100g - 77kcal"
+    private fun parseDisplayText(desc: String): String {
+        val match = Regex("Per (.+?) - Calories: (\\d+(?:\\.\\d+)?)kcal").find(desc)
+            ?: return desc.take(60)
+        val serving = match.groupValues[1]
+        val kcal = match.groupValues[2].toDoubleOrNull()?.roundToInt()?.toString()
+            ?: match.groupValues[2]
+        return "$serving - ${kcal}kcal"
     }
 }
 
@@ -281,6 +262,7 @@ private data class FatSecretServings(
 
 @Serializable
 private data class FatSecretServing(
+    @SerialName("serving_id") val servingId: String? = null,
     @SerialName("serving_description") val servingDescription: String? = null,
     @SerialName("metric_serving_amount") val metricServingAmount: String? = null,
     @SerialName("metric_serving_unit") val metricServingUnit: String? = null,
@@ -288,4 +270,24 @@ private data class FatSecretServing(
     val fat: String? = null,
     val carbohydrate: String? = null,
     val protein: String? = null
-)
+) {
+    fun toServingOption(): ServingOption {
+        val metricAmt = metricServingAmount?.toDoubleOrNull()
+        val desc = servingDescription?.trim() ?: "Serving"
+        val description = if (metricAmt != null && metricServingUnit != null && !desc.contains(metricServingUnit)) {
+            "$desc - ${metricAmt.roundToInt()}$metricServingUnit"
+        } else {
+            desc
+        }
+        return ServingOption(
+            servingId = servingId,
+            description = description,
+            metricAmount = metricAmt,
+            metricUnit = metricServingUnit,
+            calories = calories?.toDoubleOrNull() ?: 0.0,
+            proteinG = protein?.toDoubleOrNull() ?: 0.0,
+            carbG = carbohydrate?.toDoubleOrNull() ?: 0.0,
+            fatG = fat?.toDoubleOrNull() ?: 0.0
+        )
+    }
+}
