@@ -1,0 +1,1 @@
+ALTER TABLE FoodDiaryEntry ADD COLUMN food_id TEXT;

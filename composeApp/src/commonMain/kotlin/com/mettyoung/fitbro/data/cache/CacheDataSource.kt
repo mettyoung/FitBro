@@ -18,6 +18,8 @@ interface CacheDataSource {
 
     fun getSyncTimestamp(source: CacheSource): Long?
     fun saveSyncTimestamp(source: CacheSource, timestampMs: Long)
+    fun getLatestBmr(): Double?
+    fun saveLatestBmr(bmr: Double)
     fun clearAll()
 }
 

@@ -15,6 +15,7 @@ class CacheDataSourceImpl(private val settings: Settings) : CacheDataSource {
     private fun metabolismKey(start: String, end: String) = "metabolism_${start}_${end}"
     private fun activityKey(start: String, end: String) = "activity_${start}_${end}"
     private fun syncKey(source: CacheSource) = "sync_${source.name}"
+    private val latestBmrKey = "latest_known_bmr"
 
     override suspend fun saveDailyIntake(startDate: String, endDate: String, data: List<DailyIntake>) {
         settings.putString(intakeKey(startDate, endDate), json.encodeToString(data))
@@ -46,6 +47,10 @@ class CacheDataSourceImpl(private val settings: Settings) : CacheDataSource {
     override fun saveSyncTimestamp(source: CacheSource, timestampMs: Long) {
         settings.putLong(syncKey(source), timestampMs)
     }
+
+    override fun getLatestBmr(): Double? = settings.getDoubleOrNull(latestBmrKey)
+
+    override fun saveLatestBmr(bmr: Double) = settings.putDouble(latestBmrKey, bmr)
 
     override fun clearAll() {
         settings.clear()

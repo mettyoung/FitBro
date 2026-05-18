@@ -49,7 +49,7 @@ private fun Int.toDayString(): String {
 fun String.plusDays(n: Int): String = (toDaysSinceEpoch() + n).toDayString()
 fun String.minusDays(n: Int): String = plusDays(-n)
 
-fun todayString(): String = (currentEpochMs() / 86_400_000L).toInt().toDayString()
+fun todayString(): String = localDateString()
 
 fun String.toYMD(): Triple<Int, Int, Int> {
     val p = split("-")

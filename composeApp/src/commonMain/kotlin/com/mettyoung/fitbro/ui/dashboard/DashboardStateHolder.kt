@@ -79,6 +79,8 @@ class DashboardStateHolder(
 
             val metabolisms: List<Metabolism> = when (metabolismResult) {
                 is HealthResult.Success -> {
+                    val maxBmr = metabolismResult.value.maxOfOrNull { it.bmr }
+                    if (maxBmr != null && maxBmr > 0) cacheDataSource.saveLatestBmr(maxBmr)
                     cacheDataSource.saveMetabolism(range.startDate, range.endDate, metabolismResult.value)
                     cacheDataSource.saveSyncTimestamp(CacheSource.HEALTH_METABOLISM, now)
                     metabolismResult.value
@@ -144,7 +146,9 @@ class DashboardStateHolder(
         val metabolismByDate = metabolisms.associateBy { it.date }
         val activityByDate = activities?.associateBy { it.date }
         val intakesByDate = intakes.associateBy { it.date }
-        val fallbackBmr = metabolisms.maxByOrNull { it.date }?.bmr ?: 0.0
+        val fallbackBmr = metabolisms.maxByOrNull { it.date }?.bmr
+            ?: cacheDataSource.getLatestBmr()
+            ?: 0.0
 
         val allDates = (intakes.map { it.date } + (activityByDate?.keys ?: emptySet())).distinct().sorted()
 
