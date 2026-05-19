@@ -48,10 +48,9 @@ import com.mettyoung.fitbro.ui.FitBroTheme
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 
-private val REQUIRED_PERMISSIONS = setOf(
+private val REQUIRED_READ_PERMISSIONS = setOf(
     HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
     HealthPermission.getReadPermission(NutritionRecord::class),
-    HealthPermission.getWritePermission(NutritionRecord::class),
     HealthPermission.getReadPermission(BasalMetabolicRateRecord::class)
 )
 
@@ -77,7 +76,7 @@ private fun PermissionGateContent() {
     val client = remember { HealthConnectClient.getOrCreate(context) }
     val scope = rememberCoroutineScope()
 
-    var allGranted by remember { mutableStateOf(false) }
+    var requiredGranted by remember { mutableStateOf(false) }
     var checked by remember { mutableStateOf(false) }
 
     val launcher = rememberLauncherForActivityResult(
@@ -89,7 +88,7 @@ private fun PermissionGateContent() {
             } catch (e: Exception) {
                 emptySet()
             }
-            allGranted = currentlyGranted.containsAll(REQUIRED_PERMISSIONS)
+            requiredGranted = currentlyGranted.containsAll(REQUIRED_READ_PERMISSIONS)
         }
     }
 
@@ -99,7 +98,7 @@ private fun PermissionGateContent() {
         } catch (e: Exception) {
             emptySet()
         }
-        allGranted = granted.containsAll(REQUIRED_PERMISSIONS)
+        requiredGranted = granted.containsAll(REQUIRED_READ_PERMISSIONS)
         checked = true
     }
 
@@ -110,8 +109,8 @@ private fun PermissionGateContent() {
         ) {
             CircularProgressIndicator(color = MiOrange)
         }
-        allGranted -> App()
-        else -> PermissionScreen(onGrant = { launcher.launch(REQUIRED_PERMISSIONS) })
+        requiredGranted -> App()
+        else -> PermissionScreen(onGrant = { launcher.launch(REQUIRED_READ_PERMISSIONS) })
     }
 }
 
@@ -156,7 +155,7 @@ private fun PermissionScreen(onGrant: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             
             Text(
-                text = "FitBro needs access to your health data to track calories and macros accurately.",
+                text = "FitBro needs read access to your health data to track calories and macros accurately.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MiTextSecondary,
