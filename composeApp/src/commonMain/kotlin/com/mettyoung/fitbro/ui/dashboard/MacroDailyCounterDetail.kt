@@ -82,6 +82,7 @@ fun MacroDailyCounterDetail(
     foodDiaryStateHolder: FoodDiaryStateHolder,
     foodDataSource: FoodDataSource,
     onDateSelected: (String) -> Unit = {},
+    onBalanceRefreshNeeded: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -195,7 +196,10 @@ fun MacroDailyCounterDetail(
                     MacroDataSourceToggle(
                         selectedSource = foodState.macroDataSource,
                         healthSourceLabel = healthNutritionSourceName,
-                        onSourceSelected = foodDiaryStateHolder::setMacroDataSourceForSelectedDate
+                        onSourceSelected = { source ->
+                            foodDiaryStateHolder.setMacroDataSourceForSelectedDate(source)
+                            onBalanceRefreshNeeded()
+                        }
                     )
 
                     if (foodState.error != null) {
@@ -232,7 +236,12 @@ fun MacroDailyCounterDetail(
                             onAddClick = { addingToMeal = mealType },
                             onEditClick = { editingEntry = it },
                             onDeleteClick = { entry ->
-                                pendingDelete?.let { prev -> foodDiaryStateHolder.deleteEntry(prev.id) }
+                                pendingDelete?.let { prev ->
+                                    scope.launch {
+                                        foodDiaryStateHolder.deleteEntry(prev.id).join()
+                                        onBalanceRefreshNeeded()
+                                    }
+                                }
                                 pendingDelete = entry
                                 scope.launch {
                                     val result = snackbarHostState.showSnackbar(
@@ -243,7 +252,8 @@ fun MacroDailyCounterDetail(
                                     when (result) {
                                         SnackbarResult.ActionPerformed -> pendingDelete = null
                                         SnackbarResult.Dismissed -> {
-                                            foodDiaryStateHolder.deleteEntry(entry.id)
+                                            foodDiaryStateHolder.deleteEntry(entry.id).join()
+                                            onBalanceRefreshNeeded()
                                             pendingDelete = null
                                         }
                                     }
@@ -282,7 +292,10 @@ fun MacroDailyCounterDetail(
             foodDataSource = foodDataSource,
             onDismiss = { addingToMeal = null },
             onAddEntry = { entry ->
-                foodDiaryStateHolder.addEntry(entry)
+                scope.launch {
+                    foodDiaryStateHolder.addEntry(entry).join()
+                    onBalanceRefreshNeeded()
+                }
                 addingToMeal = null
             }
         )
@@ -294,7 +307,10 @@ fun MacroDailyCounterDetail(
             foodDataSource = foodDataSource,
             onDismiss = { editingEntry = null },
             onSave = { updated ->
-                foodDiaryStateHolder.updateEntry(updated)
+                scope.launch {
+                    foodDiaryStateHolder.updateEntry(updated).join()
+                    onBalanceRefreshNeeded()
+                }
                 editingEntry = null
             }
         )

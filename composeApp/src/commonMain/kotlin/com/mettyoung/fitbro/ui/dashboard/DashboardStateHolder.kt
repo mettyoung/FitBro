@@ -2,19 +2,24 @@ package com.mettyoung.fitbro.ui.dashboard
 
 import com.mettyoung.fitbro.data.cache.CacheDataSource
 import com.mettyoung.fitbro.data.cache.CacheSource
+import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
 import com.mettyoung.fitbro.data.health.HealthDataSource
 import com.mettyoung.fitbro.data.health.HealthResult
 import com.mettyoung.fitbro.data.model.ActivityBurn
 import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.model.DailyIntake
+import com.mettyoung.fitbro.data.model.DailyMacroTotals
+import com.mettyoung.fitbro.data.model.MacroDataSource
 import com.mettyoung.fitbro.data.model.Metabolism
 import com.mettyoung.fitbro.data.repository.CalorieMathRepository
 import com.mettyoung.fitbro.data.repository.CalorieResult
+import com.mettyoung.fitbro.data.repository.FoodDiaryRepository
 import com.mettyoung.fitbro.util.currentEpochMs
 import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +29,8 @@ import kotlinx.coroutines.launch
 class DashboardStateHolder(
     private val healthDataSource: HealthDataSource,
     private val cacheDataSource: CacheDataSource,
+    private val foodDiaryRepository: FoodDiaryRepository,
+    private val userSettingsDataSource: UserSettingsDataSource,
     private val calorieMathRepository: CalorieMathRepository,
     private val scope: CoroutineScope,
     initialDateRange: DateRange
@@ -53,10 +60,14 @@ class DashboardStateHolder(
             val intakeDeferred = async { healthDataSource.readDailyIntake(range.startDate, range.endDate) }
             val metabolismDeferred = async { healthDataSource.readBasalMetabolicRate(range.startDate, range.endDate) }
             val activityDeferred = async { healthDataSource.readActivityData(range.startDate, range.endDate) }
+            val foodDiaryTotalsDeferred = async {
+                foodDiaryRepository.getDailyTotalsForRange(range.startDate, range.endDate).first()
+            }
 
             val intakeResult = intakeDeferred.await()
             val metabolismResult = metabolismDeferred.await()
             val activityResult = activityDeferred.await()
+            val foodDiaryTotals = foodDiaryTotalsDeferred.await()
 
             val healthIntakeFailed = intakeResult is HealthResult.Failure
             val healthMetabolismFailed = metabolismResult is HealthResult.Failure
@@ -103,7 +114,8 @@ class DashboardStateHolder(
                 }
             }
 
-            val balances = computeBalances(intakes, metabolisms, activities)
+            val effectiveIntakes = selectIntakesForPersistedSources(intakes, foodDiaryTotals)
+            val balances = computeBalances(effectiveIntakes, metabolisms, activities)
 
             val updatedSyncTime = mapOf(
                 CacheSource.HEALTH_INTAKE to cacheDataSource.getSyncTimestamp(CacheSource.HEALTH_INTAKE),
@@ -163,7 +175,31 @@ class DashboardStateHolder(
             }
         }
     }
+
+    private fun selectIntakesForPersistedSources(
+        healthIntakes: List<DailyIntake>,
+        foodDiaryTotals: List<DailyMacroTotals>
+    ): List<DailyIntake> {
+        val healthByDate = healthIntakes.associateBy { it.date }
+        val diaryByDate = foodDiaryTotals.associateBy { it.date }
+        val allDates = (healthByDate.keys + diaryByDate.keys).distinct().sorted()
+
+        return allDates.map { date ->
+            when (userSettingsDataSource.getMacroDataSourceForDate(date)) {
+                MacroDataSource.FOOD_DIARY -> diaryByDate[date]?.toDailyIntake() ?: DailyIntake(date, 0.0)
+                MacroDataSource.HEALTH_CONNECT -> healthByDate[date] ?: DailyIntake(date, 0.0)
+            }
+        }
+    }
 }
+
+private fun DailyMacroTotals.toDailyIntake() = DailyIntake(
+    date = date,
+    totalCalories = calories,
+    proteinG = proteinG,
+    carbG = carbG,
+    fatG = fatG
+)
 
 private fun com.mettyoung.fitbro.data.health.HealthDataError.describe(): String = when (this) {
     com.mettyoung.fitbro.data.health.HealthDataError.PermissionDenied -> "Permission denied"

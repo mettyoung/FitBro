@@ -102,7 +102,8 @@ fun DashboardWithTabs(
                         userSettingsDataSource = userSettingsDataSource,
                         foodDiaryStateHolder = foodDiaryStateHolder,
                         foodDataSource = foodDataSource,
-                        onDateSelected = stateHolder::setSelectedDate
+                        onDateSelected = stateHolder::setSelectedDate,
+                        onBalanceRefreshNeeded = stateHolder::refresh
                     )
                     2 -> MacroGoalsSettings(
                         userSettingsDataSource = userSettingsDataSource

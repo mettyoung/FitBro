@@ -15,6 +15,7 @@ import com.mettyoung.fitbro.util.plusDays
 import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -106,22 +107,22 @@ class FoodDiaryStateHolder(
         macroSourceRevision.value += 1
     }
 
-    fun addEntry(entry: FoodDiaryEntry) {
-        scope.launch {
+    fun addEntry(entry: FoodDiaryEntry): Job {
+        return scope.launch {
             val id = repository.addEntry(entry)
             syncToHealthConnect(entry.copy(id = id))
         }
     }
 
-    fun updateEntry(entry: FoodDiaryEntry) {
-        scope.launch {
+    fun updateEntry(entry: FoodDiaryEntry): Job {
+        return scope.launch {
             repository.updateEntry(entry)
             syncToHealthConnect(entry)
         }
     }
 
-    fun deleteEntry(id: Long) {
-        scope.launch {
+    fun deleteEntry(id: Long): Job {
+        return scope.launch {
             repository.deleteEntry(id)
         }
     }

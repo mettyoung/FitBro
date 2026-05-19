@@ -55,10 +55,19 @@ fun App() {
             val today = todayString()
             DateRange(today.minusDays(6), today)
         }
-        val stateHolder = remember(healthDataSource, cacheDataSource, calorieMathRepository, scope) {
+        val stateHolder = remember(
+            healthDataSource,
+            cacheDataSource,
+            foodDiaryRepository,
+            userSettingsDataSource,
+            calorieMathRepository,
+            scope
+        ) {
             DashboardStateHolder(
                 healthDataSource = healthDataSource,
                 cacheDataSource = cacheDataSource,
+                foodDiaryRepository = foodDiaryRepository,
+                userSettingsDataSource = userSettingsDataSource,
                 calorieMathRepository = calorieMathRepository,
                 scope = scope,
                 initialDateRange = initialDateRange
