@@ -59,9 +59,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.mettyoung.fitbro.getPlatform
 import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
 import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
+import com.mettyoung.fitbro.data.model.MacroDataSource
 import com.mettyoung.fitbro.data.model.MealType
 import com.mettyoung.fitbro.ui.FitroBroIcon
 import com.mettyoung.fitbro.ui.MiOrange
@@ -102,6 +104,7 @@ fun MacroDailyCounterDetail(
     var pendingDelete by remember { mutableStateOf<FoodDiaryEntry?>(null) }
 
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val healthNutritionSourceName = remember { getPlatform().healthNutritionSourceName }
 
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -189,6 +192,23 @@ fun MacroDailyCounterDetail(
 
                     Spacer(Modifier.height(24.dp))
 
+                    MacroDataSourceToggle(
+                        selectedSource = foodState.macroDataSource,
+                        healthSourceLabel = healthNutritionSourceName,
+                        onSourceSelected = foodDiaryStateHolder::setMacroDataSourceForSelectedDate
+                    )
+
+                    if (foodState.error != null) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = foodState.error ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+
                     MacroSummaryHeader(
                         totals = foodState.dailyTotals,
                         proteinGoal = proteinGoal,
@@ -201,36 +221,38 @@ fun MacroDailyCounterDetail(
 
             item { Spacer(Modifier.height(24.dp)) }
 
-            MealType.ordered.forEach { mealType ->
-                item(key = mealType) {
-                    val entries = (foodState.entriesByMeal[mealType] ?: emptyList())
-                        .filter { it.id != pendingDelete?.id }
-                    FoodDiarySection(
-                        mealType = mealType,
-                        entries = entries,
-                        onAddClick = { addingToMeal = mealType },
-                        onEditClick = { editingEntry = it },
-                        onDeleteClick = { entry ->
-                            pendingDelete?.let { prev -> foodDiaryStateHolder.deleteEntry(prev.id) }
-                            pendingDelete = entry
-                            scope.launch {
-                                val result = snackbarHostState.showSnackbar(
-                                    message = "Removed ${entry.foodName}",
-                                    actionLabel = "Undo",
-                                    duration = SnackbarDuration.Short
-                                )
-                                when (result) {
-                                    SnackbarResult.ActionPerformed -> pendingDelete = null
-                                    SnackbarResult.Dismissed -> {
-                                        foodDiaryStateHolder.deleteEntry(entry.id)
-                                        pendingDelete = null
+            if (foodState.macroDataSource == MacroDataSource.FOOD_DIARY) {
+                MealType.ordered.forEach { mealType ->
+                    item(key = mealType) {
+                        val entries = (foodState.entriesByMeal[mealType] ?: emptyList())
+                            .filter { it.id != pendingDelete?.id }
+                        FoodDiarySection(
+                            mealType = mealType,
+                            entries = entries,
+                            onAddClick = { addingToMeal = mealType },
+                            onEditClick = { editingEntry = it },
+                            onDeleteClick = { entry ->
+                                pendingDelete?.let { prev -> foodDiaryStateHolder.deleteEntry(prev.id) }
+                                pendingDelete = entry
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Removed ${entry.foodName}",
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    when (result) {
+                                        SnackbarResult.ActionPerformed -> pendingDelete = null
+                                        SnackbarResult.Dismissed -> {
+                                            foodDiaryStateHolder.deleteEntry(entry.id)
+                                            pendingDelete = null
+                                        }
                                     }
                                 }
-                            }
-                        },
-                        modifier = Modifier.padding(horizontal = 24.dp)
-                    )
-                    Spacer(Modifier.height(16.dp))
+                            },
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                    }
                 }
             }
 
@@ -292,6 +314,60 @@ fun MacroDailyCounterDetail(
                 userSettingsDataSource.setCalorieGoalKcal(cal); calorieGoal = cal
                 showGoalsDialog = false
             }
+        )
+    }
+}
+
+@Composable
+private fun MacroDataSourceToggle(
+    selectedSource: MacroDataSource,
+    healthSourceLabel: String,
+    onSourceSelected: (MacroDataSource) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background, RoundedCornerShape(16.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        MacroDataSourceButton(
+            text = healthSourceLabel,
+            selected = selectedSource == MacroDataSource.HEALTH_CONNECT,
+            onClick = { onSourceSelected(MacroDataSource.HEALTH_CONNECT) },
+            modifier = Modifier.weight(1f)
+        )
+        MacroDataSourceButton(
+            text = "Food Diary",
+            selected = selectedSource == MacroDataSource.FOOD_DIARY,
+            onClick = { onSourceSelected(MacroDataSource.FOOD_DIARY) },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun MacroDataSourceButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.textButtonColors(
+            containerColor = if (selected) MiOrange else Color.Transparent,
+            contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

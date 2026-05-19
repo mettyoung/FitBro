@@ -42,10 +42,11 @@ fun App() {
 
         val foodDataSource: FoodDataSource = remember { FatSecretFoodDataSource() }
 
-        val foodDiaryStateHolder = remember(foodDiaryRepository, healthDataSource, scope) {
+        val foodDiaryStateHolder = remember(foodDiaryRepository, healthDataSource, userSettingsDataSource, scope) {
             FoodDiaryStateHolder(
                 repository = foodDiaryRepository,
                 healthDataSource = healthDataSource,
+                userSettingsDataSource = userSettingsDataSource,
                 scope = scope
             )
         }

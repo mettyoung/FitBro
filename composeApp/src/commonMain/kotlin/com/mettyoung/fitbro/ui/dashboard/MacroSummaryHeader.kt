@@ -138,7 +138,8 @@ private fun MacroMiniCard(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    val progress = (consumed / goal.coerceAtLeast(1.0)).coerceIn(0.0, 1.0).toFloat()
+    val progress = consumed / goal.coerceAtLeast(1.0)
+    val arcProgress = progress.coerceIn(0.0, 1.0).toFloat()
     
     Column(
         modifier = modifier
@@ -156,13 +157,13 @@ private fun MacroMiniCard(
                 drawArc(
                     color = color,
                     startAngle = -90f,
-                    sweepAngle = 360f * progress,
+                    sweepAngle = 360f * arcProgress,
                     useCenter = false,
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                 )
             }
             Text(
-                text = "${(progress * 100).toInt()}%",
+                text = "${(progress * 100).roundToInt()}%",
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                 fontWeight = FontWeight.Bold,
                 color = color

@@ -103,31 +103,34 @@ private class HealthConnectDataSource : HealthDataSource {
 
             Log.d("HealthConnect", "Nutrition query: $startDate to $endDate (LocalDateTime: $startDt to $endDt)")
 
-            val buckets = healthClient.aggregateGroupByPeriod(
-                AggregateGroupByPeriodRequest(
-                    metrics = setOf(
-                        NutritionRecord.ENERGY_TOTAL,
-                        NutritionRecord.PROTEIN_TOTAL,
-                        NutritionRecord.TOTAL_CARBOHYDRATE_TOTAL,
-                        NutritionRecord.TOTAL_FAT_TOTAL,
-                    ),
-                    timeRangeFilter = TimeRangeFilter.between(startDt, endDt),
-                    timeRangeSlicer = Period.ofDays(1)
+            val records = healthClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = NutritionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startDt, endDt)
                 )
-            )
+            ).records
 
-            Log.d("HealthConnect", "Nutrition query returned ${buckets.size} days")
-            if (buckets.isEmpty()) {
+            val appPackageName = AndroidAppContext.context.packageName
+            val externalRecords = records.filter { record ->
+                record.metadata.dataOrigin.packageName != appPackageName
+            }
+
+            Log.d(
+                "HealthConnect",
+                "Nutrition query returned ${records.size} records (${externalRecords.size} external)"
+            )
+            if (externalRecords.isEmpty()) {
                 Log.w("HealthConnect", "EMPTY: No nutrition data in HC. User must log food in connected app (Google Fit, Samsung Health, etc)")
             }
 
-            val intakes = buckets.mapNotNull { bucket ->
-                val energy = bucket.result[NutritionRecord.ENERGY_TOTAL] ?: return@mapNotNull null
-                val kcal = energy.inKilocalories
-                val protein = bucket.result[NutritionRecord.PROTEIN_TOTAL]?.inGrams ?: 0.0
-                val carbs = bucket.result[NutritionRecord.TOTAL_CARBOHYDRATE_TOTAL]?.inGrams ?: 0.0
-                val fat = bucket.result[NutritionRecord.TOTAL_FAT_TOTAL]?.inGrams ?: 0.0
-                val date = bucket.startTime.atZone(zone).toLocalDate().toString()
+            val byDate = externalRecords.groupBy { record ->
+                record.startTime.atZone(zone).toLocalDate().toString()
+            }
+            val intakes = byDate.entries.sortedBy { it.key }.map { (date, dayRecords) ->
+                val kcal = dayRecords.sumOf { it.energy?.inKilocalories ?: 0.0 }
+                val protein = dayRecords.sumOf { it.protein?.inGrams ?: 0.0 }
+                val carbs = dayRecords.sumOf { it.totalCarbohydrate?.inGrams ?: 0.0 }
+                val fat = dayRecords.sumOf { it.totalFat?.inGrams ?: 0.0 }
                 Log.d("HealthConnect", "Nutrition on $date: ${kcal}kcal, protein=${protein}g, carbs=${carbs}g, fat=${fat}g")
                 DailyIntake(date = date, totalCalories = kcal, proteinG = protein, carbG = carbs, fatG = fat)
             }

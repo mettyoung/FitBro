@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.data.cache
 
 import com.mettyoung.fitbro.data.food.FoodDatabase
+import com.mettyoung.fitbro.data.model.MacroDataSource
 import com.russhwolf.settings.Settings
 
 class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsDataSource {
@@ -10,6 +11,7 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         private const val FAT_GOAL_KEY = "macro_goal_fat_g"
         private const val CALORIE_GOAL_KEY = "macro_goal_calorie_kcal"
         private const val FOOD_DATABASE_KEY = "food_database"
+        private const val MACRO_DATA_SOURCE_PREFIX = "macro_data_source_"
         private const val DEFAULT_PROTEIN_GOAL = 150.0
         private const val DEFAULT_CARBS_GOAL = 200.0
         private const val DEFAULT_FAT_GOAL = 65.0
@@ -51,5 +53,14 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
 
     override fun setFoodDatabase(db: FoodDatabase) {
         settings.putString(FOOD_DATABASE_KEY, db.name)
+    }
+
+    override fun getMacroDataSourceForDate(date: String): MacroDataSource {
+        val stored = settings.getStringOrNull("$MACRO_DATA_SOURCE_PREFIX$date")
+        return MacroDataSource.entries.firstOrNull { it.name == stored } ?: MacroDataSource.FOOD_DIARY
+    }
+
+    override fun setMacroDataSourceForDate(date: String, source: MacroDataSource) {
+        settings.putString("$MACRO_DATA_SOURCE_PREFIX$date", source.name)
     }
 }
