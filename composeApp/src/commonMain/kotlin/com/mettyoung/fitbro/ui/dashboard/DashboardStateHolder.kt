@@ -162,7 +162,11 @@ class DashboardStateHolder(
             ?: cacheDataSource.getLatestBmr()
             ?: 0.0
 
-        val allDates = (intakes.map { it.date } + (activityByDate?.keys ?: emptySet())).distinct().sorted()
+        val today = todayString()
+        val allDates = (intakes.map { it.date } + (activityByDate?.keys ?: emptySet()))
+            .distinct()
+            .filter { it <= today }
+            .sorted()
 
         return allDates.mapNotNull { date ->
             val metabolism = metabolismByDate[date] ?: Metabolism(date = date, bmr = fallbackBmr, tef = 0.0)
