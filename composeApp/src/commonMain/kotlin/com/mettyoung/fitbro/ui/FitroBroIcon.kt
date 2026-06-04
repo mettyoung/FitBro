@@ -15,50 +15,29 @@ val FitroBroIcon: ImageVector by lazy {
         viewportWidth = 24f,
         viewportHeight = 24f
     ).apply {
-        // Head
         path(
             fill = SolidColor(Color(0xFFFF6600)),
             fillAlpha = 1f,
             pathFillType = PathFillType.NonZero
         ) {
-            moveTo(12f, 1f)
-            curveTo(9.24f, 1f, 7f, 3.24f, 7f, 6f)
-            curveTo(7f, 8.76f, 9.24f, 11f, 12f, 11f)
-            curveTo(14.76f, 11f, 17f, 8.76f, 17f, 6f)
-            curveTo(17f, 3.24f, 14.76f, 1f, 12f, 1f)
+            // Flexed arm: Upper arm and Bicep bulge
+            moveTo(20.31f, 14.26f)
+            curveTo(19.23f, 12.13f, 17.51f, 10.45f, 14.8f, 9.61f)
+            curveTo(12.11f, 8.77f, 9.59f, 9.77f, 9.59f, 9.77f)
+            curveTo(9.59f, 9.77f, 7.55f, 8.59f, 5.71f, 10.66f)
+            curveTo(3.87f, 12.73f, 3.42f, 15.65f, 3.42f, 15.65f)
+            lineTo(3.42f, 21.2f)
+            lineTo(20.31f, 21.2f)
+            curveTo(20.31f, 21.2f, 21.39f, 16.39f, 20.31f, 14.26f)
             close()
-        }
-        // Body + arms (buff silhouette)
-        path(
-            fill = SolidColor(Color(0xFFFF6600)),
-            fillAlpha = 1f,
-            pathFillType = PathFillType.NonZero
-        ) {
-            // Neck left
-            moveTo(10f, 11f)
-            lineTo(10f, 12.5f)
-            // Left shoulder curve (deltoid)
-            quadTo(6f, 13f, 4f, 15.5f)
-            // Left arm (bicep bulge out then forearm)
-            quadTo(1.5f, 18f, 2f, 21f)
-            // Left arm base
-            lineTo(2f, 23f)
-            lineTo(7f, 23f)
-            // Left torso
-            lineTo(8f, 24f)
-            // Bottom
-            lineTo(16f, 24f)
-            // Right torso
-            lineTo(17f, 23f)
-            // Right arm base
-            lineTo(22f, 23f)
-            lineTo(22f, 21f)
-            // Right arm (bicep)
-            quadTo(22.5f, 18f, 20f, 15.5f)
-            // Right shoulder curve
-            quadTo(18f, 13f, 14f, 12.5f)
-            // Neck right
-            lineTo(14f, 11f)
+            
+            // Forearm and Fist
+            moveTo(11.1f, 9.6f)
+            curveTo(11.1f, 9.6f, 13.08f, 6.55f, 17.04f, 5.48f)
+            curveTo(21f, 4.41f, 22.06f, 7.37f, 22.06f, 7.37f)
+            lineTo(23.4f, 10.82f)
+            curveTo(23.4f, 10.82f, 21.37f, 12.53f, 17.41f, 13.6f)
+            curveTo(13.45f, 14.67f, 11.1f, 9.6f, 11.1f, 9.6f)
             close()
         }
     }.build()

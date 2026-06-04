@@ -4,22 +4,29 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
+    <!-- Muscular Man Silhouette -->
     <!-- Head -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,8 C42.95,8 34,16.95 34,28 C34,39.05 42.95,48 54,48 C65.05,48 74,39.05 74,28 C74,16.95 65.05,8 54,8 Z" />
+        android:pathData="M54,22m-7,0a7,7 0,1 1,14 0a7,7 0,1 1,-14 0" />
 
-    <!-- Body with wide buff shoulders and arms -->
+    <!-- Body: Broad shoulders, V-taper torso, and flexed biceps -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M45,48 L45,55
-            Q27,57 18,66
-            Q8,76 9,91
-            L9,100 L32,100
-            L36,108 L72,108
-            L76,100 L99,100
-            L99,91
-            Q100,76 90,66
-            Q81,57 63,55
-            L63,48 Z" />
+        android:pathData="M54,32
+            C48,32 40,34 35,38
+            C30,32 20,25 15,28
+            C10,30 8,35 12,45
+            C14,52 22,52 28,48
+            L33,45
+            C35,55 39,68 43,73
+            L38,92 L51,92 L53,78
+            L55,78 L57,92 L70,92 L65,73
+            C69,68 73,55 75,45
+            L80,48
+            C86,52 94,52 96,45
+            C100,35 98,30 93,28
+            C88,25 78,32 73,38
+            C68,34 60,32 54,32
+            Z" />
 </vector>
