@@ -16,6 +16,9 @@ Started: 2026-06-06
 - HealthConnect write is fire-and-forget no-op on Android alpha12 + iOS; addEntry already triggers syncToHealthConnect
 - iOS cinterop: use `is CPointer<*>` not erased typed refs; kotlinx-coroutines-core explicit in commonMain deps
 - Always `git status` before creating files — scaffolding may exist untracked
+- Gradle: export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home AND run with sandbox disabled (~/.gradle/wrapper outside sandbox write scope)
+- Data-layer tests: no SQLDelight test driver in catalog (only android/native drivers, can't add) + no kotlinx-coroutines-test. Test repo CONTRACT via in-memory fake implementing the repo interface; run suspend bodies with a synchronous startCoroutine(Continuation(EmptyCoroutineContext){}) helper since fakes don't truly suspend. See FoodDiaryReorderTest.kt.
+- COALESCE(MAX(col), -1) aggregate => SQLDelight NON-null Long; bare MAX/SUM => nullable (guard with ?: )
 - COALESCE(MAX(col), -1) query => SQLDelight returns NON-null Long; executeAsOne() directly. Bare MAX/SUM/AVG aggregates stay nullable (guard ?: 0.0). Same COALESCE(...,0.0) -> non-null Double.
 - Gradle build env: export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home. ~/.gradle/wrapper is OUTSIDE sandbox write scope -> run gradle with sandbox DISABLED.
 - NO SQLDelight test driver in version catalog (only android-driver + native-driver, no sqlite/jdbc). Cannot write DB-integration tests without a forbidden new dep -> data-layer SQL-wiring stories rely on typecheck gates only.
@@ -30,9 +33,10 @@ Changes:
 - FoodDiaryRepository.kt: reorderMeal(date, mealType, orderedIds) signature.
 - FoodDiaryRepositoryImpl.kt: addEntry computes nextSortOrder = maxSortOrderForDateMeal+1 inside existing transactionWithResult; reorderMeal updates sortOrder=index per id in one transaction on Dispatchers.Default; toDomain maps sortOrder.
 Gates: both typecheck commands BUILD SUCCESSFUL (only pre-existing elvis/icon warnings).
-No data-layer unit test added: project has no SQLDelight test driver in version catalog; adding sqlite/jdbc-driver would violate the no-new-deps rule. reorderMeal is thin SQL wiring covered by typecheck.
+Data-layer test: FoodDiaryReorderTest.kt (commonTest, 2 tests, PASS) locks the sortOrder contract via an in-memory FoodDiaryRepository fake (addEntry -> max+1 per date+meal; reorderMeal -> sortOrder=index; totals unchanged by reorder). Real SQL not exercised because no SQLDelight test driver exists in the catalog and adding sqlite/jdbc-driver would violate the no-new-deps rule; the fake mirrors the impl's ORDER BY + transaction semantics.
 Learnings:
 - COALESCE(MAX(col), -1) query => SQLDelight generates NON-null Long return; executeAsOne()+1 directly, no ?: guard needed (contrast: bare MAX/SUM aggregates are nullable).
-- No DB integration test harness exists; no sqldelight sqlite/jdbc driver in gradle/libs.versions.toml (only android-driver + native-driver). Cannot add DB tests without forbidden new dep.
+- No DB integration test harness exists; no sqldelight sqlite/jdbc driver in gradle/libs.versions.toml (only android-driver + native-driver). For data-layer stories, test the repository CONTRACT via an in-memory fake implementing the repo interface (StateFlow-backed) instead of real SQL — keeps to no-new-deps rule.
+- commonTest has NO kotlinx-coroutines-test (no runTest) and no common runBlocking. Run suspend tests synchronously via a tiny helper: `block.startCoroutine(Continuation(EmptyCoroutineContext){...})` — works when the fake never truly suspends (StateFlow.first() emits immediately).
 - Gradle needs JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home; gradle wrapper dir (~/.gradle/wrapper) is OUTSIDE sandbox write scope -> run gradle with sandbox disabled.
 - sqldelight migration auto-detected (schemaVersion not pinned in build.gradle.kts); just drop N.sqm, no build.gradle change needed.
