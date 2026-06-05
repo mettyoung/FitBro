@@ -1,0 +1,45 @@
+## Macro Food Diary Notes
+- SQLDelight 2.x for KMP: app.cash.sqldelight android-driver + native-driver + coroutines-extensions
+- OpenFoodFacts endpoint: https://world.openfoodfacts.org/cgi/search.pl?search_terms={query}&action=process&json=1&page_size=20
+- User-Agent required: FitBro/1.0 (Android; emmettyoung92@gmail.com)
+- Macro calc: macroG = (macroPer100g * servingG) / 100.0, round to 1 decimal
+- oz conversion: 1 oz = 28.3495g
+- "1 serving" unit: use result.servingSizeG; if null hide option and default to 100g
+- Diary DB = source of truth; HC-read DailyIntake fallback only when diary total is empty for date
+- DashboardStateHolder owns selectedDate shared between Balance and Macros tabs
+- Day-of-week from date string: Zeller's congruence; h=0→Sat, h=1→Sun, h=2→Mon, h=3→Tue, h=4→Wed, h=5→Thu, h=6→Fri
+- String.format() NOT available in KMP commonMain — use manual arithmetic
+- No kotlinx-datetime — use DateUtil.kt
+- HealthConnect NutritionRecord write: fire-and-forget, iOS no-op
+- State holders in com.mettyoung.fitbro.ui.{feature}, take CoroutineScope constructor param
+- Gradle typecheck: :composeApp:compileDebugKotlinAndroid (Android) + :composeApp:compileKotlinIosSimulatorArm64 (iOS)
+- Dispatchers.IO not available in K/N commonMain — use Dispatchers.Default for SQLDelight mapToList/withContext
+- HC alpha12: Metadata constructor is `internal` — writeNutritionRecord is no-op on Android (same as iOS) until HC stable
+- HC alpha12: NutritionRecord.MEAL_TYPE_* constants don't exist on companion — use integer literals (0=unknown,1=breakfast,2=lunch,3=dinner,4=snack) when HC write becomes available
+- SQLDelight mapToOne() on aggregate query with COALESCE: generated type may have nullable Double fields — handle with ?: 0.0 in mapper
+- Metadata name collides with kotlin.Metadata annotation — import HC Metadata with alias: `import ... as HcMetadata`
+---
+
+## 2026-05-09 - US-006 through US-013
+- US-006 (MacroSummaryHeader) + US-007 (FoodDiarySection) + US-008 (FoodSearchSheet) + US-009 (FoodEntryContent) + US-010 (EditEntrySheet) + US-011 (delete+undo): all fully implemented in MacroSummaryHeader.kt, MacroDailyCounterDetail.kt, FoodLogSheet.kt — code was already present from prior Gemini rewrite, had compile error (spurious balances param) now fixed
+- US-012 shared date state: DashboardStateHolder gains selectedDate:StateFlow<String> + setSelectedDate(date); DashboardWithTabs LaunchedEffect syncs stateHolder.selectedDate → foodDiaryStateHolder.setDate; MacroDailyCounterDetail.onDateSelected param replaces direct setDate calls; selectDateRange single-day sync added
+- US-013 weekly trends: FoodDiaryStateHolder.weeklyTotals StateFlow (flatMapLatest on selectedDate, last 7 days, zero-fills missing days); new WeeklyTrendsCard.kt (collapsible Card, Canvas grouped bar chart 4 bars/day, separate max per macro, day-of-week labels using Zeller's); wired into MacroDailyCounterDetail LazyColumn
+- Android PASS, iOS PASS
+
+## 2026-05-09 - US-001 through US-005
+- Added SQLDelight 2.0.2 KMP setup: gradle plugin, android-driver (androidMain), native-driver (iosMain), coroutines-extensions + runtime (commonMain)
+- sqldelight { databases { create("FitBroDatabase") { packageName.set("com.mettyoung.fitbro.data.db") } } }
+- .sq file: composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/FoodDiary.sq
+- expect fun createSqlDriver() in data/db/; AndroidSqliteDriver (androidMain), NativeSqliteDriver (iosMain)
+- FoodDiaryEntry + DailyMacroTotals domain models in data/model/
+- MealType + ServingUnit constants in FoodDiaryEntry.kt
+- OpenFoodFacts: FoodSearchResult, OpenFoodFactsError (sealed), FoodResult<T>, OpenFoodFactsDataSource interface, OpenFoodFactsDataSourceImpl in data/food/
+- FoodDiaryRepository interface + FoodDiaryRepositoryImpl (SQLDelight, uses transactionWithResult for addEntry + lastInsertRowId)
+- FoodDiaryState + FoodDiaryStateHolder: flatMapLatest on selectedDate → combine(getEntriesForDate, getDailyTotals) → stateIn WhileSubscribed(5000)
+- HealthDataSource.writeNutritionRecord(entry): interface method added; iOS no-op; Android no-op (alpha12 limitation)
+- WRITE_NUTRITION permission added to AndroidManifest.xml
+- DashboardWithTabs + MacroDailyCounterDetail: added FoodDiaryStateHolder + OpenFoodFactsDataSource params (unused until US-006)
+- App.kt: wires FitBroDatabase, FoodDiaryRepositoryImpl, OpenFoodFactsDataSourceImpl, FoodDiaryStateHolder
+- Both typechecks: Android PASS, iOS PASS
+---
+
