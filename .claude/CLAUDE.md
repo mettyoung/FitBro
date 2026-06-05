@@ -19,14 +19,14 @@ FitBro is a Kotlin Multiplatform (KMP) calorie-tracking app targeting Android an
 
 ### Data Layer
 - **Repositories** (`data/repository/`): Abstract data operations with explicit error types (sealed `CalorieResult`).
-- **Data Sources** (`data/{health,cache,food,db}/`): Concrete implementations (Health Connect/HealthKit, local cache, OpenFoodFacts, SQLDelight).
+- **Data Sources** (`data/{health,cache,food,db}/`): Concrete implementations (Health Connect/HealthKit, local cache, FatSecret, SQLDelight). Cross-platform ones use top-level `expect/actual createXxx()` factories (e.g. `createHealthDataSource()`, `createCacheDataSource()`, `createSqlDriver()`).
 - **Models** (`data/model/`): Domain objects (DailyBalance, FoodDiaryEntry, Metabolism).
 - **Database**: SQLDelight (SQLite). Queries live in `src/commonMain/sqldelight/`. Generated code in `data/db/`.
 
 ### UI Layer
 - **StateHolder pattern** (`ui/dashboard/DashboardStateHolder.kt`): Compose ViewModel equivalent. Manages state, side effects, coordination.
 - **Unidirectional data flow**: StateHolder emits `StateFlow<UiState>`, UI responds to events.
-- **CompositionLocal usage**: Platform-specific factories (e.g., `createHealthDataSource()`) instantiated in `App.kt`.
+- **Wiring**: `App.kt` instantiates data sources, repositories, and StateHolders via `remember { ... }` and passes them down. Platform factories called here.
 
 ### Entry Points
 - **Android**: `MainActivity.kt` → `PermissionGateApp.kt` → `App()` (shared Composable).
@@ -66,10 +66,10 @@ FitBro is a Kotlin Multiplatform (KMP) calorie-tracking app targeting Android an
 - **Ktor**: HTTP client (platform-specific backends: OkHttp for Android, Darwin for iOS)
 - **SQLDelight**: Type-safe SQL with coroutine bindings
 - **Coroutines**: Async/concurrency (default dispatcher: `Dispatchers.Default` for background work)
-- **Health Connect API** (Android): `androidx.health.connect`
+- **Health Connect API** (Android): `androidx.health.connect`; iOS uses **HealthKit** (`platform.HealthKit`, real `HKHealthStore` integration in `iosMain`)
 - **Barcode Scanning** (Android): GMS Code Scanner
 - **Multiplatform Settings**: Encrypted key-value storage (android: `androidx.security.crypto`)
-- **OpenFoodFacts API**: Food database integration
+- **FatSecret Platform API**: Food database integration. OAuth 1.0 signing (HMAC-SHA1) via `util/HmacSha1` (expect/actual). Endpoint `https://platform.fatsecret.com/rest/server.api`.
 
 ## Code Organization
 
@@ -80,9 +80,9 @@ FitBro is a Kotlin Multiplatform (KMP) calorie-tracking app targeting Android an
 | `ui/dashboard/DashboardStateHolder` | Main dashboard state + calorie math coordination |
 | `ui/dashboard/FoodDiaryStateHolder` | Food diary add/edit/list logic |
 | `data/repository/FoodDiaryRepositoryImpl` | Food diary CRUD (SQLDelight) |
-| `data/repository/CalorieMathRepositoryImpl` | Calorie/macro/TEF calculations (sealed `CalorieResult`) |
-| `data/health/HealthDataSourceImpl` | Health Connect integration (Android-specific) |
-| `data/food/OpenFoodFactsDataSourceImpl` | REST API calls + search caching |
+| `data/repository/CalorieMathRepositoryImpl` | Calorie/macro/TEF calculations (interface `CalorieMathRepository`, sealed `CalorieResult`) |
+| `data/health/HealthDataSource` | expect interface + `createHealthDataSource()` factory; Android actual = Health Connect, iOS actual = HealthKit |
+| `data/food/FatSecretFoodDataSource` | FatSecret REST calls, OAuth 1.0 HMAC-SHA1 signing, search caching |
 | `data/cache/UserSettingsDataSource` | Encrypted user prefs (target weight, activity level, etc.) |
 | `data/db/FitBroDatabase` | SQLDelight database (generated from `.sq` files) |
 
@@ -104,9 +104,10 @@ FitBro is a Kotlin Multiplatform (KMP) calorie-tracking app targeting Android an
 
 ### Database Changes
 
-1. Edit `.sq` files in `src/commonMain/sqldelight/`.
-2. SQLDelight auto-generates `FitBroDatabase` and query types.
-3. Update repository to use new queries.
+1. Edit `.sq` files in `src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/`.
+2. Add schema migrations as `.sqm` files under `.../db/migrations/` (e.g. `1.sqm`).
+3. SQLDelight auto-generates `FitBroDatabase` (configured in `composeApp/build.gradle.kts`) and query types.
+4. Update repository to use new queries.
 
 ### Handling Errors
 
@@ -141,16 +142,16 @@ fun myCalculation() {
 
 ## Recent Changes & Context
 
-- **Food Diary**: Macro tracking, serving-size defaults, OpenFoodFacts integration.
-- **HealthConnect**: Write capability for workouts. Primary data source for intake, BMR, activity.
-- **Cleanup**: Removed unused Cronometer OAuth integration (CronometerDataSource, token storage, OAuth infrastructure).
+- **Food Diary**: Macro tracking, serving-size defaults, FatSecret integration (replaced earlier OpenFoodFacts).
+- **Health**: Primary data source for intake, BMR, activity. Android = Health Connect (write capability for workouts); iOS = HealthKit.
+- **Cleanup**: Removed unused Cronometer OAuth integration. Note: OAuth 1.0 / HMAC-SHA1 infra now powers FatSecret (`util/HmacSha1`), not Cronometer.
 - **UI Redesign**: Recent Gemini-based redesign; Compose patterns align with Material 3.
 
 ## Gotchas & Non-Obvious Details
 
 1. **SQLDelight transactions**: Use `transactionWithResult {}` to return inserted IDs.
-2. **Health Connect permissions**: Android only; iOS uses HealthKit (not yet integrated).
+2. **Health permissions**: Android = Health Connect (permission gate in `PermissionGateApp.kt`); iOS = HealthKit (authorization in `HealthDataSource.ios.kt`). Both integrated.
 3. **Coroutine cancellation**: StateHolder scope cancellation cleans up flows & jobs.
 4. **Date format**: `todayString()` & `DateRange` use "YYYY-MM-DD" strings for consistency.
 5. **TEF calculation**: Falls back to flat 10% if macros missing (see `CalorieMathRepository`).
-6. **Serving sizes**: Default from OpenFoodFacts; user can override per entry.
+6. **Serving sizes**: Default from FatSecret; user can override per entry.
