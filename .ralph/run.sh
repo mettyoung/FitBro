@@ -24,7 +24,8 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     exit 0
   fi
 
-  OUTPUT=$(claude --dangerously-skip-permissions --print < "$PROMPT" 2>&1 | tee /dev/stderr) || true
+  OUTPUT=$(claude --dangerously-skip-permissions --print < "$PROMPT" 2>&1) || true
+  printf '%s\n' "$OUTPUT" | tail -40
 
   if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
     echo ""
