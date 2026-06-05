@@ -1,0 +1,10 @@
+ALTER TABLE FoodDiaryEntry ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0;
+
+UPDATE FoodDiaryEntry
+SET sortOrder = (
+    SELECT COUNT(*)
+    FROM FoodDiaryEntry AS earlier
+    WHERE earlier.date = FoodDiaryEntry.date
+      AND earlier.mealType = FoodDiaryEntry.mealType
+      AND earlier.id < FoodDiaryEntry.id
+);

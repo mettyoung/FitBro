@@ -16,4 +16,23 @@ Started: 2026-06-06
 - HealthConnect write is fire-and-forget no-op on Android alpha12 + iOS; addEntry already triggers syncToHealthConnect
 - iOS cinterop: use `is CPointer<*>` not erased typed refs; kotlinx-coroutines-core explicit in commonMain deps
 - Always `git status` before creating files — scaffolding may exist untracked
+- COALESCE(MAX(col), -1) query => SQLDelight returns NON-null Long; executeAsOne() directly. Bare MAX/SUM/AVG aggregates stay nullable (guard ?: 0.0). Same COALESCE(...,0.0) -> non-null Double.
+- Gradle build env: export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home. ~/.gradle/wrapper is OUTSIDE sandbox write scope -> run gradle with sandbox DISABLED.
+- NO SQLDelight test driver in version catalog (only android-driver + native-driver, no sqlite/jdbc). Cannot write DB-integration tests without a forbidden new dep -> data-layer SQL-wiring stories rely on typecheck gates only.
+- sqldelight migrations auto-detected (schemaVersion not pinned in build.gradle.kts); just add N.sqm under db/migrations/, no build.gradle change.
 ---
+
+## 2026-06-06 — US-001 Persisted sort order for food diary entries (DONE)
+Changes:
+- FoodDiary.sq: added sortOrder column to CREATE TABLE + insertEntry; getEntriesByDate / getEntriesByDateAndMeal ORDER BY 'mealType, sortOrder ASC, id ASC'; new queries maxSortOrderForDateMeal (COALESCE(MAX,-1)) and updateSortOrder.
+- migrations/2.sqm: ALTER ADD COLUMN sortOrder + backfill via correlated subquery (COUNT earlier ids in same date+mealType).
+- FoodDiaryEntry.kt domain model: sortOrder: Long = 0 (already present).
+- FoodDiaryRepository.kt: reorderMeal(date, mealType, orderedIds) signature.
+- FoodDiaryRepositoryImpl.kt: addEntry computes nextSortOrder = maxSortOrderForDateMeal+1 inside existing transactionWithResult; reorderMeal updates sortOrder=index per id in one transaction on Dispatchers.Default; toDomain maps sortOrder.
+Gates: both typecheck commands BUILD SUCCESSFUL (only pre-existing elvis/icon warnings).
+No data-layer unit test added: project has no SQLDelight test driver in version catalog; adding sqlite/jdbc-driver would violate the no-new-deps rule. reorderMeal is thin SQL wiring covered by typecheck.
+Learnings:
+- COALESCE(MAX(col), -1) query => SQLDelight generates NON-null Long return; executeAsOne()+1 directly, no ?: guard needed (contrast: bare MAX/SUM aggregates are nullable).
+- No DB integration test harness exists; no sqldelight sqlite/jdbc driver in gradle/libs.versions.toml (only android-driver + native-driver). Cannot add DB tests without forbidden new dep.
+- Gradle needs JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home; gradle wrapper dir (~/.gradle/wrapper) is OUTSIDE sandbox write scope -> run gradle with sandbox disabled.
+- sqldelight migration auto-detected (schemaVersion not pinned in build.gradle.kts); just drop N.sqm, no build.gradle change needed.

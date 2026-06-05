@@ -10,23 +10,30 @@ CREATE TABLE FoodDiaryEntry (
     fatG REAL NOT NULL,
     servingSizeG REAL NOT NULL,
     servingUnit TEXT NOT NULL,
-    food_id TEXT
+    food_id TEXT,
+    sortOrder INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX food_diary_date_idx ON FoodDiaryEntry(date);
 
 insertEntry:
-INSERT INTO FoodDiaryEntry (date, mealType, foodName, brandName, calories, proteinG, carbG, fatG, servingSizeG, servingUnit, food_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO FoodDiaryEntry (date, mealType, foodName, brandName, calories, proteinG, carbG, fatG, servingSizeG, servingUnit, food_id, sortOrder)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertRowId:
 SELECT last_insert_rowid();
 
 getEntriesByDate:
-SELECT * FROM FoodDiaryEntry WHERE date = ? ORDER BY id ASC;
+SELECT * FROM FoodDiaryEntry WHERE date = ? ORDER BY mealType, sortOrder ASC, id ASC;
 
 getEntriesByDateAndMeal:
-SELECT * FROM FoodDiaryEntry WHERE date = ? AND mealType = ? ORDER BY id ASC;
+SELECT * FROM FoodDiaryEntry WHERE date = ? AND mealType = ? ORDER BY mealType, sortOrder ASC, id ASC;
+
+maxSortOrderForDateMeal:
+SELECT COALESCE(MAX(sortOrder), -1) FROM FoodDiaryEntry WHERE date = ? AND mealType = ?;
+
+updateSortOrder:
+UPDATE FoodDiaryEntry SET sortOrder = ? WHERE id = ?;
 
 updateEntry:
 UPDATE FoodDiaryEntry
