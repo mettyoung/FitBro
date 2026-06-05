@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.ui.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -46,6 +48,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,11 +56,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.window.Dialog
 import com.mettyoung.fitbro.getPlatform
 import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
@@ -259,6 +266,9 @@ fun MacroDailyCounterDetail(
                                     }
                                 }
                             },
+                            onReorder = { orderedIds ->
+                                foodDiaryStateHolder.reorderMeal(selectedDate, mealType, orderedIds)
+                            },
                             modifier = Modifier.padding(horizontal = 24.dp)
                         )
                         Spacer(Modifier.height(16.dp))
@@ -395,6 +405,7 @@ private fun FoodDiarySection(
     onAddClick: () -> Unit,
     onEditClick: (FoodDiaryEntry) -> Unit,
     onDeleteClick: (FoodDiaryEntry) -> Unit,
+    onReorder: (orderedIds: List<Long>) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val mealCalories = entries.sumOf { it.calories }
@@ -443,19 +454,12 @@ private fun FoodDiarySection(
 
             if (entries.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
-                entries.forEachIndexed { index, entry ->
-                    FoodEntryRow(
-                        entry = entry,
-                        onEdit = { onEditClick(entry) },
-                        onDelete = { onDeleteClick(entry) }
-                    )
-                    if (index < entries.size - 1) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
-                    }
-                }
+                ReorderableEntries(
+                    entries = entries,
+                    onEditClick = onEditClick,
+                    onDeleteClick = onDeleteClick,
+                    onReorder = onReorder
+                )
             } else {
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -468,16 +472,120 @@ private fun FoodDiarySection(
     }
 }
 
+/**
+ * Manual drag-to-reorder for the entries within a single meal section.
+ * Renders a plain Column (already inside the outer LazyColumn), so reordering is
+ * confined to this section. Long-press the drag handle to pick up a row; on drop the
+ * new id order is persisted via [onReorder]. Local order resets whenever upstream
+ * [entries] change, so the StateFlow remains the source of truth after refresh.
+ */
+@Composable
+private fun ReorderableEntries(
+    entries: List<FoodDiaryEntry>,
+    onEditClick: (FoodDiaryEntry) -> Unit,
+    onDeleteClick: (FoodDiaryEntry) -> Unit,
+    onReorder: (orderedIds: List<Long>) -> Unit
+) {
+    var items by remember(entries) { mutableStateOf(entries) }
+    var draggingId by remember(entries) { mutableStateOf<Long?>(null) }
+    var dragOffsetY by remember { mutableStateOf(0f) }
+    val heights = remember(entries) { mutableStateMapOf<Long, Int>() }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        items.forEachIndexed { index, entry ->
+            val isDragging = entry.id == draggingId
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { heights[entry.id] = it.size.height }
+                    .zIndex(if (isDragging) 1f else 0f)
+                    .graphicsLayer {
+                        translationY = if (isDragging) dragOffsetY else 0f
+                    }
+            ) {
+                FoodEntryRow(
+                    entry = entry,
+                    onEdit = { onEditClick(entry) },
+                    onDelete = { onDeleteClick(entry) },
+                    dragHandle = {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Reorder",
+                            tint = MiTextSecondary,
+                            modifier = Modifier
+                                .size(20.dp)
+                                .pointerInput(entry.id, items.size) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            draggingId = entry.id
+                                            dragOffsetY = 0f
+                                        },
+                                        onDragEnd = {
+                                            draggingId = null
+                                            dragOffsetY = 0f
+                                            onReorder(items.map { it.id })
+                                        },
+                                        onDragCancel = {
+                                            draggingId = null
+                                            dragOffsetY = 0f
+                                        },
+                                        onDrag = { change, drag ->
+                                            change.consume()
+                                            dragOffsetY += drag.y
+                                            val cur = items.indexOfFirst { it.id == entry.id }
+                                            if (cur >= 0) {
+                                                // Move down past the next row's midpoint.
+                                                if (cur < items.lastIndex) {
+                                                    val nextH = heights[items[cur + 1].id] ?: 0
+                                                    if (nextH > 0 && dragOffsetY > nextH / 2f) {
+                                                        items = items.toMutableList().apply {
+                                                            add(cur + 1, removeAt(cur))
+                                                        }
+                                                        dragOffsetY -= nextH
+                                                    }
+                                                }
+                                                // Move up past the previous row's midpoint.
+                                                if (cur > 0) {
+                                                    val prevH = heights[items[cur - 1].id] ?: 0
+                                                    if (prevH > 0 && dragOffsetY < -prevH / 2f) {
+                                                        items = items.toMutableList().apply {
+                                                            add(cur - 1, removeAt(cur))
+                                                        }
+                                                        dragOffsetY += prevH
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
+                        )
+                    }
+                )
+            }
+            if (index < items.size - 1) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 12.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun FoodEntryRow(
     entry: FoodDiaryEntry,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    dragHandle: (@Composable () -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (dragHandle != null) {
+            Box(modifier = Modifier.padding(end = 12.dp)) { dragHandle() }
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = entry.foodName,

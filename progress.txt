@@ -40,3 +40,15 @@ Learnings:
 - commonTest has NO kotlinx-coroutines-test (no runTest) and no common runBlocking. Run suspend tests synchronously via a tiny helper: `block.startCoroutine(Continuation(EmptyCoroutineContext){...})` — works when the fake never truly suspends (StateFlow.first() emits immediately).
 - Gradle needs JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home; gradle wrapper dir (~/.gradle/wrapper) is OUTSIDE sandbox write scope -> run gradle with sandbox disabled.
 - sqldelight migration auto-detected (schemaVersion not pinned in build.gradle.kts); just drop N.sqm, no build.gradle change needed.
+
+## 2026-06-06 — US-002 Drag-to-reorder entries within a meal section (DONE)
+Changes:
+- FoodDiaryStateHolder.kt: reorderMeal(date, mealType, orderedIds): Job delegating to repository.reorderMeal (reuses US-001 data layer).
+- MacroDailyCounterDetail.kt: new ReorderableEntries composable replaces the plain forEachIndexed render inside FoodDiarySection. Manual drag via detectDragGesturesAfterLongPress on a Menu-icon drag handle; local `items` state seeded from upstream `entries` (remember(entries) so StateFlow stays source of truth after refresh). Tracks per-row heights via onGloballyPositioned, swaps order when dragOffsetY crosses neighbor midpoint, graphicsLayer translationY + zIndex for lift. onDragEnd persists items.map{id} via onReorder.
+- FoodDiarySection gained onReorder param; call site wires onReorder -> foodDiaryStateHolder.reorderMeal(selectedDate, mealType, orderedIds).
+- FoodEntryRow gained optional dragHandle: (@Composable ()->Unit)? slot rendered leading the row.
+Gates: both typecheck commands BUILD SUCCESSFUL (only pre-existing elvis/icon warnings). No data-layer change -> no new test (reorderMeal contract already locked by FoodDiaryReorderTest from US-001).
+Learnings:
+- Drag-reorder confined to a section by rendering a plain Column inside the section card (already nested in the outer LazyColumn); no cross-section moves possible since each section owns its own ReorderableEntries + items list.
+- Seed local reorder state with `remember(entries) { mutableStateOf(entries) }` so an upstream StateFlow refresh resets the optimistic order — keeps persisted DB order authoritative without flicker.
+- Midpoint-crossing swap (compare accumulated dragOffsetY against neighbor height/2, then subtract that height from offset) gives stable reordering without a third-party reorderable lib.
