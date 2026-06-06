@@ -2,6 +2,7 @@ package com.mettyoung.fitbro.ui.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,10 +13,12 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +36,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,6 +53,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -111,6 +116,14 @@ fun MacroDailyCounterDetail(
     var showCustomMeals by remember { mutableStateOf(false) }
     var addingToMeal by remember { mutableStateOf<String?>(null) }
     var editingEntry by remember { mutableStateOf<FoodDiaryEntry?>(null) }
+
+    var selectionMode by remember { mutableStateOf(false) }
+    val selectedIds = remember { mutableStateListOf<Long>() }
+    var namingSelection by remember { mutableStateOf(false) }
+    val exitSelection = {
+        selectionMode = false
+        selectedIds.clear()
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingDelete by remember { mutableStateOf<FoodDiaryEntry?>(null) }
@@ -286,6 +299,16 @@ fun MacroDailyCounterDetail(
                             onReorder = { orderedIds ->
                                 foodDiaryStateHolder.reorderMeal(selectedDate, mealType, orderedIds)
                             },
+                            selectionMode = selectionMode,
+                            selectedIds = selectedIds.toSet(),
+                            onToggleSelect = { entry ->
+                                if (selectedIds.contains(entry.id)) selectedIds.remove(entry.id)
+                                else selectedIds.add(entry.id)
+                            },
+                            onLongPress = { entry ->
+                                selectionMode = true
+                                if (!selectedIds.contains(entry.id)) selectedIds.add(entry.id)
+                            },
                             modifier = Modifier.padding(horizontal = 24.dp)
                         )
                         Spacer(Modifier.height(16.dp))
@@ -304,6 +327,36 @@ fun MacroDailyCounterDetail(
             }
 
             item { Spacer(Modifier.height(48.dp)) }
+        }
+
+        if (selectionMode) {
+            Surface(
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 3.dp,
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = exitSelection) { Text("Cancel") }
+                    Text(
+                        text = "${selectedIds.size} selected",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Button(
+                        onClick = { namingSelection = true },
+                        enabled = selectedIds.isNotEmpty(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                    ) { Text("Save as meal") }
+                }
+            }
         }
 
         SnackbarHost(
@@ -341,6 +394,52 @@ fun MacroDailyCounterDetail(
                 editingEntry = null
             }
         )
+    }
+
+    if (namingSelection) {
+        var mealName by remember { mutableStateOf("") }
+        Dialog(onDismissRequest = { namingSelection = false }) {
+            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Text(
+                        text = "Save ${selectedIds.size} items as custom meal",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    TextField(
+                        value = mealName,
+                        onValueChange = { mealName = it },
+                        singleLine = true,
+                        placeholder = { Text("Meal name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        TextButton(onClick = { namingSelection = false }, modifier = Modifier.weight(1f)) {
+                            Text("Cancel")
+                        }
+                        Button(
+                            onClick = {
+                                val allEntries = foodState.entriesByMeal.values.flatten().associateBy { it.id }
+                                val items = selectedIds.mapIndexedNotNull { index, id ->
+                                    allEntries[id]?.toCustomMealItem(index.toLong())
+                                }
+                                customMealStateHolder.create(mealName, items)
+                                namingSelection = false
+                                exitSelection()
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Saved \"${mealName.trim()}\"")
+                                }
+                            },
+                            enabled = mealName.isNotBlank() && selectedIds.isNotEmpty(),
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                        ) { Text("Save") }
+                    }
+                }
+            }
+        }
     }
 
     if (showCustomMeals) {
@@ -434,6 +533,10 @@ private fun FoodDiarySection(
     onEditClick: (FoodDiaryEntry) -> Unit,
     onDeleteClick: (FoodDiaryEntry) -> Unit,
     onReorder: (orderedIds: List<Long>) -> Unit,
+    selectionMode: Boolean = false,
+    selectedIds: Set<Long> = emptySet(),
+    onToggleSelect: (FoodDiaryEntry) -> Unit = {},
+    onLongPress: (FoodDiaryEntry) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val mealCalories = entries.sumOf { it.calories }
@@ -486,7 +589,11 @@ private fun FoodDiarySection(
                     entries = entries,
                     onEditClick = onEditClick,
                     onDeleteClick = onDeleteClick,
-                    onReorder = onReorder
+                    onReorder = onReorder,
+                    selectionMode = selectionMode,
+                    selectedIds = selectedIds,
+                    onToggleSelect = onToggleSelect,
+                    onLongPress = onLongPress
                 )
             } else {
                 Spacer(Modifier.height(12.dp))
@@ -512,7 +619,11 @@ private fun ReorderableEntries(
     entries: List<FoodDiaryEntry>,
     onEditClick: (FoodDiaryEntry) -> Unit,
     onDeleteClick: (FoodDiaryEntry) -> Unit,
-    onReorder: (orderedIds: List<Long>) -> Unit
+    onReorder: (orderedIds: List<Long>) -> Unit,
+    selectionMode: Boolean = false,
+    selectedIds: Set<Long> = emptySet(),
+    onToggleSelect: (FoodDiaryEntry) -> Unit = {},
+    onLongPress: (FoodDiaryEntry) -> Unit = {}
 ) {
     var items by remember(entries) { mutableStateOf(entries) }
     var draggingId by remember(entries) { mutableStateOf<Long?>(null) }
@@ -535,6 +646,10 @@ private fun ReorderableEntries(
                     entry = entry,
                     onEdit = { onEditClick(entry) },
                     onDelete = { onDeleteClick(entry) },
+                    selectionMode = selectionMode,
+                    isSelected = entry.id in selectedIds,
+                    onToggleSelect = { onToggleSelect(entry) },
+                    onLongPress = { onLongPress(entry) },
                     dragHandle = {
                         Icon(
                             imageVector = Icons.Default.Menu,
@@ -605,13 +720,28 @@ private fun FoodEntryRow(
     entry: FoodDiaryEntry,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    dragHandle: (@Composable () -> Unit)? = null
+    dragHandle: (@Composable () -> Unit)? = null,
+    selectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {},
+    onLongPress: () -> Unit = {}
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerInput(entry.id, selectionMode) {
+                detectTapGestures(
+                    onLongPress = { if (!selectionMode) onLongPress() },
+                    onTap = { if (selectionMode) onToggleSelect() }
+                )
+            },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (dragHandle != null) {
+        if (selectionMode) {
+            Box(modifier = Modifier.padding(end = 12.dp)) {
+                Checkbox(checked = isSelected, onCheckedChange = { onToggleSelect() })
+            }
+        } else if (dragHandle != null) {
             Box(modifier = Modifier.padding(end = 12.dp)) { dragHandle() }
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -648,12 +778,14 @@ private fun FoodEntryRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MiTextSecondary
             )
-            Row(modifier = Modifier.padding(top = 4.dp)) {
-                IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MiTextSecondary, modifier = Modifier.size(16.dp))
-                }
-                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+            if (!selectionMode) {
+                Row(modifier = Modifier.padding(top = 4.dp)) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MiTextSecondary, modifier = Modifier.size(16.dp))
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                    }
                 }
             }
         }

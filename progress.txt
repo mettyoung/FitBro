@@ -74,3 +74,14 @@ Gates: Android + iOS BUILD SUCCESSFUL.
 Learnings:
 - Reuse FoodSearchSheet (a ModalBottomSheet) nested inside CustomMealManagerSheet's builder by toggling a `searching` flag — stacking ModalBottomSheets works; its onAddEntry yields a FoodDiaryEntry which maps cleanly to CustomMealItem (same macro fields).
 - New StateHolder constructor (repo, scope) wired in App.kt with remember(customMealRepository, scope); pass through DashboardWithTabs.
+
+## 2026-06-06 — US-005 Multi-select diary entries -> create custom meal (DONE, main session)
+Changes:
+- FoodEntryRow: added selectionMode/isSelected/onToggleSelect/onLongPress. Row pointerInput detectTapGestures: long-press (when !selectionMode) enters selection; tap (when selectionMode) toggles. Leading Checkbox replaces drag handle in selection mode; edit/delete actions hidden in selection mode.
+- ReorderableEntries + FoodDiarySection: thread selectionMode/selectedIds/onToggleSelect/onLongPress through.
+- MacroDailyCounterDetail: selectionMode + selectedIds (mutableStateListOf<Long>, preserves selection order) + namingSelection state; exitSelection lambda. Long-press enters mode + selects. Bottom Surface action bar (Cancel | "N selected" | Save as meal, disabled when empty). Naming Dialog -> builds items from selectedIds order via FoodDiaryEntry.toCustomMealItem, customMealStateHolder.create, exit + snackbar. Source entries untouched.
+Gates: Android + iOS BUILD SUCCESSFUL.
+Learnings:
+- detectTapGestures(onLongPress, onTap) on the row for selection coexists with the drag handle's own detectDragGesturesAfterLongPress (handle hidden in selection mode, so no gesture conflict).
+- mutableStateListOf<Long> for selection preserves insertion order -> custom meal item sortOrder = selection order via mapIndexedNotNull over selectedIds.
+- Made FoodDiaryEntry.toCustomMealItem internal (was private) in CustomMealManagerSheet.kt so MacroDailyCounterDetail reuses it (same ui.dashboard package).

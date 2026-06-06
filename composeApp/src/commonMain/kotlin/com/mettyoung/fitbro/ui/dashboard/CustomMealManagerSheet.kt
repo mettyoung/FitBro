@@ -51,7 +51,7 @@ import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.todayString
 import kotlin.math.roundToInt
 
-private fun FoodDiaryEntry.toCustomMealItem(sortOrder: Long) = CustomMealItem(
+internal fun FoodDiaryEntry.toCustomMealItem(sortOrder: Long) = CustomMealItem(
     foodName = foodName,
     brandName = brandName,
     calories = calories,

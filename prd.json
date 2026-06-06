@@ -93,7 +93,7 @@
         "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
