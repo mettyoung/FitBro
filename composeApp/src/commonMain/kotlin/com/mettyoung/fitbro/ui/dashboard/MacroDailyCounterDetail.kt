@@ -2,7 +2,7 @@ package com.mettyoung.fitbro.ui.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +56,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -724,6 +725,7 @@ private fun ReorderableEntries(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         items.forEachIndexed { index, entry ->
+            key(entry.id) {
             val isDragging = entry.id == draggingId
             Box(
                 modifier = Modifier
@@ -750,7 +752,7 @@ private fun ReorderableEntries(
                             modifier = Modifier
                                 .size(20.dp)
                                 .pointerInput(entry.id, items.size) {
-                                    detectDragGesturesAfterLongPress(
+                                    detectDragGestures(
                                         onDragStart = {
                                             draggingId = entry.id
                                             dragOffsetY = 0f
@@ -761,8 +763,12 @@ private fun ReorderableEntries(
                                             onReorder(items.map { it.id })
                                         },
                                         onDragCancel = {
+                                            // A mid-drag list reorder can reposition the keyed
+                                            // node and cancel the pointer, so persist here too —
+                                            // otherwise the new order is shown but never saved.
                                             draggingId = null
                                             dragOffsetY = 0f
+                                            onReorder(items.map { it.id })
                                         },
                                         onDrag = { change, drag ->
                                             change.consume()
@@ -802,6 +808,7 @@ private fun ReorderableEntries(
                     modifier = Modifier.padding(vertical = 12.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 )
+            }
             }
         }
     }

@@ -100,3 +100,10 @@ Root cause: CustomMeal.sq added the tables to the schema (CREATE for fresh insta
 Fix: add CREATE TABLE CustomMeal + CustomMealItem + index to migrations/2.sqm so upgrading installs get the tables.
 Verified: ./gradlew :composeApp:verifyCommonMainFitBroDatabaseMigration BUILD SUCCESSFUL (migrations now reproduce the .sq schema). Fresh install + open Macros on emulator: no crash, page renders.
 LEARNING (critical, add to loop gates): run verifyCommonMainFitBroDatabaseMigration for ANY story adding a new table/column. It catches "new table only in .sq, missing from migration" which typecheck does NOT. The Ralph loop skipped this and shipped a crash.
+
+## 2026-06-06 — BUGFIX: US-002 drag-reorder (found via on-device self-test)
+Two defects, both shipped by the Ralph loop (typecheck-only, never run):
+1. Gesture conflict: handle used detectDragGesturesAfterLongPress; US-005 later added a row-level detectTapGestures(onLongPress) for multi-select. Long-pressing the handle triggered SELECTION mode instead of drag. Fix: handle now uses detectDragGestures (immediate drag) — a dedicated handle should drag on touch anyway; long-press stays reserved for selection.
+2. No persistence: ReorderableEntries Column rendered items.forEachIndexed WITHOUT key(). On a mid-drag swap the slot's entry changed -> the entry.id-keyed pointerInput restarted -> the in-flight gesture was dropped -> onDragEnd/onDragCancel never fired -> onReorder never called. UI reordered optimistically but DB never updated (verified: WAL empty, sortOrder unchanged). Fix: wrap each row in key(entry.id) so a swap MOVES the composable (gesture + pointerInput preserved) instead of rebinding by index. Also persist in onDragCancel as a safety net.
+Verified on emulator: drag Banana below Oats -> DB sortOrder persists as Oats=0, GreekYogurt=1, Banana=2 (checked via run-as pull + PRAGMA wal_checkpoint).
+LEARNING: manual reorderable lists MUST key() the row composables, else any keyed child modifier (pointerInput) restarts on swap and kills the drag. And: don't put long-press-drag on a handle that overlaps a long-press-select row.
