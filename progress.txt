@@ -52,3 +52,15 @@ Learnings:
 - Drag-reorder confined to a section by rendering a plain Column inside the section card (already nested in the outer LazyColumn); no cross-section moves possible since each section owns its own ReorderableEntries + items list.
 - Seed local reorder state with `remember(entries) { mutableStateOf(entries) }` so an upstream StateFlow refresh resets the optimistic order — keeps persisted DB order authoritative without flicker.
 - Midpoint-crossing swap (compare accumulated dragOffsetY against neighbor height/2, then subtract that height from offset) gives stable reordering without a third-party reorderable lib.
+
+## 2026-06-06 — US-003 Custom meal persistence layer (DONE, finished by main session after loop hit account session limit)
+Changes:
+- CustomMeal.sq: CustomMeal + CustomMealItem tables (+ index on customMealId); queries insertCustomMeal, lastInsertRowId, insertCustomMealItem, getAllCustomMeals (name ASC), getItemsForMeal (sortOrder ASC), updateCustomMealName, deleteCustomMeal, deleteItemsForMeal.
+- CustomMeal.kt model: CustomMeal(id,name,createdAt,items) + CustomMealItem(... foodId, sortOrder). Absolute macros for servingSizeG (density rescale convention).
+- CustomMealRepository + Impl: getAllCustomMeals Flow (asFlow+mapToList, nested executeAsList for items per meal); createCustomMeal transactionWithResult (insert meal + items with sortOrder=index, createdAt=todayString()); renameCustomMeal; deleteCustomMeal transaction (items then meal). Main-safe Dispatchers.Default.
+- App.kt: customMealRepository = remember(database) { CustomMealRepositoryImpl(database) }.
+Gates: Android + iOS compile BUILD SUCCESSFUL (only pre-existing elvis/icon warnings).
+Learnings:
+- customMealQueries.customMealQueries auto-generated; SQLDelight FK needs no extra config for compile.
+- getAllCustomMeals re-emits on CustomMeal table change; item-only edits won't retrigger (acceptable — current API creates/deletes whole meals only).
+- customMealRepository currently unused until US-004 (state holder) -> harmless unused-val warning.
