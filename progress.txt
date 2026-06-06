@@ -94,3 +94,9 @@ Gates: Android + iOS BUILD SUCCESSFUL.
 Learnings:
 - Flatten reuses existing addEntry (sortOrder + HealthConnect sync free); sequential .join() keeps consecutive sortOrder deterministic.
 - CustomMealItem and FoodDiaryEntry share macro fields 1:1 -> direct field copy, no scaling needed at insert (absolute macros already baked for servingSizeG).
+
+## 2026-06-06 — BUGFIX: Macros page crash (no such table: CustomMeal)
+Root cause: CustomMeal.sq added the tables to the schema (CREATE for fresh installs via Schema.create) but migration 2.sqm only ALTERed FoodDiaryEntry. Existing installs migrate instead of create -> CustomMeal/CustomMealItem never created -> getAllCustomMeals() (subscribed when Macros composable shows) throws SQLiteException -> FATAL.
+Fix: add CREATE TABLE CustomMeal + CustomMealItem + index to migrations/2.sqm so upgrading installs get the tables.
+Verified: ./gradlew :composeApp:verifyCommonMainFitBroDatabaseMigration BUILD SUCCESSFUL (migrations now reproduce the .sq schema). Fresh install + open Macros on emulator: no crash, page renders.
+LEARNING (critical, add to loop gates): run verifyCommonMainFitBroDatabaseMigration for ANY story adding a new table/column. It catches "new table only in .sq, missing from migration" which typecheck does NOT. The Ralph loop skipped this and shipped a crash.
