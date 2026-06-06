@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.ui.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -115,6 +118,7 @@ fun MacroDailyCounterDetail(
     var showGoalsDialog by remember { mutableStateOf(false) }
     var showCustomMeals by remember { mutableStateOf(false) }
     var addingToMeal by remember { mutableStateOf<String?>(null) }
+    var customMealTarget by remember { mutableStateOf<String?>(null) }
     var editingEntry by remember { mutableStateOf<FoodDiaryEntry?>(null) }
 
     var selectionMode by remember { mutableStateOf(false) }
@@ -270,7 +274,8 @@ fun MacroDailyCounterDetail(
                         FoodDiarySection(
                             mealType = mealType,
                             entries = entries,
-                            onAddClick = { addingToMeal = mealType },
+                            onAddFood = { addingToMeal = mealType },
+                            onAddCustomMeal = { customMealTarget = mealType },
                             onEditClick = { editingEntry = it },
                             onDeleteClick = { entry ->
                                 pendingDelete?.let { prev ->
@@ -442,6 +447,79 @@ fun MacroDailyCounterDetail(
         }
     }
 
+    customMealTarget?.let { mealType ->
+        Dialog(onDismissRequest = { customMealTarget = null }) {
+            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Text(
+                        text = "Add custom meal to ${mealType.lowercase().replaceFirstChar { it.uppercase() }}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    if (customMeals.isEmpty()) {
+                        Text(
+                            text = "No custom meals yet.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MiTextSecondary
+                        )
+                    } else {
+                        customMeals.forEach { meal ->
+                            val kcal = meal.items.sumOf { it.calories }.roundToInt()
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val target = mealType
+                                        scope.launch {
+                                            meal.items.forEach { item ->
+                                                foodDiaryStateHolder.addEntry(
+                                                    FoodDiaryEntry(
+                                                        date = selectedDate,
+                                                        mealType = target,
+                                                        foodName = item.foodName,
+                                                        brandName = item.brandName,
+                                                        calories = item.calories,
+                                                        proteinG = item.proteinG,
+                                                        carbG = item.carbG,
+                                                        fatG = item.fatG,
+                                                        servingSizeG = item.servingSizeG,
+                                                        servingUnit = item.servingUnit,
+                                                        foodId = item.foodId
+                                                    )
+                                                ).join()
+                                            }
+                                            onBalanceRefreshNeeded()
+                                        }
+                                        customMealTarget = null
+                                    }
+                                    .padding(vertical = 12.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = meal.name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "${meal.items.size} items · $kcal kcal",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MiTextSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = { customMealTarget = null }, modifier = Modifier.align(Alignment.End)) {
+                        Text("Cancel")
+                    }
+                }
+            }
+        }
+    }
+
     if (showCustomMeals) {
         CustomMealManagerSheet(
             customMeals = customMeals,
@@ -529,7 +607,8 @@ private fun MacroDataSourceButton(
 private fun FoodDiarySection(
     mealType: String,
     entries: List<FoodDiaryEntry>,
-    onAddClick: () -> Unit,
+    onAddFood: () -> Unit,
+    onAddCustomMeal: () -> Unit,
     onEditClick: (FoodDiaryEntry) -> Unit,
     onDeleteClick: (FoodDiaryEntry) -> Unit,
     onReorder: (orderedIds: List<Long>) -> Unit,
@@ -568,18 +647,31 @@ private fun FoodDiarySection(
                         )
                     }
                 }
-                IconButton(
-                    onClick = onAddClick,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(MiOrange.copy(alpha = 0.1f), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add food",
-                        tint = MiOrange,
-                        modifier = Modifier.size(20.dp)
-                    )
+                Box {
+                    var menuOpen by remember { mutableStateOf(false) }
+                    IconButton(
+                        onClick = { menuOpen = true },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(MiOrange.copy(alpha = 0.1f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add",
+                            tint = MiOrange,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Add food") },
+                            onClick = { menuOpen = false; onAddFood() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add custom meal") },
+                            onClick = { menuOpen = false; onAddCustomMeal() }
+                        )
+                    }
                 }
             }
 

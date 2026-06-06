@@ -85,3 +85,12 @@ Learnings:
 - detectTapGestures(onLongPress, onTap) on the row for selection coexists with the drag handle's own detectDragGesturesAfterLongPress (handle hidden in selection mode, so no gesture conflict).
 - mutableStateListOf<Long> for selection preserves insertion order -> custom meal item sortOrder = selection order via mapIndexedNotNull over selectedIds.
 - Made FoodDiaryEntry.toCustomMealItem internal (was private) in CustomMealManagerSheet.kt so MacroDailyCounterDetail reuses it (same ui.dashboard package).
+
+## 2026-06-06 — US-006 Add custom meal to diary by flattening (DONE, main session) — ALL STORIES COMPLETE
+Changes:
+- FoodDiarySection: add button (onAddClick) split into onAddFood + onAddCustomMeal via a DropdownMenu ("Add food" / "Add custom meal").
+- MacroDailyCounterDetail: customMealTarget state; picker Dialog lists custom meals (name, item count, total kcal). On pick: each CustomMealItem inserted as an independent FoodDiaryEntry (date=selectedDate, mealType=target) via foodDiaryStateHolder.addEntry(...).join() sequentially -> addEntry assigns sortOrder=max+1 so item order preserved; onBalanceRefreshNeeded after. No parent link; entries are plain rows -> editable via existing EditEntrySheet (servingSizeG carried so gram-mode rescale works). Adding twice => two independent sets.
+Gates: Android + iOS BUILD SUCCESSFUL.
+Learnings:
+- Flatten reuses existing addEntry (sortOrder + HealthConnect sync free); sequential .join() keeps consecutive sortOrder deterministic.
+- CustomMealItem and FoodDiaryEntry share macro fields 1:1 -> direct field copy, no scaling needed at insert (absolute macros already baked for servingSizeG).
