@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -87,6 +88,7 @@ import kotlin.math.roundToInt
 fun MacroDailyCounterDetail(
     userSettingsDataSource: UserSettingsDataSource,
     foodDiaryStateHolder: FoodDiaryStateHolder,
+    customMealStateHolder: CustomMealStateHolder,
     foodDataSource: FoodDataSource,
     onDateSelected: (String) -> Unit = {},
     onBalanceRefreshNeeded: () -> Unit = {},
@@ -96,6 +98,7 @@ fun MacroDailyCounterDetail(
     val foodState by foodDiaryStateHolder.state.collectAsState()
     val selectedDate by foodDiaryStateHolder.selectedDate.collectAsState()
     val weeklyTotals by foodDiaryStateHolder.weeklyTotals.collectAsState()
+    val customMeals by customMealStateHolder.customMeals.collectAsState()
 
     val today = todayString()
 
@@ -105,6 +108,7 @@ fun MacroDailyCounterDetail(
     var calorieGoal by remember { mutableStateOf(userSettingsDataSource.getCalorieGoalKcal()) }
 
     var showGoalsDialog by remember { mutableStateOf(false) }
+    var showCustomMeals by remember { mutableStateOf(false) }
     var addingToMeal by remember { mutableStateOf<String?>(null) }
     var editingEntry by remember { mutableStateOf<FoodDiaryEntry?>(null) }
 
@@ -154,15 +158,28 @@ fun MacroDailyCounterDetail(
                                 )
                             }
                         }
-                        IconButton(
-                            onClick = { showGoalsDialog = true },
-                            modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Edit Goals",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = { showCustomMeals = true },
+                                modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.List,
+                                    contentDescription = "Custom meals",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            IconButton(
+                                onClick = { showGoalsDialog = true },
+                                modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Edit Goals",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     }
 
@@ -323,6 +340,17 @@ fun MacroDailyCounterDetail(
                 }
                 editingEntry = null
             }
+        )
+    }
+
+    if (showCustomMeals) {
+        CustomMealManagerSheet(
+            customMeals = customMeals,
+            foodDataSource = foodDataSource,
+            onCreate = { name, items -> customMealStateHolder.create(name, items) },
+            onRename = { id, name -> customMealStateHolder.rename(id, name) },
+            onDelete = { id -> customMealStateHolder.delete(id) },
+            onDismiss = { showCustomMeals = false }
         )
     }
 

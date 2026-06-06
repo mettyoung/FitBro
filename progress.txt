@@ -64,3 +64,13 @@ Learnings:
 - customMealQueries.customMealQueries auto-generated; SQLDelight FK needs no extra config for compile.
 - getAllCustomMeals re-emits on CustomMeal table change; item-only edits won't retrigger (acceptable — current API creates/deletes whole meals only).
 - customMealRepository currently unused until US-004 (state holder) -> harmless unused-val warning.
+
+## 2026-06-06 — US-004 Custom meal CRUD interface (DONE, main session)
+Changes:
+- CustomMealStateHolder.kt: customMeals StateFlow (repo.getAllCustomMeals stateIn WhileSubscribed); create/rename/delete -> Job.
+- CustomMealManagerSheet.kt: ModalBottomSheet, two modes — list (name + item count + total kcal, empty state, rename via AlertDialog, delete via confirm AlertDialog, "New custom meal" button) and builder (name field + items list w/ per-item remove + "Add food" that reuses FoodSearchSheet). FoodDiaryEntry.toCustomMealItem(sortOrder) maps search result -> item.
+- Threaded customMealStateHolder: App.kt (remember) -> DashboardWithTabs param -> MacroDailyCounterDetail param. Entry point: AutoMirrored List icon in header next to Settings opens the sheet.
+Gates: Android + iOS BUILD SUCCESSFUL.
+Learnings:
+- Reuse FoodSearchSheet (a ModalBottomSheet) nested inside CustomMealManagerSheet's builder by toggling a `searching` flag — stacking ModalBottomSheets works; its onAddEntry yields a FoodDiaryEntry which maps cleanly to CustomMealItem (same macro fields).
+- New StateHolder constructor (repo, scope) wired in App.kt with remember(customMealRepository, scope); pass through DashboardWithTabs.
