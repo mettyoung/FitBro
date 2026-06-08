@@ -58,6 +58,29 @@ private class FakeFoodDiaryRepository : FoodDiaryRepository {
         }
     }
 
+    override suspend fun moveEntryToPosition(
+        date: String,
+        movedId: Long,
+        targetMeal: String,
+        targetOrderedIds: List<Long>,
+        sourceMeal: String,
+        sourceOrderedIds: List<Long>
+    ) {
+        rows.value = rows.value.map { row ->
+            val tIdx = targetOrderedIds.indexOf(row.id)
+            val sIdx = sourceOrderedIds.indexOf(row.id)
+            when {
+                row.id == movedId -> row.copy(
+                    mealType = targetMeal,
+                    sortOrder = targetOrderedIds.indexOf(movedId).toLong()
+                )
+                tIdx >= 0 -> row.copy(sortOrder = tIdx.toLong())
+                sIdx >= 0 -> row.copy(sortOrder = sIdx.toLong())
+                else -> row
+            }
+        }
+    }
+
     override fun getDailyTotals(date: String): Flow<DailyMacroTotals> =
         rows.map { all ->
             val d = all.filter { it.date == date }
@@ -119,6 +142,55 @@ class FoodDiaryReorderTest {
         // Daily totals must be unchanged by reordering.
         val totals = repo.getDailyTotalsOnce()
         assertEquals(600.0, totals.calories, 0.001)
+    }
+
+    @Test
+    fun moveEntryToPositionTransfersMealAtIndex() = runSync {
+        val repo = FakeFoodDiaryRepository()
+        val l1 = repo.addEntry(entry("lunch1", meal = MealType.LUNCH, cal = 100.0))
+        val l2 = repo.addEntry(entry("lunch2", meal = MealType.LUNCH, cal = 200.0))
+        val d1 = repo.addEntry(entry("dinner1", meal = MealType.DINNER, cal = 300.0))
+        val d2 = repo.addEntry(entry("dinner2", meal = MealType.DINNER, cal = 400.0))
+
+        // Drag lunch1 into dinner, inserted between dinner1 and dinner2.
+        repo.moveEntryToPosition(
+            date = "2026-06-06",
+            movedId = l1,
+            targetMeal = MealType.DINNER,
+            targetOrderedIds = listOf(d1, l1, d2),
+            sourceMeal = MealType.LUNCH,
+            sourceOrderedIds = listOf(l2)
+        )
+
+        val dinner = repo.getEntriesForDateOnce().filter { it.mealType == MealType.DINNER }
+        assertEquals(listOf("dinner1", "lunch1", "dinner2"), dinner.map { it.foodName })
+        assertEquals(listOf(0L, 1L, 2L), dinner.map { it.sortOrder })
+        // Lunch compacted to just lunch2 at order 0.
+        val lunch = repo.getEntriesForDateOnce().filter { it.mealType == MealType.LUNCH }
+        assertEquals(listOf("lunch2"), lunch.map { it.foodName })
+        assertEquals(0L, lunch.single().sortOrder)
+        // Daily totals unchanged by the move.
+        assertEquals(1000.0, repo.getDailyTotalsOnce().calories, 0.001)
+    }
+
+    @Test
+    fun moveEntryToPositionHandlesIntraMealReorder() = runSync {
+        val repo = FakeFoodDiaryRepository()
+        val a = repo.addEntry(entry("a"))
+        val b = repo.addEntry(entry("b"))
+        val c = repo.addEntry(entry("c"))
+
+        // Same meal: move c to front. sourceOrderedIds empty since source == target.
+        repo.moveEntryToPosition(
+            date = "2026-06-06",
+            movedId = c,
+            targetMeal = MealType.BREAKFAST,
+            targetOrderedIds = listOf(c, a, b),
+            sourceMeal = MealType.BREAKFAST,
+            sourceOrderedIds = emptyList()
+        )
+
+        assertEquals(listOf("c", "a", "b"), repo.getEntriesForDateOnce().map { it.foodName })
     }
 
     private suspend fun FoodDiaryRepository.getEntriesForDateOnce(): List<FoodDiaryEntry> =

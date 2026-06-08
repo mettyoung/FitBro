@@ -73,6 +73,32 @@ class FoodDiaryRepositoryImpl(private val database: FitBroDatabase) : FoodDiaryR
         }
     }
 
+    override suspend fun moveEntryToPosition(
+        date: String,
+        movedId: Long,
+        targetMeal: String,
+        targetOrderedIds: List<Long>,
+        sourceMeal: String,
+        sourceOrderedIds: List<Long>
+    ): Unit = withContext(Dispatchers.Default) {
+        database.foodDiaryQueries.transaction {
+            targetOrderedIds.forEachIndexed { index, id ->
+                if (id == movedId) {
+                    database.foodDiaryQueries.moveEntryToMeal(
+                        mealType = targetMeal,
+                        sortOrder = index.toLong(),
+                        id = id
+                    )
+                } else {
+                    database.foodDiaryQueries.updateSortOrder(sortOrder = index.toLong(), id = id)
+                }
+            }
+            sourceOrderedIds.forEachIndexed { index, id ->
+                database.foodDiaryQueries.updateSortOrder(sortOrder = index.toLong(), id = id)
+            }
+        }
+    }
+
     override fun getDailyTotals(date: String): Flow<DailyMacroTotals> =
         database.foodDiaryQueries.getDailyTotals(date)
             .asFlow()

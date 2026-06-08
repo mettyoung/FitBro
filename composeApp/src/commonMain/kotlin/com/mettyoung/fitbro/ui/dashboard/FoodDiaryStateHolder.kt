@@ -133,6 +133,21 @@ class FoodDiaryStateHolder(
         }
     }
 
+    fun moveEntryToPosition(
+        date: String,
+        movedId: Long,
+        targetMeal: String,
+        targetOrderedIds: List<Long>,
+        sourceMeal: String,
+        sourceOrderedIds: List<Long>
+    ): Job {
+        return scope.launch {
+            repository.moveEntryToPosition(
+                date, movedId, targetMeal, targetOrderedIds, sourceMeal, sourceOrderedIds
+            )
+        }
+    }
+
     private fun syncToHealthConnect(entry: FoodDiaryEntry) {
         scope.launch {
             try {

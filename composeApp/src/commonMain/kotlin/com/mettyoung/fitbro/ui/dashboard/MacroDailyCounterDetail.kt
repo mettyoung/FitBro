@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.ui.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -69,9 +71,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -91,6 +96,7 @@ import com.mettyoung.fitbro.util.plusDays
 import com.mettyoung.fitbro.util.toYMD
 import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -104,6 +110,7 @@ fun MacroDailyCounterDetail(
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
     val foodState by foodDiaryStateHolder.state.collectAsState()
     val selectedDate by foodDiaryStateHolder.selectedDate.collectAsState()
     val weeklyTotals by foodDiaryStateHolder.weeklyTotals.collectAsState()
@@ -122,6 +129,32 @@ fun MacroDailyCounterDetail(
     var customMealTarget by remember { mutableStateOf<String?>(null) }
     var editingEntry by remember { mutableStateOf<FoodDiaryEntry?>(null) }
 
+    val dragState = remember { MealDragState() }
+    var rootTopY by remember { mutableStateOf(0f) }
+    var rootLeftX by remember { mutableStateOf(0f) }
+
+    // Rebound each recomposition so onDragEnd commits against the latest foodState/date.
+    dragState.onCommit = commit@{
+        val moved = dragState.activeEntry ?: run { dragState.clear(); return@commit }
+        val src = dragState.sourceMeal ?: run { dragState.clear(); return@commit }
+        val tMeal = dragState.targetMeal ?: src
+        val targetIds = (foodState.entriesByMeal[tMeal] ?: emptyList())
+            .map { it.id }.filterNot { it == moved.id }.toMutableList()
+        targetIds.add(dragState.targetIndex.coerceIn(0, targetIds.size), moved.id)
+        if (tMeal == src) {
+            val current = (foodState.entriesByMeal[src] ?: emptyList()).map { it.id }
+            if (targetIds != current) foodDiaryStateHolder.reorderMeal(selectedDate, src, targetIds)
+        } else {
+            val sourceIds = (foodState.entriesByMeal[src] ?: emptyList())
+                .map { it.id }.filterNot { it == moved.id }
+            foodDiaryStateHolder.moveEntryToPosition(
+                selectedDate, moved.id, tMeal, targetIds, src, sourceIds
+            )
+            onBalanceRefreshNeeded()
+        }
+        dragState.clear()
+    }
+
     var selectionMode by remember { mutableStateOf(false) }
     val selectedIds = remember { mutableStateListOf<Long>() }
     var namingSelection by remember { mutableStateOf(false) }
@@ -136,7 +169,16 @@ fun MacroDailyCounterDetail(
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val healthNutritionSourceName = remember { getPlatform().healthNutritionSourceName }
 
-    Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .onGloballyPositioned {
+                val p = it.positionInWindow()
+                rootTopY = p.y
+                rootLeftX = p.x
+            }
+    ) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
                 Column(
@@ -275,6 +317,7 @@ fun MacroDailyCounterDetail(
                         FoodDiarySection(
                             mealType = mealType,
                             entries = entries,
+                            dragState = dragState,
                             onAddFood = { addingToMeal = mealType },
                             onAddCustomMeal = { customMealTarget = mealType },
                             onEditClick = { editingEntry = it },
@@ -301,9 +344,6 @@ fun MacroDailyCounterDetail(
                                         }
                                     }
                                 }
-                            },
-                            onReorder = { orderedIds ->
-                                foodDiaryStateHolder.reorderMeal(selectedDate, mealType, orderedIds)
                             },
                             selectionMode = selectionMode,
                             selectedIds = selectedIds.toSet(),
@@ -369,6 +409,40 @@ fun MacroDailyCounterDetail(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
         )
+
+        // Floating overlay of the row being dragged across meals.
+        dragState.activeEntry?.let { entry ->
+            val yPx = (dragState.startTopY - rootTopY + dragState.offsetY).roundToInt()
+            val xPx = (dragState.startLeftX - rootLeftX).roundToInt()
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(xPx, yPx) }
+                    .zIndex(10f)
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(16.dp),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.width(with(density) { dragState.rowWidthPx.toDp() })
+                ) {
+                    Box(modifier = Modifier.padding(8.dp)) {
+                        FoodEntryRow(
+                            entry = entry,
+                            onEdit = {},
+                            onDelete = {},
+                            dragHandle = {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = null,
+                                    tint = MiTextSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 
     addingToMeal?.let { mealType ->
@@ -608,11 +682,11 @@ private fun MacroDataSourceButton(
 private fun FoodDiarySection(
     mealType: String,
     entries: List<FoodDiaryEntry>,
+    dragState: MealDragState,
     onAddFood: () -> Unit,
     onAddCustomMeal: () -> Unit,
     onEditClick: (FoodDiaryEntry) -> Unit,
     onDeleteClick: (FoodDiaryEntry) -> Unit,
-    onReorder: (orderedIds: List<Long>) -> Unit,
     selectionMode: Boolean = false,
     selectedIds: Set<Long> = emptySet(),
     onToggleSelect: (FoodDiaryEntry) -> Unit = {},
@@ -620,9 +694,21 @@ private fun FoodDiarySection(
     modifier: Modifier = Modifier
 ) {
     val mealCalories = entries.sumOf { it.calories }
+    val isDropTarget = dragState.activeId != null &&
+        dragState.targetMeal == mealType &&
+        dragState.sourceMeal != mealType
 
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .onGloballyPositioned {
+                val top = it.positionInWindow().y
+                dragState.reportMeal(mealType, top, top + it.size.height)
+            }
+            .then(
+                if (isDropTarget) Modifier.border(2.dp, MiOrange, RoundedCornerShape(24.dp))
+                else Modifier
+            ),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -679,10 +765,11 @@ private fun FoodDiarySection(
             if (entries.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
                 ReorderableEntries(
+                    mealType = mealType,
                     entries = entries,
+                    dragState = dragState,
                     onEditClick = onEditClick,
                     onDeleteClick = onDeleteClick,
-                    onReorder = onReorder,
                     selectionMode = selectionMode,
                     selectedIds = selectedIds,
                     onToggleSelect = onToggleSelect,
@@ -690,6 +777,11 @@ private fun FoodDiarySection(
                 )
             } else {
                 Spacer(Modifier.height(12.dp))
+                // Empty meal still a valid drop target for cross-meal drags.
+                if (dragState.activeId != null && dragState.targetMeal == mealType) {
+                    DropIndicator()
+                    Spacer(Modifier.height(8.dp))
+                }
                 Text(
                     text = "No items logged for $mealType",
                     style = MaterialTheme.typography.bodyMedium,
@@ -701,117 +793,102 @@ private fun FoodDiarySection(
 }
 
 /**
- * Manual drag-to-reorder for the entries within a single meal section.
- * Renders a plain Column (already inside the outer LazyColumn), so reordering is
- * confined to this section. Long-press the drag handle to pick up a row; on drop the
- * new id order is persisted via [onReorder]. Local order resets whenever upstream
- * [entries] change, so the StateFlow remains the source of truth after refresh.
+ * Renders a meal's entries with a drag handle per row. Dragging the handle drives the shared
+ * [MealDragState]: the row stays in place (hidden, as a placeholder) while a floating overlay
+ * tracks the finger and an insertion indicator shows the live target slot — across meals too.
+ * Nothing reflows mid-drag (that would relocate the keyed gesture node and cancel the pointer);
+ * the move is committed via [MealDragState.onCommit] on drop. State stays the source of truth.
  */
 @Composable
 private fun ReorderableEntries(
+    mealType: String,
     entries: List<FoodDiaryEntry>,
+    dragState: MealDragState,
     onEditClick: (FoodDiaryEntry) -> Unit,
     onDeleteClick: (FoodDiaryEntry) -> Unit,
-    onReorder: (orderedIds: List<Long>) -> Unit,
     selectionMode: Boolean = false,
     selectedIds: Set<Long> = emptySet(),
     onToggleSelect: (FoodDiaryEntry) -> Unit = {},
     onLongPress: (FoodDiaryEntry) -> Unit = {}
 ) {
-    var items by remember(entries) { mutableStateOf(entries) }
-    var draggingId by remember(entries) { mutableStateOf<Long?>(null) }
-    var dragOffsetY by remember { mutableStateOf(0f) }
-    val heights = remember(entries) { mutableStateMapOf<Long, Int>() }
+    val isTargetMeal = dragState.activeId != null && dragState.targetMeal == mealType
+    // Count of non-active rows emitted so far; the insertion line goes before the row at targetIndex.
+    var emitted = 0
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        items.forEachIndexed { index, entry ->
+        entries.forEachIndexed { index, entry ->
             key(entry.id) {
-            val isDragging = entry.id == draggingId
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { heights[entry.id] = it.size.height }
-                    .zIndex(if (isDragging) 1f else 0f)
-                    .graphicsLayer {
-                        translationY = if (isDragging) dragOffsetY else 0f
-                    }
-            ) {
-                FoodEntryRow(
-                    entry = entry,
-                    onEdit = { onEditClick(entry) },
-                    onDelete = { onDeleteClick(entry) },
-                    selectionMode = selectionMode,
-                    isSelected = entry.id in selectedIds,
-                    onToggleSelect = { onToggleSelect(entry) },
-                    onLongPress = { onLongPress(entry) },
-                    dragHandle = {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Reorder",
-                            tint = MiTextSecondary,
-                            modifier = Modifier
-                                .size(20.dp)
-                                .pointerInput(entry.id, items.size) {
-                                    detectDragGestures(
-                                        onDragStart = {
-                                            draggingId = entry.id
-                                            dragOffsetY = 0f
-                                        },
-                                        onDragEnd = {
-                                            draggingId = null
-                                            dragOffsetY = 0f
-                                            onReorder(items.map { it.id })
-                                        },
-                                        onDragCancel = {
-                                            // A mid-drag list reorder can reposition the keyed
-                                            // node and cancel the pointer, so persist here too —
-                                            // otherwise the new order is shown but never saved.
-                                            draggingId = null
-                                            dragOffsetY = 0f
-                                            onReorder(items.map { it.id })
-                                        },
-                                        onDrag = { change, drag ->
-                                            change.consume()
-                                            dragOffsetY += drag.y
-                                            val cur = items.indexOfFirst { it.id == entry.id }
-                                            if (cur >= 0) {
-                                                // Move down past the next row's midpoint.
-                                                if (cur < items.lastIndex) {
-                                                    val nextH = heights[items[cur + 1].id] ?: 0
-                                                    if (nextH > 0 && dragOffsetY > nextH / 2f) {
-                                                        items = items.toMutableList().apply {
-                                                            add(cur + 1, removeAt(cur))
-                                                        }
-                                                        dragOffsetY -= nextH
-                                                    }
-                                                }
-                                                // Move up past the previous row's midpoint.
-                                                if (cur > 0) {
-                                                    val prevH = heights[items[cur - 1].id] ?: 0
-                                                    if (prevH > 0 && dragOffsetY < -prevH / 2f) {
-                                                        items = items.toMutableList().apply {
-                                                            add(cur - 1, removeAt(cur))
-                                                        }
-                                                        dragOffsetY += prevH
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    )
-                                }
-                        )
-                    }
-                )
-            }
-            if (index < items.size - 1) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                )
-            }
+                val isActive = entry.id == dragState.activeId
+                if (isTargetMeal && !isActive && emitted == dragState.targetIndex) {
+                    DropIndicator()
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned {
+                            val p = it.positionInWindow()
+                            dragState.reportRow(
+                                entry.id, mealType, p.x, p.y, it.size.width, it.size.height
+                            )
+                        }
+                        .graphicsLayer { alpha = if (isActive) 0f else 1f }
+                ) {
+                    FoodEntryRow(
+                        entry = entry,
+                        onEdit = { onEditClick(entry) },
+                        onDelete = { onDeleteClick(entry) },
+                        selectionMode = selectionMode,
+                        isSelected = entry.id in selectedIds,
+                        onToggleSelect = { onToggleSelect(entry) },
+                        onLongPress = { onLongPress(entry) },
+                        dragHandle = {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Reorder",
+                                tint = MiTextSecondary,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .pointerInput(entry.id) {
+                                        detectDragGestures(
+                                            onDragStart = { dragState.start(entry, mealType) },
+                                            onDrag = { change, drag ->
+                                                change.consume()
+                                                dragState.offsetY += drag.y
+                                                dragState.recompute()
+                                            },
+                                            onDragEnd = { dragState.onCommit?.invoke() },
+                                            onDragCancel = { dragState.onCommit?.invoke() }
+                                        )
+                                    }
+                            )
+                        }
+                    )
+                }
+                if (!isActive) emitted++
+                if (index < entries.size - 1) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                }
             }
         }
+        // Insertion line at the tail of the meal.
+        if (isTargetMeal && emitted == dragState.targetIndex) {
+            DropIndicator()
+        }
     }
+}
+
+@Composable
+private fun DropIndicator() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .height(3.dp)
+            .background(MiOrange, RoundedCornerShape(2.dp))
+    )
 }
 
 @Composable
@@ -903,6 +980,90 @@ private fun MacroTag(text: String) {
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/**
+ * Shared controller for cross-meal drag-and-drop of food entries.
+ *
+ * Each meal section renders independently (separate LazyColumn items), so a dragged row can't
+ * visually leave its own Card. To support dragging an entry into another meal we:
+ *  - keep every visible row's window-space bounds + meal in registries (updated via onGloballyPositioned),
+ *  - DON'T reflow any list mid-drag (reflowing relocates the keyed gesture node and cancels the pointer —
+ *    see the prior intra-meal impl's onDragCancel note), instead show a floating overlay under the finger
+ *    plus an insertion indicator, and commit the move on drop.
+ */
+private class MealDragState {
+    var activeId by mutableStateOf<Long?>(null)
+    var activeEntry by mutableStateOf<FoodDiaryEntry?>(null)
+    var sourceMeal: String? = null
+    var startTopY = 0f
+    var startLeftX = 0f
+    var startCenterY = 0f
+    var rowWidthPx = 0
+    var offsetY by mutableStateOf(0f)
+    var targetMeal by mutableStateOf<String?>(null)
+    var targetIndex by mutableStateOf(0)
+
+    /** Set each recomposition so the gesture's onDragEnd reads the latest closure (avoids stale state). */
+    var onCommit: (() -> Unit)? = null
+
+    private val topY = mutableStateMapOf<Long, Float>()
+    private val heightPx = mutableStateMapOf<Long, Int>()
+    private val leftX = mutableStateMapOf<Long, Float>()
+    private val widthPx = mutableStateMapOf<Long, Int>()
+    private val mealOf = mutableStateMapOf<Long, String>()
+    private val mealTop = mutableStateMapOf<String, Float>()
+    private val mealBottom = mutableStateMapOf<String, Float>()
+
+    fun reportRow(id: Long, meal: String, x: Float, y: Float, w: Int, h: Int) {
+        topY[id] = y; heightPx[id] = h; leftX[id] = x; widthPx[id] = w; mealOf[id] = meal
+    }
+
+    fun reportMeal(meal: String, top: Float, bottom: Float) {
+        mealTop[meal] = top; mealBottom[meal] = bottom
+    }
+
+    private fun centerOf(id: Long): Float {
+        val t = topY[id] ?: return Float.MAX_VALUE
+        return t + (heightPx[id] ?: 0) / 2f
+    }
+
+    fun start(entry: FoodDiaryEntry, meal: String) {
+        activeId = entry.id
+        activeEntry = entry
+        sourceMeal = meal
+        startTopY = topY[entry.id] ?: 0f
+        startLeftX = leftX[entry.id] ?: 0f
+        rowWidthPx = widthPx[entry.id] ?: 0
+        startCenterY = startTopY + (heightPx[entry.id] ?: 0) / 2f
+        offsetY = 0f
+        targetMeal = meal
+        recompute()
+    }
+
+    fun recompute() {
+        val id = activeId ?: return
+        val vc = startCenterY + offsetY
+        targetMeal = MealType.ordered.minByOrNull { m ->
+            val top = mealTop[m]
+            val bot = mealBottom[m]
+            when {
+                top == null || bot == null -> Float.MAX_VALUE
+                vc in top..bot -> 0f
+                else -> minOf(abs(vc - top), abs(vc - bot))
+            }
+        } ?: sourceMeal
+        val meal = targetMeal
+        targetIndex = mealOf.count { (rid, rm) -> rm == meal && rid != id && centerOf(rid) < vc }
+    }
+
+    fun clear() {
+        activeId = null
+        activeEntry = null
+        sourceMeal = null
+        offsetY = 0f
+        targetMeal = null
     }
 }
 

@@ -35,6 +35,9 @@ SELECT COALESCE(MAX(sortOrder), -1) FROM FoodDiaryEntry WHERE date = ? AND mealT
 updateSortOrder:
 UPDATE FoodDiaryEntry SET sortOrder = ? WHERE id = ?;
 
+moveEntryToMeal:
+UPDATE FoodDiaryEntry SET mealType = ?, sortOrder = ? WHERE id = ?;
+
 updateEntry:
 UPDATE FoodDiaryEntry
 SET foodName = ?, brandName = ?, calories = ?, proteinG = ?, carbG = ?, fatG = ?, servingSizeG = ?, servingUnit = ?, food_id = ?
