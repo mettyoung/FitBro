@@ -1,0 +1,34 @@
+ALTER TABLE FoodDiaryEntry ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0;
+
+UPDATE FoodDiaryEntry
+SET sortOrder = (
+    SELECT COUNT(*)
+    FROM FoodDiaryEntry AS earlier
+    WHERE earlier.date = FoodDiaryEntry.date
+      AND earlier.mealType = FoodDiaryEntry.mealType
+      AND earlier.id < FoodDiaryEntry.id
+);
+
+CREATE TABLE CustomMeal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+);
+
+CREATE TABLE CustomMealItem (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customMealId INTEGER NOT NULL,
+    foodName TEXT NOT NULL,
+    brandName TEXT,
+    calories REAL NOT NULL,
+    proteinG REAL NOT NULL,
+    carbG REAL NOT NULL,
+    fatG REAL NOT NULL,
+    servingSizeG REAL NOT NULL,
+    servingUnit TEXT NOT NULL,
+    food_id TEXT,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(customMealId) REFERENCES CustomMeal(id)
+);
+
+CREATE INDEX custom_meal_item_meal_idx ON CustomMealItem(customMealId);

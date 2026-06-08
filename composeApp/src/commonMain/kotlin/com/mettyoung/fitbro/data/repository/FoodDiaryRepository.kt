@@ -9,6 +9,7 @@ interface FoodDiaryRepository {
     suspend fun addEntry(entry: FoodDiaryEntry): Long
     suspend fun updateEntry(entry: FoodDiaryEntry)
     suspend fun deleteEntry(id: Long)
+    suspend fun reorderMeal(date: String, mealType: String, orderedIds: List<Long>)
     fun getDailyTotals(date: String): Flow<DailyMacroTotals>
     fun getDailyTotalsForRange(startDate: String, endDate: String): Flow<List<DailyMacroTotals>>
 }

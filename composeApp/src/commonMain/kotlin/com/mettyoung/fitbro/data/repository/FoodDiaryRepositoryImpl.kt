@@ -21,6 +21,9 @@ class FoodDiaryRepositoryImpl(private val database: FitBroDatabase) : FoodDiaryR
 
     override suspend fun addEntry(entry: FoodDiaryEntry): Long = withContext(Dispatchers.Default) {
         database.foodDiaryQueries.transactionWithResult {
+            val nextSortOrder = database.foodDiaryQueries
+                .maxSortOrderForDateMeal(entry.date, entry.mealType)
+                .executeAsOne() + 1
             database.foodDiaryQueries.insertEntry(
                 date = entry.date,
                 mealType = entry.mealType,
@@ -32,7 +35,8 @@ class FoodDiaryRepositoryImpl(private val database: FitBroDatabase) : FoodDiaryR
                 fatG = entry.fatG,
                 servingSizeG = entry.servingSizeG,
                 servingUnit = entry.servingUnit,
-                food_id = entry.foodId
+                food_id = entry.foodId,
+                sortOrder = nextSortOrder
             )
             database.foodDiaryQueries.lastInsertRowId().executeAsOne()
         }
@@ -55,6 +59,18 @@ class FoodDiaryRepositoryImpl(private val database: FitBroDatabase) : FoodDiaryR
 
     override suspend fun deleteEntry(id: Long): Unit = withContext(Dispatchers.Default) {
         database.foodDiaryQueries.deleteEntry(id)
+    }
+
+    override suspend fun reorderMeal(
+        date: String,
+        mealType: String,
+        orderedIds: List<Long>
+    ): Unit = withContext(Dispatchers.Default) {
+        database.foodDiaryQueries.transaction {
+            orderedIds.forEachIndexed { index, id ->
+                database.foodDiaryQueries.updateSortOrder(sortOrder = index.toLong(), id = id)
+            }
+        }
     }
 
     override fun getDailyTotals(date: String): Flow<DailyMacroTotals> =
@@ -100,5 +116,6 @@ private fun com.mettyoung.fitbro.data.db.FoodDiaryEntry.toDomain() = FoodDiaryEn
     fatG = fatG,
     servingSizeG = servingSizeG,
     servingUnit = servingUnit,
-    foodId = food_id
+    foodId = food_id,
+    sortOrder = sortOrder
 )

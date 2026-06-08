@@ -127,6 +127,12 @@ class FoodDiaryStateHolder(
         }
     }
 
+    fun reorderMeal(date: String, mealType: String, orderedIds: List<Long>): Job {
+        return scope.launch {
+            repository.reorderMeal(date, mealType, orderedIds)
+        }
+    }
+
     private fun syncToHealthConnect(entry: FoodDiaryEntry) {
         scope.launch {
             try {

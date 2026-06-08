@@ -20,7 +20,7 @@
         "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -38,7 +38,7 @@
         "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -57,7 +57,7 @@
         "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -75,7 +75,7 @@
         "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -93,7 +93,7 @@
         "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -111,7 +111,7 @@
         "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

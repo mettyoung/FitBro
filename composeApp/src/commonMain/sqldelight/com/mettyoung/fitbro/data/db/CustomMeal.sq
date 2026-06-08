@@ -1,0 +1,48 @@
+CREATE TABLE CustomMeal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+);
+
+CREATE TABLE CustomMealItem (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customMealId INTEGER NOT NULL,
+    foodName TEXT NOT NULL,
+    brandName TEXT,
+    calories REAL NOT NULL,
+    proteinG REAL NOT NULL,
+    carbG REAL NOT NULL,
+    fatG REAL NOT NULL,
+    servingSizeG REAL NOT NULL,
+    servingUnit TEXT NOT NULL,
+    food_id TEXT,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(customMealId) REFERENCES CustomMeal(id)
+);
+
+CREATE INDEX custom_meal_item_meal_idx ON CustomMealItem(customMealId);
+
+insertCustomMeal:
+INSERT INTO CustomMeal (name, createdAt) VALUES (?, ?);
+
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+insertCustomMealItem:
+INSERT INTO CustomMealItem (customMealId, foodName, brandName, calories, proteinG, carbG, fatG, servingSizeG, servingUnit, food_id, sortOrder)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+getAllCustomMeals:
+SELECT * FROM CustomMeal ORDER BY name ASC;
+
+getItemsForMeal:
+SELECT * FROM CustomMealItem WHERE customMealId = ? ORDER BY sortOrder ASC;
+
+updateCustomMealName:
+UPDATE CustomMeal SET name = ? WHERE id = ?;
+
+deleteCustomMeal:
+DELETE FROM CustomMeal WHERE id = ?;
+
+deleteItemsForMeal:
+DELETE FROM CustomMealItem WHERE customMealId = ?;

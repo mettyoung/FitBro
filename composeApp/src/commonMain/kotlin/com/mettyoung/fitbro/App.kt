@@ -16,8 +16,10 @@ import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.food.FatSecretFoodDataSource
 import com.mettyoung.fitbro.data.health.createHealthDataSource
 import com.mettyoung.fitbro.data.repository.CalorieMathRepositoryImpl
+import com.mettyoung.fitbro.data.repository.CustomMealRepositoryImpl
 import com.mettyoung.fitbro.data.repository.FoodDiaryRepositoryImpl
 import com.mettyoung.fitbro.ui.FitBroTheme
+import com.mettyoung.fitbro.ui.dashboard.CustomMealStateHolder
 import com.mettyoung.fitbro.ui.dashboard.DashboardStateHolder
 import com.mettyoung.fitbro.ui.dashboard.DashboardUiState
 import com.mettyoung.fitbro.ui.dashboard.DashboardWithTabs
@@ -39,6 +41,7 @@ fun App() {
             FitBroDatabase(createSqlDriver())
         }
         val foodDiaryRepository = remember(database) { FoodDiaryRepositoryImpl(database) }
+        val customMealRepository = remember(database) { CustomMealRepositoryImpl(database) }
 
         val foodDataSource: FoodDataSource = remember { FatSecretFoodDataSource() }
 
@@ -49,6 +52,10 @@ fun App() {
                 userSettingsDataSource = userSettingsDataSource,
                 scope = scope
             )
+        }
+
+        val customMealStateHolder = remember(customMealRepository, scope) {
+            CustomMealStateHolder(repository = customMealRepository, scope = scope)
         }
 
         val initialDateRange = remember {
@@ -84,6 +91,7 @@ fun App() {
         DashboardWithTabs(
             stateHolder = stateHolder,
             foodDiaryStateHolder = foodDiaryStateHolder,
+            customMealStateHolder = customMealStateHolder,
             foodDataSource = foodDataSource,
             balances = balances,
             userSettingsDataSource = userSettingsDataSource,

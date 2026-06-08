@@ -41,6 +41,7 @@ import com.mettyoung.fitbro.ui.settings.MacroGoalsSettings
 fun DashboardWithTabs(
     stateHolder: DashboardStateHolder,
     foodDiaryStateHolder: FoodDiaryStateHolder,
+    customMealStateHolder: CustomMealStateHolder,
     foodDataSource: FoodDataSource,
     balances: List<DailyBalance>,
     userSettingsDataSource: UserSettingsDataSource,
@@ -101,6 +102,7 @@ fun DashboardWithTabs(
                     1 -> MacroDailyCounterDetail(
                         userSettingsDataSource = userSettingsDataSource,
                         foodDiaryStateHolder = foodDiaryStateHolder,
+                        customMealStateHolder = customMealStateHolder,
                         foodDataSource = foodDataSource,
                         onDateSelected = stateHolder::setSelectedDate,
                         onBalanceRefreshNeeded = stateHolder::refresh
