@@ -3,7 +3,7 @@ package com.mettyoung.fitbro.ui.dashboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,7 +33,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -350,10 +349,8 @@ fun MacroDailyCounterDetail(
                             onToggleSelect = { entry ->
                                 if (selectedIds.contains(entry.id)) selectedIds.remove(entry.id)
                                 else selectedIds.add(entry.id)
-                            },
-                            onLongPress = { entry ->
-                                selectionMode = true
-                                if (!selectedIds.contains(entry.id)) selectedIds.add(entry.id)
+                                // Checkbox drives selection mode: any tick enters, last untick exits.
+                                selectionMode = selectedIds.isNotEmpty()
                             },
                             modifier = Modifier.padding(horizontal = 24.dp)
                         )
@@ -396,11 +393,16 @@ fun MacroDailyCounterDetail(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Button(
-                        onClick = { namingSelection = true },
-                        enabled = selectedIds.isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
-                    ) { Text("Save as meal") }
+                    // "Save as meal" only makes sense for 2+ items; a single selection is
+                    // just a plain multi-select with no meal to compose.
+                    if (selectedIds.size > 1) {
+                        Button(
+                            onClick = { namingSelection = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                        ) { Text("Save as meal") }
+                    } else {
+                        Spacer(Modifier.width(64.dp))
+                    }
                 }
             }
         }
@@ -429,15 +431,7 @@ fun MacroDailyCounterDetail(
                         FoodEntryRow(
                             entry = entry,
                             onEdit = {},
-                            onDelete = {},
-                            dragHandle = {
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = null,
-                                    tint = MiTextSecondary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                            onDelete = {}
                         )
                     }
                 }
@@ -690,7 +684,6 @@ private fun FoodDiarySection(
     selectionMode: Boolean = false,
     selectedIds: Set<Long> = emptySet(),
     onToggleSelect: (FoodDiaryEntry) -> Unit = {},
-    onLongPress: (FoodDiaryEntry) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val mealCalories = entries.sumOf { it.calories }
@@ -772,8 +765,7 @@ private fun FoodDiarySection(
                     onDeleteClick = onDeleteClick,
                     selectionMode = selectionMode,
                     selectedIds = selectedIds,
-                    onToggleSelect = onToggleSelect,
-                    onLongPress = onLongPress
+                    onToggleSelect = onToggleSelect
                 )
             } else {
                 Spacer(Modifier.height(12.dp))
@@ -793,11 +785,12 @@ private fun FoodDiarySection(
 }
 
 /**
- * Renders a meal's entries with a drag handle per row. Dragging the handle drives the shared
- * [MealDragState]: the row stays in place (hidden, as a placeholder) while a floating overlay
- * tracks the finger and an insertion indicator shows the live target slot — across meals too.
+ * Renders a meal's entries, each with a leading checkbox. Ticking enters multi-select mode
+ * (handled by the parent). Long-pressing a row picks it up for drag-to-rearrange, including
+ * across meals, via the shared [MealDragState]: the row stays in place (hidden, as a placeholder)
+ * while a floating overlay tracks the finger and an insertion indicator shows the live target slot.
  * Nothing reflows mid-drag (that would relocate the keyed gesture node and cancel the pointer);
- * the move is committed via [MealDragState.onCommit] on drop. State stays the source of truth.
+ * the move is committed via [MealDragState.onCommit] on drop. Dragging is disabled in selection mode.
  */
 @Composable
 private fun ReorderableEntries(
@@ -808,8 +801,7 @@ private fun ReorderableEntries(
     onDeleteClick: (FoodDiaryEntry) -> Unit,
     selectionMode: Boolean = false,
     selectedIds: Set<Long> = emptySet(),
-    onToggleSelect: (FoodDiaryEntry) -> Unit = {},
-    onLongPress: (FoodDiaryEntry) -> Unit = {}
+    onToggleSelect: (FoodDiaryEntry) -> Unit = {}
 ) {
     val isTargetMeal = dragState.activeId != null && dragState.targetMeal == mealType
     // Count of non-active rows emitted so far; the insertion line goes before the row at targetIndex.
@@ -821,6 +813,23 @@ private fun ReorderableEntries(
                 val isActive = entry.id == dragState.activeId
                 if (isTargetMeal && !isActive && emitted == dragState.targetIndex) {
                     DropIndicator()
+                }
+                // Long-press to pick up for rearrange; suppressed while selecting.
+                val dragModifier = if (selectionMode) {
+                    Modifier
+                } else {
+                    Modifier.pointerInput(entry.id) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { dragState.start(entry, mealType) },
+                            onDrag = { change, drag ->
+                                change.consume()
+                                dragState.offsetY += drag.y
+                                dragState.recompute()
+                            },
+                            onDragEnd = { dragState.onCommit?.invoke() },
+                            onDragCancel = { dragState.onCommit?.invoke() }
+                        )
+                    }
                 }
                 Box(
                     modifier = Modifier
@@ -840,28 +849,7 @@ private fun ReorderableEntries(
                         selectionMode = selectionMode,
                         isSelected = entry.id in selectedIds,
                         onToggleSelect = { onToggleSelect(entry) },
-                        onLongPress = { onLongPress(entry) },
-                        dragHandle = {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Reorder",
-                                tint = MiTextSecondary,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .pointerInput(entry.id) {
-                                        detectDragGestures(
-                                            onDragStart = { dragState.start(entry, mealType) },
-                                            onDrag = { change, drag ->
-                                                change.consume()
-                                                dragState.offsetY += drag.y
-                                                dragState.recompute()
-                                            },
-                                            onDragEnd = { dragState.onCommit?.invoke() },
-                                            onDragCancel = { dragState.onCommit?.invoke() }
-                                        )
-                                    }
-                            )
-                        }
+                        dragModifier = dragModifier
                     )
                 }
                 if (!isActive) emitted++
@@ -896,29 +884,25 @@ private fun FoodEntryRow(
     entry: FoodDiaryEntry,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    dragHandle: (@Composable () -> Unit)? = null,
     selectionMode: Boolean = false,
     isSelected: Boolean = false,
     onToggleSelect: () -> Unit = {},
-    onLongPress: () -> Unit = {}
+    dragModifier: Modifier = Modifier
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(dragModifier)
             .pointerInput(entry.id, selectionMode) {
                 detectTapGestures(
-                    onLongPress = { if (!selectionMode) onLongPress() },
                     onTap = { if (selectionMode) onToggleSelect() }
                 )
             },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (selectionMode) {
-            Box(modifier = Modifier.padding(end = 12.dp)) {
-                Checkbox(checked = isSelected, onCheckedChange = { onToggleSelect() })
-            }
-        } else if (dragHandle != null) {
-            Box(modifier = Modifier.padding(end = 12.dp)) { dragHandle() }
+        // Checkbox is always present; ticking it enters multi-select mode.
+        Box(modifier = Modifier.padding(end = 12.dp)) {
+            Checkbox(checked = isSelected, onCheckedChange = { onToggleSelect() })
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
