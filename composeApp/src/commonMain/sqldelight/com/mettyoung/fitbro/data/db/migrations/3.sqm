@@ -1,0 +1,27 @@
+-- v3 -> v4: self-heal installs that upgraded through the broken 2.sqm
+-- (which bumped to v3 but never created the CustomMeal tables, crashing the
+-- Macros page with "no such table: CustomMeal"). IF NOT EXISTS keeps this a
+-- no-op for fresh installs and for v2 installs that get the tables from 2.sqm.
+CREATE TABLE IF NOT EXISTS CustomMeal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS CustomMealItem (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customMealId INTEGER NOT NULL,
+    foodName TEXT NOT NULL,
+    brandName TEXT,
+    calories REAL NOT NULL,
+    proteinG REAL NOT NULL,
+    carbG REAL NOT NULL,
+    fatG REAL NOT NULL,
+    servingSizeG REAL NOT NULL,
+    servingUnit TEXT NOT NULL,
+    food_id TEXT,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(customMealId) REFERENCES CustomMeal(id)
+);
+
+CREATE INDEX IF NOT EXISTS custom_meal_item_meal_idx ON CustomMealItem(customMealId);
