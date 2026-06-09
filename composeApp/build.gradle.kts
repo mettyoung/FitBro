@@ -87,6 +87,20 @@ android {
         getByName("release") {
             isMinifyEnabled = false
         }
+        // Minified + resource-shrunk build for fast REMOTE installs (small dex over
+        // Tailscale/DERP). Debug-signed + debuggable so it installs over the debug app.
+        create("remote") {
+            initWith(getByName("release"))
+            isMinifyEnabled = true
+            isShrinkResources = true
+            isDebuggable = true
+            signingConfig = signingConfigs.getByName("debug")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            matchingFallbacks += listOf("release")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
