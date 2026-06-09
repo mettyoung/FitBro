@@ -47,3 +47,11 @@ Learnings:
 - Early-exit a Compose content lambda with `return@Column` to render a mutually-exclusive tab without nesting the whole Search branch in an `else`.
 - New `SegmentChip` mirrors existing `ServingUnitChip` (FilterChip + MiOrange selected) — no SegmentedButton dep needed; keeps design-system consistent.
 
+## 2026-06-09 — US-005 One-tap add from Recent tab
+Changed:
+- `FoodLogSheet.kt`: wired `onSelectRecent` in `FoodSearchSheet` (was no-op) → calls `onAddEntry(template.copy(id=0, sortOrder=0, date=date, mealType=mealType))`. Reuses existing `onAddEntry` path.
+Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓. UI wiring only, no data-layer change → no new test.
+Learnings:
+- Existing `onAddEntry` call site (MacroDailyCounterDetail) already does addEntry().join() → onBalanceRefreshNeeded() → dismiss (addingToMeal=null). Re-route recent taps through it = id/sortOrder reassign + Health Connect sync + dismiss for free.
+- Recent templates already detached (id=0,sortOrder=0 from US-001), but re-stamp date+mealType to the *current* logging context (template carries the original log's date/meal).
+
