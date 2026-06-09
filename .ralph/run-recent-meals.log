@@ -1,3 +1,15 @@
 Ralph start — max 8 iterations — branch ralph/recent-meals
 
 === Iteration 1/8 — 6 stories remaining ===
+US-001 done. Stories remaining (US-002…006 still `passes: false`), not complete.
+
+**US-001 — Recent-foods query + repository method** shipped:
+- `recentFoods` SQL query (dedup by food_id else name|brand, newest-first, `LIMIT ?`)
+- `getRecentFoods(limit)` on repo interface + impl (detached templates)
+- Fake repo updated + new unit test
+- Gates: Android ✓, iOS ✓, tests ✓
+
+Next iteration takes US-002.
+--- iteration 1 done ---
+
+=== Iteration 2/8 — 5 stories remaining ===

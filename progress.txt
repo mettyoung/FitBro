@@ -20,3 +20,14 @@ Learnings:
 - Newest-first = highest id first (AUTOINCREMENT). MAX(id) per group = last-used serving/macros.
 - Both the real query and the fake must agree on the dedup key; keep them mirrored.
 
+## 2026-06-09 — US-002 Copy-meal-slot repository operation
+Changed:
+- `FoodDiaryRepository.kt`: added `suspend fun copyMealToDate(sourceDate, mealType, targetDate)`.
+- `FoodDiaryRepositoryImpl.kt`: impl in ONE `transaction {}` — reads source via `getEntriesByDateAndMeal(...).executeAsList()`, early `return@transaction` if empty, seeds sortOrder from `maxSortOrderForDateMeal(targetDate, mealType)+1` and increments per insert, reuses `insertEntry` with fields copied verbatim (new id auto, date=targetDate).
+- `FoodDiaryReorderTest.kt`: fake `copyMealToDate` (same append semantics, sources sorted by sortOrder/id) + tests `copyMealToDateAppendsAfterExistingTargetEntries`, `copyMealToDateNoOpWhenSourceEmpty`.
+Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓, testDebugUnitTest ✓.
+Learnings:
+- No `copyMeal` SQL needed — compose existing `getEntriesByDateAndMeal` + `maxSortOrderForDateMeal` + `insertEntry` inside one `transaction {}`. `transactionWithResult` only needed when returning a value.
+- `return@transaction` (not `return`) for the empty-source no-op inside the lambda.
+- Fake must sort sources by (sortOrder, id) before copying so appended order is deterministic, mirroring the SQL ORDER BY.
+

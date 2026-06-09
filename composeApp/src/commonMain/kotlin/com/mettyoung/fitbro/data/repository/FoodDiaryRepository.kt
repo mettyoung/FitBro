@@ -30,6 +30,12 @@ interface FoodDiaryRepository {
      * (id = 0, sortOrder = 0). Distinctness = food_id when present, else name+brand.
      */
     fun getRecentFoods(limit: Int): Flow<List<FoodDiaryEntry>>
+    /**
+     * Duplicates every entry in [sourceDate]/[mealType] into [targetDate] under the same
+     * meal slot. Copies get new ids and sortOrder appended AFTER existing target entries.
+     * All other fields are copied verbatim. No-op when the source slot is empty.
+     */
+    suspend fun copyMealToDate(sourceDate: String, mealType: String, targetDate: String)
     fun getDailyTotals(date: String): Flow<DailyMacroTotals>
     fun getDailyTotalsForRange(startDate: String, endDate: String): Flow<List<DailyMacroTotals>>
 }
