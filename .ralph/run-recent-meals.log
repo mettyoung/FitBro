@@ -37,3 +37,9 @@ Tap-to-add wiring deferred to US-005 (`onSelectRecent` is no-op placeholder for 
 --- iteration 4 done ---
 
 === Iteration 5/8 — 2 stories remaining ===
+US-005 done. Wired Recent-tap → existing `onAddEntry` path (id/sortOrder reassign + Health sync + dismiss + balance refresh for free). Both typechecks pass, committed.
+
+US-006 (Copy-to-day on meal slot) still `passes: false`. Next iteration takes it.
+--- iteration 5 done ---
+
+=== Iteration 6/8 — 1 stories remaining ===
