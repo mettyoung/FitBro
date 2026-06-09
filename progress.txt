@@ -1,3 +1,22 @@
 # Ralph Progress Log — recent-meals
 Started: 2026-06-09
 
+## Codebase Patterns
+- **Repo layer**: `FoodDiaryRepository` (interface) + `FoodDiaryRepositoryImpl` (SQLDelight). Flows via `database.foodDiaryQueries.<q>().asFlow().mapToList(Dispatchers.Default).map{...}`. Suspend writes via `withContext(Dispatchers.Default){ ... transactionWithResult{} }`.
+- **SQLDelight queries**: `composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/FoodDiary.sq`. `LIMIT ?` → bind param is `Long`. Single table `FoodDiaryEntry`; no migrations for this feature.
+- **Row→domain**: private `FoodDiaryEntry.toDomain()` extension at bottom of Impl maps `food_id`→`foodId`. Detached template = `.copy(id = 0, sortOrder = 0)`.
+- **Model**: `data/model/FoodDiaryEntry.kt` — `id: Long=0`, `sortOrder: Long=0`, `brandName/foodId` nullable. `MealType.{BREAKFAST,LUNCH,DINNER,SNACKS}`, `MealType.ordered`. `ServingUnit.GRAMS="g"`.
+- **commonTest**: NO SQLDelight driver, NO coroutines-test. `FoodDiaryReorderTest.kt` has its OWN private `FakeFoodDiaryRepository` + private `runSync` (StateFlow emits sync, no real suspension). When adding a repo method, MUST add it to that fake or tests won't compile. Read flows once via `.first()`.
+- **sortOrder contract**: addEntry → maxSortOrderForDateMeal+1; getEntriesForDate orders by (mealType, sortOrder, id).
+
+## 2026-06-09 — US-001 Recent-foods query + repository method
+Changed:
+- `FoodDiary.sq`: added `recentFoods` query — `WHERE id IN (SELECT MAX(id) ... GROUP BY COALESCE(food_id, lower(trim(foodName))||'|'||lower(trim(COALESCE(brandName,'')))))`, `ORDER BY id DESC LIMIT ?`. Dedup key = food_id else name|brand.
+- `FoodDiaryRepository.kt`: added `fun getRecentFoods(limit: Int): Flow<List<FoodDiaryEntry>>`.
+- `FoodDiaryRepositoryImpl.kt`: impl maps rows toDomain then `.copy(id=0, sortOrder=0)` (detached templates).
+- `FoodDiaryReorderTest.kt`: fake impl of getRecentFoods (groupBy key → maxBy id → sortByDescending id → take limit → copy id/sortOrder 0) + test `getRecentFoodsDedupsOrdersAndLimits`.
+Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓, testDebugUnitTest ✓.
+Learnings:
+- Newest-first = highest id first (AUTOINCREMENT). MAX(id) per group = last-used serving/macros.
+- Both the real query and the fake must agree on the dedup key; keep them mirrored.
+
