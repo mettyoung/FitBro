@@ -1,0 +1,118 @@
+{
+  "project": "FitBro",
+  "branchName": "ralph/food-diary-custom-meals",
+  "description": "Food diary power features: (1) reorder food entries within any meal section via drag, persisted; (2) multi-select diary entries to save them as a reusable named custom meal; (3) full CRUD interface to manage custom meals independently; (4) add a custom meal into a day's meal section by FLATTENING it — each component food becomes its own normal FoodDiaryEntry row so the user can individually readjust each entry's weight afterwards using the existing edit sheet. Custom meals are templates only; once flattened into the diary there is no parent/child link. Stack: Kotlin Multiplatform + Compose Multiplatform, SQLDelight source of truth, StateHolder + StateFlow UDF. Typecheck gates: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Persisted sort order for food diary entries",
+      "description": "As a developer, I need an explicit per-(date,meal) ordering column so entry order is stable and user-controllable instead of relying on insertion id.",
+      "acceptanceCriteria": [
+        "Add migration composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/migrations/2.sqm: ALTER TABLE FoodDiaryEntry ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0",
+        "Migration backfills existing rows so sortOrder reflects current id ASC order within each (date, mealType) group (correlated subquery counting earlier ids in same date+mealType)",
+        "Update FoodDiary.sq: add sortOrder to CREATE TABLE and insertEntry; change getEntriesByDate and getEntriesByDateAndMeal ORDER BY to 'mealType, sortOrder ASC, id ASC'",
+        "Add query maxSortOrderForDateMeal: SELECT COALESCE(MAX(sortOrder), -1) FROM FoodDiaryEntry WHERE date = ? AND mealType = ?",
+        "Add query updateSortOrder: UPDATE FoodDiaryEntry SET sortOrder = ? WHERE id = ?",
+        "Add sortOrder: Long field to FoodDiaryEntry domain model (default 0) and map it in FoodDiaryRepositoryImpl.toDomain()",
+        "FoodDiaryRepositoryImpl.addEntry sets sortOrder = maxSortOrderForDateMeal + 1 for the entry's date+mealType inside the existing transactionWithResult",
+        "Add FoodDiaryRepository.reorderMeal(date, mealType, orderedIds: List<Long>) updating sortOrder = index for each id in one SQLDelight transaction on Dispatchers.Default",
+        "Bump sqldelight schemaVersion/migration wiring in build.gradle.kts if pinned; otherwise leave auto-detected",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Drag-to-reorder entries within a meal section",
+      "description": "As a user, I want to drag food entries up/down within any meal section (Breakfast/Lunch/Dinner/Snacks) and have the new order persist.",
+      "acceptanceCriteria": [
+        "FoodDiaryStateHolder exposes reorderMeal(date, mealType, orderedIds) delegating to repository.reorderMeal and returns a Job",
+        "FoodDiarySection in MacroDailyCounterDetail.kt renders entries in a reorderable list: long-press/drag a handle moves an entry within its section",
+        "Reordering is constrained to within the same meal section (no cross-section moves)",
+        "On drop, the new id order is persisted via foodDiaryStateHolder.reorderMeal; UI reflects persisted order from the StateFlow after refresh",
+        "Implement with Compose state + manual drag (detectDragGesturesAfterLongPress or a small local reorderable helper); do NOT add a new third-party dependency unless already in the version catalog",
+        "Reorder interaction does not break existing add/edit/delete/undo behavior in the section",
+        "Daily macro totals are unchanged by reordering",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Custom meal persistence layer",
+      "description": "As a developer, I need to store reusable custom meals (a named group of food items with their macro profile) so they can be managed and inserted into the diary later.",
+      "acceptanceCriteria": [
+        "New SQLDelight file composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/CustomMeal.sq",
+        "CREATE TABLE CustomMeal (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, createdAt TEXT NOT NULL)",
+        "CREATE TABLE CustomMealItem (id INTEGER PRIMARY KEY AUTOINCREMENT, customMealId INTEGER NOT NULL, foodName TEXT NOT NULL, brandName TEXT, calories REAL NOT NULL, proteinG REAL NOT NULL, carbG REAL NOT NULL, fatG REAL NOT NULL, servingSizeG REAL NOT NULL, servingUnit TEXT NOT NULL, food_id TEXT, sortOrder INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(customMealId) REFERENCES CustomMeal(id))",
+        "Store each item's macros as absolute values for its servingSizeG (same convention as FoodDiaryEntry) so weight can be rescaled later via density = macro / servingSizeG",
+        "Queries: insertCustomMeal, lastInsertRowId, insertCustomMealItem, getAllCustomMeals (ORDER BY name ASC), getItemsForMeal (WHERE customMealId = ? ORDER BY sortOrder ASC), updateCustomMealName, deleteCustomMeal, deleteItemsForMeal",
+        "Domain models in data/model/: CustomMeal(id, name, createdAt, items: List<CustomMealItem>) and CustomMealItem(id, customMealId, foodName, brandName, calories, proteinG, carbG, fatG, servingSizeG, servingUnit, foodId, sortOrder)",
+        "CustomMealRepository interface + CustomMealRepositoryImpl(database) in data/repository/: getAllCustomMeals(): Flow<List<CustomMeal>> (each with items), createCustomMeal(name, items): Long, renameCustomMeal(id, name), deleteCustomMeal(id) (cascades to items in one transaction), all main-safe via Dispatchers.Default",
+        "Wire CustomMealRepositoryImpl in App.kt alongside FoodDiaryRepositoryImpl using the same FitBroDatabase",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Custom meal CRUD interface",
+      "description": "As a user, I want a dedicated sheet to view, create, rename, and delete my custom meals, including adding/removing food items in a meal.",
+      "acceptanceCriteria": [
+        "New CustomMealStateHolder (ui/dashboard or ui/custommeal) taking CustomMealRepository + CoroutineScope, exposing StateFlow<List<CustomMeal>> from repository.getAllCustomMeals and actions create(name, items), rename(id, name), delete(id)",
+        "New Composable CustomMealManagerSheet (commonMain) listing all custom meals with name + item count + total calories",
+        "Create flow: enter a name and build items by reusing the existing food search/entry UI (FoodSearchSheet -> FoodEntryContent) to add foods; in-progress items list is editable (remove item) before saving",
+        "Rename: editing a meal's name; Delete: swipe or overflow action with confirmation",
+        "Empty state shown when there are no custom meals",
+        "Entry point: a visible affordance from the Macros tab (e.g. a 'Custom meals' button/menu in MacroDailyCounterDetail) opens CustomMealManagerSheet",
+        "No regression to existing diary UI; reuse existing design-system spacing/components",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Multi-select diary entries to create a custom meal",
+      "description": "As a user, I want to select multiple existing food entries in the diary and save them together as a new named custom meal.",
+      "acceptanceCriteria": [
+        "Diary supports a selection mode: long-press an entry (or a 'Select' action) enters multi-select, showing checkboxes on entries across meal sections",
+        "Selection state lives in UI state (MacroDailyCounterDetail), not persisted",
+        "A contextual action bar shows selected count plus 'Save as custom meal' and cancel/exit",
+        "'Save as custom meal' prompts for a name, then calls CustomMealStateHolder.create(name, items) building CustomMealItem(s) from selected FoodDiaryEntry rows (copy foodName, brandName, macros, servingSizeG, servingUnit, foodId; sortOrder by selection order)",
+        "Selected source diary entries remain unchanged (creating a custom meal does not delete them)",
+        "After save, selection mode exits and a snackbar confirms",
+        "Selecting zero entries disables the save action",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add a custom meal to the diary by flattening into editable entries",
+      "description": "As a user, when I add a custom meal to a meal section, each of its food items is inserted as its own diary entry so I can readjust each entry's weight individually.",
+      "acceptanceCriteria": [
+        "Each meal section's add affordance offers 'Add custom meal' in addition to 'Add food' (menu on the existing add button, or a separate icon)",
+        "Choosing 'Add custom meal' opens a picker listing custom meals (reuse CustomMealStateHolder state)",
+        "Selecting a custom meal inserts ALL its items as separate FoodDiaryEntry rows into the target date + mealType, each via foodDiaryStateHolder.addEntry (assigns sortOrder, fires HealthConnect sync), preserving item order via consecutive sortOrder",
+        "No parent/meal linkage is stored on inserted entries — they are plain independent FoodDiaryEntry rows (flattened)",
+        "Each inserted entry is immediately editable via the existing EditEntrySheet, and editing its weight rescales calories/protein/carb/fat by density (macro / servingSizeG) — verify flattened entries carry servingSizeG so gram-mode edit works",
+        "Daily macro totals increase by the sum of inserted items' macros",
+        "Adding the same custom meal twice inserts two independent sets of entries",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid AND ./gradlew :composeApp:compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

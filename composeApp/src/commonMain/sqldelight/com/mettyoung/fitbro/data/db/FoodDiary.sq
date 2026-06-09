@@ -46,6 +46,15 @@ WHERE id = ?;
 deleteEntry:
 DELETE FROM FoodDiaryEntry WHERE id = ?;
 
+recentFoods:
+SELECT * FROM FoodDiaryEntry
+WHERE id IN (
+    SELECT MAX(id) FROM FoodDiaryEntry
+    GROUP BY COALESCE(food_id, lower(trim(foodName)) || '|' || lower(trim(COALESCE(brandName, ''))))
+)
+ORDER BY id DESC
+LIMIT ?;
+
 getDailyTotals:
 SELECT
     COALESCE(SUM(calories), 0.0) AS calories,

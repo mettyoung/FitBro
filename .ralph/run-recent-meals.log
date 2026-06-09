@@ -1,0 +1,45 @@
+Ralph start — max 8 iterations — branch ralph/recent-meals
+
+=== Iteration 1/8 — 6 stories remaining ===
+US-001 done. Stories remaining (US-002…006 still `passes: false`), not complete.
+
+**US-001 — Recent-foods query + repository method** shipped:
+- `recentFoods` SQL query (dedup by food_id else name|brand, newest-first, `LIMIT ?`)
+- `getRecentFoods(limit)` on repo interface + impl (detached templates)
+- Fake repo updated + new unit test
+- Gates: Android ✓, iOS ✓, tests ✓
+
+Next iteration takes US-002.
+--- iteration 1 done ---
+
+=== Iteration 2/8 — 5 stories remaining ===
+US-002 done, committed `7398b36`. Gates green (Android + iOS typecheck, unit tests).
+
+Remaining `passes: false`: US-003, US-004, US-005, US-006. Next iteration takes US-003.
+--- iteration 2 done ---
+
+=== Iteration 3/8 — 4 stories remaining ===
+US-003 done. Recents `StateFlow` + `copyMeal` action wired into `FoodDiaryStateHolder`. Both typechecks pass. Committed.
+
+Remaining: US-004, US-005, US-006 (UI). Next iteration takes US-004.
+--- iteration 3 done ---
+
+=== Iteration 4/8 — 3 stories remaining ===
+US-004 done. Remaining: US-005, US-006 (`passes: false`). Not complete — next iteration takes US-005.
+
+**US-004 — Recent tab in Log Food sheet**
+- `FoodSearchSheet` gains `recentFoods` param → `FoodSearchContent` renders Search/Recent segments (`SegmentChip`), Recent list (`RecentFoodRow`) or empty state.
+- Tab switch preserves search query; create-custom stays Search-only.
+- Call site wires `foodDiaryStateHolder.recentFoods`.
+- Gates ✓ (Android + iOS typecheck). Committed, prd marked, progress logged.
+
+Tap-to-add wiring deferred to US-005 (`onSelectRecent` is no-op placeholder for now).
+--- iteration 4 done ---
+
+=== Iteration 5/8 — 2 stories remaining ===
+US-005 done. Wired Recent-tap → existing `onAddEntry` path (id/sortOrder reassign + Health sync + dismiss + balance refresh for free). Both typechecks pass, committed.
+
+US-006 (Copy-to-day on meal slot) still `passes: false`. Next iteration takes it.
+--- iteration 5 done ---
+
+=== Iteration 6/8 — 1 stories remaining ===

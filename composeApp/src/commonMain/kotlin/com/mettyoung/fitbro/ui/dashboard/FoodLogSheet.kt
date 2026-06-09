@@ -122,6 +122,7 @@ fun FoodSearchSheet(
     date: String,
     foodDataSource: FoodDataSource,
     customFoodRepository: CustomFoodRepository? = null,
+    recentFoods: List<FoodDiaryEntry> = emptyList(),
     onDismiss: () -> Unit,
     onAddEntry: (FoodDiaryEntry) -> Unit
 ) {
@@ -141,6 +142,17 @@ fun FoodSearchSheet(
                 FoodSearchContent(
                     foodDataSource = foodDataSource,
                     canCreateCustomFood = customFoodRepository != null,
+                    recentFoods = recentFoods,
+                    onSelectRecent = { template ->
+                        onAddEntry(
+                            template.copy(
+                                id = 0,
+                                sortOrder = 0,
+                                date = date,
+                                mealType = mealType
+                            )
+                        )
+                    },
                     onCreateCustomFood = { content = SheetContent.CreateCustom },
                     onSelectFood = { food ->
                         val foodId = food.foodId
@@ -354,6 +366,8 @@ fun EditEntrySheet(
 private fun FoodSearchContent(
     foodDataSource: FoodDataSource,
     canCreateCustomFood: Boolean,
+    recentFoods: List<FoodDiaryEntry>,
+    onSelectRecent: (FoodDiaryEntry) -> Unit,
     onCreateCustomFood: () -> Unit,
     onSelectFood: (FoodSearchResult) -> Unit,
     onBarcodeLoading: () -> Unit,
@@ -364,6 +378,7 @@ private fun FoodSearchContent(
     var query by remember { mutableStateOf("") }
     var searchState by remember { mutableStateOf<SearchState>(SearchState.Idle) }
     var searchJob by remember { mutableStateOf<Job?>(null) }
+    var recentTab by remember { mutableStateOf(false) }
     val barcodeScanner = rememberBarcodeScanner()
 
     Column(
@@ -393,7 +408,46 @@ private fun FoodSearchContent(
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(20.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SegmentChip("Search", selected = !recentTab) { recentTab = false }
+            SegmentChip("Recent", selected = recentTab) { recentTab = true }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        if (recentTab) {
+            if (recentFoods.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(300.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "No recent foods yet — log something first.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MiTextSecondary
+                    )
+                }
+            } else {
+                LazyColumn(modifier = Modifier.heightIn(max = 500.dp)) {
+                    itemsIndexed(
+                        recentFoods,
+                        key = { _, entry -> "${entry.foodName}_${entry.brandName}_${entry.servingSizeG}" }
+                    ) { index, entry ->
+                        RecentFoodRow(entry = entry, onClick = { onSelectRecent(entry) })
+                        if (index < recentFoods.size - 1) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+            return@Column
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -547,6 +601,72 @@ private fun FoodSearchContent(
             }
         }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SegmentChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label, style = MaterialTheme.typography.labelLarge) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MiOrange,
+            selectedLabelColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.background,
+            labelColor = MiTextSecondary
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = selected,
+            borderColor = Color.Transparent,
+            selectedBorderColor = Color.Transparent
+        ),
+        shape = RoundedCornerShape(12.dp)
+    )
+}
+
+@Composable
+private fun RecentFoodRow(entry: FoodDiaryEntry, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = entry.foodName,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (entry.brandName != null) {
+                Text(
+                    text = entry.brandName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MiTextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = "${entry.servingSizeG.roundToInt()}${entry.servingUnit} · ${entry.calories.roundToInt()}kcal",
+                style = MaterialTheme.typography.bodySmall,
+                color = MiTextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer(Modifier.width(16.dp))
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MiTextSecondary.copy(alpha = 0.4f),
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 

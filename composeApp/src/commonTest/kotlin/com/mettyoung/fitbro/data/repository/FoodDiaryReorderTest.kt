@@ -81,6 +81,32 @@ private class FakeFoodDiaryRepository : FoodDiaryRepository {
         }
     }
 
+    override fun getRecentFoods(limit: Int): Flow<List<FoodDiaryEntry>> =
+        rows.map { all ->
+            all.groupBy { row ->
+                row.foodId
+                    ?: (row.foodName.trim().lowercase() + "|" + (row.brandName ?: "").trim().lowercase())
+            }
+                .map { (_, group) -> group.maxBy { it.id } }
+                .sortedByDescending { it.id }
+                .take(limit)
+                .map { it.copy(id = 0, sortOrder = 0) }
+        }
+
+    override suspend fun copyMealToDate(sourceDate: String, mealType: String, targetDate: String) {
+        val sources = rows.value
+            .filter { it.date == sourceDate && it.mealType == mealType }
+            .sortedWith(compareBy({ it.sortOrder }, { it.id }))
+        if (sources.isEmpty()) return
+        var nextSortOrder = (rows.value
+            .filter { it.date == targetDate && it.mealType == mealType }
+            .maxOfOrNull { it.sortOrder } ?: -1L) + 1
+        val copies = sources.map { row ->
+            row.copy(id = nextId++, date = targetDate, sortOrder = nextSortOrder++)
+        }
+        rows.value = rows.value + copies
+    }
+
     override fun getDailyTotals(date: String): Flow<DailyMacroTotals> =
         rows.map { all ->
             val d = all.filter { it.date == date }
@@ -191,6 +217,61 @@ class FoodDiaryReorderTest {
         )
 
         assertEquals(listOf("c", "a", "b"), repo.getEntriesForDateOnce().map { it.foodName })
+    }
+
+    @Test
+    fun getRecentFoodsDedupsOrdersAndLimits() = runSync {
+        val repo = FakeFoodDiaryRepository()
+        // "a" logged twice (last serving wins), plus b and c.
+        repo.addEntry(entry("a", cal = 100.0))
+        repo.addEntry(entry("b", cal = 200.0))
+        repo.addEntry(entry("a", cal = 150.0)) // newer log of same food
+        repo.addEntry(entry("c", cal = 300.0))
+
+        val recent = repo.getRecentFoods(20).first()
+        // Distinct foods only: a, b, c (one row for a).
+        assertEquals(listOf("c", "a", "b"), recent.map { it.foodName })
+        // Most-recent serving of "a" is the 150-cal one.
+        assertEquals(150.0, recent.first { it.foodName == "a" }.calories, 0.001)
+        // Detached templates.
+        assertEquals(listOf(0L, 0L, 0L), recent.map { it.id })
+
+        // Limit respected.
+        assertEquals(listOf("c", "a"), repo.getRecentFoods(2).first().map { it.foodName })
+    }
+
+    @Test
+    fun copyMealToDateAppendsAfterExistingTargetEntries() = runSync {
+        val repo = FakeFoodDiaryRepository()
+        val src = "2026-06-06"
+        val tgt = "2026-06-07"
+        // Source Lunch: two foods.
+        repo.addEntry(entry("s1", meal = MealType.LUNCH, cal = 100.0).copy(date = src))
+        repo.addEntry(entry("s2", meal = MealType.LUNCH, cal = 200.0).copy(date = src))
+        // Target Lunch already has one entry that must stay first.
+        repo.addEntry(entry("existing", meal = MealType.LUNCH, cal = 50.0).copy(date = tgt))
+
+        repo.copyMealToDate(src, MealType.LUNCH, tgt)
+
+        val targetLunch = repo.getEntriesForDate(tgt).first()
+            .filter { it.mealType == MealType.LUNCH }
+        assertEquals(listOf("existing", "s1", "s2"), targetLunch.map { it.foodName })
+        assertEquals(listOf(0L, 1L, 2L), targetLunch.map { it.sortOrder })
+
+        // Source slot unchanged.
+        val srcLunch = repo.getEntriesForDate(src).first()
+            .filter { it.mealType == MealType.LUNCH }
+        assertEquals(listOf("s1", "s2"), srcLunch.map { it.foodName })
+    }
+
+    @Test
+    fun copyMealToDateNoOpWhenSourceEmpty() = runSync {
+        val repo = FakeFoodDiaryRepository()
+        repo.addEntry(entry("x", meal = MealType.DINNER).copy(date = "2026-06-07"))
+        repo.copyMealToDate("2026-06-06", MealType.DINNER, "2026-06-07")
+        val dinner = repo.getEntriesForDate("2026-06-07").first()
+            .filter { it.mealType == MealType.DINNER }
+        assertEquals(listOf("x"), dinner.map { it.foodName })
     }
 
     private suspend fun FoodDiaryRepository.getEntriesForDateOnce(): List<FoodDiaryEntry> =

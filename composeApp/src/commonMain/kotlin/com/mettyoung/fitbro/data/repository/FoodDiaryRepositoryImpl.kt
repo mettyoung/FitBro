@@ -99,6 +99,45 @@ class FoodDiaryRepositoryImpl(private val database: FitBroDatabase) : FoodDiaryR
         }
     }
 
+    override fun getRecentFoods(limit: Int): Flow<List<FoodDiaryEntry>> =
+        database.foodDiaryQueries.recentFoods(limit.toLong())
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+            .map { rows -> rows.map { it.toDomain().copy(id = 0, sortOrder = 0) } }
+
+    override suspend fun copyMealToDate(
+        sourceDate: String,
+        mealType: String,
+        targetDate: String
+    ): Unit = withContext(Dispatchers.Default) {
+        database.foodDiaryQueries.transaction {
+            val sources = database.foodDiaryQueries
+                .getEntriesByDateAndMeal(sourceDate, mealType)
+                .executeAsList()
+            if (sources.isEmpty()) return@transaction
+            var nextSortOrder = database.foodDiaryQueries
+                .maxSortOrderForDateMeal(targetDate, mealType)
+                .executeAsOne() + 1
+            sources.forEach { row ->
+                database.foodDiaryQueries.insertEntry(
+                    date = targetDate,
+                    mealType = mealType,
+                    foodName = row.foodName,
+                    brandName = row.brandName,
+                    calories = row.calories,
+                    proteinG = row.proteinG,
+                    carbG = row.carbG,
+                    fatG = row.fatG,
+                    servingSizeG = row.servingSizeG,
+                    servingUnit = row.servingUnit,
+                    food_id = row.food_id,
+                    sortOrder = nextSortOrder
+                )
+                nextSortOrder++
+            }
+        }
+    }
+
     override fun getDailyTotals(date: String): Flow<DailyMacroTotals> =
         database.foodDiaryQueries.getDailyTotals(date)
             .asFlow()

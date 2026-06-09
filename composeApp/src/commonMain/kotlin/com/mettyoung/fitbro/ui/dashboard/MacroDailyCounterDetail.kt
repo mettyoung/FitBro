@@ -117,6 +117,7 @@ fun MacroDailyCounterDetail(
     val foodState by foodDiaryStateHolder.state.collectAsState()
     val selectedDate by foodDiaryStateHolder.selectedDate.collectAsState()
     val weeklyTotals by foodDiaryStateHolder.weeklyTotals.collectAsState()
+    val recentFoods by foodDiaryStateHolder.recentFoods.collectAsState()
     val customMeals by customMealStateHolder.customMeals.collectAsState()
     val customFoods by customFoodStateHolder.customFoods.collectAsState()
 
@@ -132,6 +133,7 @@ fun MacroDailyCounterDetail(
     var showCustomFoods by remember { mutableStateOf(false) }
     var addingToMeal by remember { mutableStateOf<String?>(null) }
     var customMealTarget by remember { mutableStateOf<String?>(null) }
+    var copyingMeal by remember { mutableStateOf<String?>(null) }
     var editingEntry by remember { mutableStateOf<FoodDiaryEntry?>(null) }
 
     val dragState = remember { MealDragState() }
@@ -336,6 +338,7 @@ fun MacroDailyCounterDetail(
                             dragState = dragState,
                             onAddFood = { addingToMeal = mealType },
                             onAddCustomMeal = { customMealTarget = mealType },
+                            onCopyToDay = { copyingMeal = mealType },
                             onEditClick = { editingEntry = it },
                             onDeleteClick = { entry ->
                                 pendingDelete?.let { prev ->
@@ -462,6 +465,7 @@ fun MacroDailyCounterDetail(
             date = selectedDate,
             foodDataSource = foodDataSource,
             customFoodRepository = customFoodRepository,
+            recentFoods = recentFoods,
             onDismiss = { addingToMeal = null },
             onAddEntry = { entry ->
                 scope.launch {
@@ -607,6 +611,24 @@ fun MacroDailyCounterDetail(
         }
     }
 
+    copyingMeal?.let { mealType ->
+        DatePickerDialog(
+            initialStartDate = selectedDate,
+            allowFuture = true,
+            onDismiss = { copyingMeal = null },
+            onDateRangeSelected = { range ->
+                val targetDate = range.startDate
+                val slot = mealType.lowercase().replaceFirstChar { it.uppercase() }
+                scope.launch {
+                    foodDiaryStateHolder.copyMeal(selectedDate, mealType, targetDate).join()
+                    onBalanceRefreshNeeded()
+                    snackbarHostState.showSnackbar("Copied $slot to $targetDate")
+                }
+                copyingMeal = null
+            }
+        )
+    }
+
     if (showCustomMeals) {
         CustomMealManagerSheet(
             customMeals = customMeals,
@@ -707,6 +729,7 @@ private fun FoodDiarySection(
     dragState: MealDragState,
     onAddFood: () -> Unit,
     onAddCustomMeal: () -> Unit,
+    onCopyToDay: () -> Unit = {},
     onEditClick: (FoodDiaryEntry) -> Unit,
     onDeleteClick: (FoodDiaryEntry) -> Unit,
     selectionMode: Boolean = false,
@@ -779,7 +802,13 @@ private fun FoodDiarySection(
                             text = { Text("Add custom meal") },
                             onClick = { menuOpen = false; onAddCustomMeal() }
                         )
-                    }
+                        if (entries.isNotEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Copy to day") },
+                                onClick = { menuOpen = false; onCopyToDay() }
+                            )
+                        }
+}
                 }
             }
 

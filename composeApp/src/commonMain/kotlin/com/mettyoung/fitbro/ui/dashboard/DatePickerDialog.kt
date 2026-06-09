@@ -49,7 +49,8 @@ import com.mettyoung.fitbro.util.toYMD
 fun DatePickerDialog(
     initialStartDate: String,
     onDismiss: () -> Unit,
-    onDateRangeSelected: (DateRange) -> Unit
+    onDateRangeSelected: (DateRange) -> Unit,
+    allowFuture: Boolean = false
 ) {
     val today = todayString()
     val (iy, im, _) = initialStartDate.toYMD()
@@ -89,7 +90,7 @@ fun DatePickerDialog(
                         fontWeight = FontWeight.Bold
                     )
                     
-                    val canGoNext = run {
+                    val canGoNext = allowFuture || run {
                         val nextYear = if (displayMonth == 12) displayYear + 1 else displayYear
                         val nextMonth = if (displayMonth == 12) 1 else displayMonth + 1
                         "$nextYear-${nextMonth.toString().padStart(2, '0')}-01" <= today
@@ -143,7 +144,7 @@ fun DatePickerDialog(
                             Box(modifier = Modifier.weight(1f)) {
                                 if (dayNum in 1..daysCount) {
                                     val dayStr = "$displayYear-${displayMonth.toString().padStart(2,'0')}-${dayNum.toString().padStart(2,'0')}"
-                                    val isFuture = dayStr > today
+                                    val isFuture = !allowFuture && dayStr > today
                                     val isStart = dayStr == selectedStart
                                     val isEnd = dayStr == selectedEnd
                                     val inRange = dayStr in selectedStart..selectedEnd
