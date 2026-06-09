@@ -97,8 +97,21 @@ class FoodDiaryStateHolder(
             initialValue = FoodDiaryState.initial()
         )
 
+    val recentFoods: StateFlow<List<FoodDiaryEntry>> = repository.getRecentFoods(20)
+        .stateIn(
+            scope = scope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
     fun setDate(date: String) {
         _selectedDate.value = date
+    }
+
+    fun copyMeal(sourceDate: String, mealType: String, targetDate: String): Job {
+        return scope.launch {
+            repository.copyMealToDate(sourceDate, mealType, targetDate)
+        }
     }
 
     fun setMacroDataSourceForSelectedDate(source: MacroDataSource) {

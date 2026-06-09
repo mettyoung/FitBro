@@ -13,3 +13,9 @@ Next iteration takes US-002.
 --- iteration 1 done ---
 
 === Iteration 2/8 — 5 stories remaining ===
+US-002 done, committed `7398b36`. Gates green (Android + iOS typecheck, unit tests).
+
+Remaining `passes: false`: US-003, US-004, US-005, US-006. Next iteration takes US-003.
+--- iteration 2 done ---
+
+=== Iteration 3/8 — 4 stories remaining ===
