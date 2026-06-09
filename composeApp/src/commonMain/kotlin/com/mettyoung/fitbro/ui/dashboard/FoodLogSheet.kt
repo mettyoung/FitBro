@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
@@ -62,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.food.BarcodeScanResult
+import com.mettyoung.fitbro.data.food.CustomFoodDataSource
 import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.food.FoodDetail
 import com.mettyoung.fitbro.data.food.FoodError
@@ -70,6 +72,7 @@ import com.mettyoung.fitbro.data.food.FoodSearchResult
 import com.mettyoung.fitbro.data.food.rememberBarcodeScanner
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.ServingUnit
+import com.mettyoung.fitbro.data.repository.CustomFoodRepository
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
@@ -92,6 +95,7 @@ private sealed class SearchState {
 // Unified state for FoodSearchSheet — controls which "screen" is shown
 private sealed class SheetContent {
     object Search : SheetContent()
+    object CreateCustom : SheetContent()
     object Loading : SheetContent()
     data class Entry(
         val name: String,
@@ -117,6 +121,7 @@ fun FoodSearchSheet(
     mealType: String,
     date: String,
     foodDataSource: FoodDataSource,
+    customFoodRepository: CustomFoodRepository? = null,
     onDismiss: () -> Unit,
     onAddEntry: (FoodDiaryEntry) -> Unit
 ) {
@@ -135,6 +140,8 @@ fun FoodSearchSheet(
             is SheetContent.Search -> {
                 FoodSearchContent(
                     foodDataSource = foodDataSource,
+                    canCreateCustomFood = customFoodRepository != null,
+                    onCreateCustomFood = { content = SheetContent.CreateCustom },
                     onSelectFood = { food ->
                         val foodId = food.foodId
                         if (foodId != null && foodDataSource.supportsFoodDetail) {
@@ -164,6 +171,29 @@ fun FoodSearchSheet(
                         )
                     },
                     onBarcodeEmpty = { content = SheetContent.Search }
+                )
+            }
+            is SheetContent.CreateCustom -> {
+                CustomFoodFormContent(
+                    title = "Create Custom Food",
+                    actionLabel = "Save & Add",
+                    onBack = { content = SheetContent.Search },
+                    onSubmit = { food ->
+                        val repo = customFoodRepository ?: return@CustomFoodFormContent
+                        content = SheetContent.Loading
+                        scope.launch {
+                            val id = repo.createCustomFood(food)
+                            content = when (val r = foodDataSource.getFoodDetail("${CustomFoodDataSource.ID_PREFIX}$id")) {
+                                is FoodResult.Success -> SheetContent.Entry(
+                                    name = r.value.name,
+                                    brand = r.value.brand,
+                                    foodId = r.value.foodId,
+                                    detail = r.value
+                                )
+                                is FoodResult.Failure -> SheetContent.Error
+                            }
+                        }
+                    }
                 )
             }
             is SheetContent.Loading -> {
@@ -323,6 +353,8 @@ fun EditEntrySheet(
 @Composable
 private fun FoodSearchContent(
     foodDataSource: FoodDataSource,
+    canCreateCustomFood: Boolean,
+    onCreateCustomFood: () -> Unit,
     onSelectFood: (FoodSearchResult) -> Unit,
     onBarcodeLoading: () -> Unit,
     onBarcodeDetail: (FoodDetail) -> Unit,
@@ -440,6 +472,27 @@ private fun FoodSearchContent(
                         tint = MiOrange
                     )
                 }
+            }
+        }
+
+        if (canCreateCustomFood) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onCreateCustomFood)
+                    .padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = MiOrange, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "Create custom food",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MiOrange,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
 

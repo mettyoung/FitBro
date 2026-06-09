@@ -1,0 +1,15 @@
+-- v4 -> v5: user-defined custom foods (calories + macros per serving in grams),
+-- searchable as a local data source alongside FatSecret.
+CREATE TABLE IF NOT EXISTS CustomFood (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    brandName TEXT,
+    calories REAL NOT NULL,
+    proteinG REAL NOT NULL,
+    carbG REAL NOT NULL,
+    fatG REAL NOT NULL,
+    servingSizeG REAL NOT NULL,
+    createdAt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS custom_food_name_idx ON CustomFood(name);
