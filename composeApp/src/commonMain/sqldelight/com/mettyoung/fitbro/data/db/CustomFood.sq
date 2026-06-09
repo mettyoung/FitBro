@@ -1,0 +1,39 @@
+CREATE TABLE CustomFood (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    brandName TEXT,
+    calories REAL NOT NULL,
+    proteinG REAL NOT NULL,
+    carbG REAL NOT NULL,
+    fatG REAL NOT NULL,
+    servingSizeG REAL NOT NULL,
+    createdAt TEXT NOT NULL
+);
+
+CREATE INDEX custom_food_name_idx ON CustomFood(name);
+
+insertCustomFood:
+INSERT INTO CustomFood (name, brandName, calories, proteinG, carbG, fatG, servingSizeG, createdAt)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+getAllCustomFoods:
+SELECT * FROM CustomFood ORDER BY name ASC;
+
+searchCustomFoods:
+SELECT * FROM CustomFood
+WHERE name LIKE '%' || ? || '%' OR brandName LIKE '%' || ? || '%'
+ORDER BY name ASC;
+
+getCustomFoodById:
+SELECT * FROM CustomFood WHERE id = ?;
+
+updateCustomFood:
+UPDATE CustomFood
+SET name = ?, brandName = ?, calories = ?, proteinG = ?, carbG = ?, fatG = ?, servingSizeG = ?
+WHERE id = ?;
+
+deleteCustomFood:
+DELETE FROM CustomFood WHERE id = ?;

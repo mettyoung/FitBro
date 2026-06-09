@@ -12,13 +12,17 @@ import com.mettyoung.fitbro.data.cache.createCacheDataSource
 import com.mettyoung.fitbro.data.cache.createUserSettingsDataSource
 import com.mettyoung.fitbro.data.db.FitBroDatabase
 import com.mettyoung.fitbro.data.db.createSqlDriver
+import com.mettyoung.fitbro.data.food.CompositeFoodDataSource
+import com.mettyoung.fitbro.data.food.CustomFoodDataSource
 import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.food.FatSecretFoodDataSource
 import com.mettyoung.fitbro.data.health.createHealthDataSource
 import com.mettyoung.fitbro.data.repository.CalorieMathRepositoryImpl
+import com.mettyoung.fitbro.data.repository.CustomFoodRepositoryImpl
 import com.mettyoung.fitbro.data.repository.CustomMealRepositoryImpl
 import com.mettyoung.fitbro.data.repository.FoodDiaryRepositoryImpl
 import com.mettyoung.fitbro.ui.FitBroTheme
+import com.mettyoung.fitbro.ui.dashboard.CustomFoodStateHolder
 import com.mettyoung.fitbro.ui.dashboard.CustomMealStateHolder
 import com.mettyoung.fitbro.ui.dashboard.DashboardStateHolder
 import com.mettyoung.fitbro.ui.dashboard.DashboardUiState
@@ -42,8 +46,14 @@ fun App() {
         }
         val foodDiaryRepository = remember(database) { FoodDiaryRepositoryImpl(database) }
         val customMealRepository = remember(database) { CustomMealRepositoryImpl(database) }
+        val customFoodRepository = remember(database) { CustomFoodRepositoryImpl(database) }
 
-        val foodDataSource: FoodDataSource = remember { FatSecretFoodDataSource() }
+        val foodDataSource: FoodDataSource = remember(customFoodRepository) {
+            CompositeFoodDataSource(
+                local = CustomFoodDataSource(customFoodRepository),
+                remote = FatSecretFoodDataSource()
+            )
+        }
 
         val foodDiaryStateHolder = remember(foodDiaryRepository, healthDataSource, userSettingsDataSource, scope) {
             FoodDiaryStateHolder(
@@ -56,6 +66,10 @@ fun App() {
 
         val customMealStateHolder = remember(customMealRepository, scope) {
             CustomMealStateHolder(repository = customMealRepository, scope = scope)
+        }
+
+        val customFoodStateHolder = remember(customFoodRepository, scope) {
+            CustomFoodStateHolder(repository = customFoodRepository, scope = scope)
         }
 
         val initialDateRange = remember {
@@ -92,7 +106,9 @@ fun App() {
             stateHolder = stateHolder,
             foodDiaryStateHolder = foodDiaryStateHolder,
             customMealStateHolder = customMealStateHolder,
+            customFoodStateHolder = customFoodStateHolder,
             foodDataSource = foodDataSource,
+            customFoodRepository = customFoodRepository,
             balances = balances,
             userSettingsDataSource = userSettingsDataSource,
             modifier = Modifier.fillMaxSize()

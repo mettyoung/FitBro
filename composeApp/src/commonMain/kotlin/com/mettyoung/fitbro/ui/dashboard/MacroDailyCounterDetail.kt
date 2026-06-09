@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -83,6 +84,7 @@ import androidx.compose.ui.window.Dialog
 import com.mettyoung.fitbro.getPlatform
 import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
 import com.mettyoung.fitbro.data.food.FoodDataSource
+import com.mettyoung.fitbro.data.repository.CustomFoodRepository
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.MacroDataSource
 import com.mettyoung.fitbro.data.model.MealType
@@ -103,7 +105,9 @@ fun MacroDailyCounterDetail(
     userSettingsDataSource: UserSettingsDataSource,
     foodDiaryStateHolder: FoodDiaryStateHolder,
     customMealStateHolder: CustomMealStateHolder,
+    customFoodStateHolder: CustomFoodStateHolder,
     foodDataSource: FoodDataSource,
+    customFoodRepository: CustomFoodRepository,
     onDateSelected: (String) -> Unit = {},
     onBalanceRefreshNeeded: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -114,6 +118,7 @@ fun MacroDailyCounterDetail(
     val selectedDate by foodDiaryStateHolder.selectedDate.collectAsState()
     val weeklyTotals by foodDiaryStateHolder.weeklyTotals.collectAsState()
     val customMeals by customMealStateHolder.customMeals.collectAsState()
+    val customFoods by customFoodStateHolder.customFoods.collectAsState()
 
     val today = todayString()
 
@@ -124,6 +129,7 @@ fun MacroDailyCounterDetail(
 
     var showGoalsDialog by remember { mutableStateOf(false) }
     var showCustomMeals by remember { mutableStateOf(false) }
+    var showCustomFoods by remember { mutableStateOf(false) }
     var addingToMeal by remember { mutableStateOf<String?>(null) }
     var customMealTarget by remember { mutableStateOf<String?>(null) }
     var editingEntry by remember { mutableStateOf<FoodDiaryEntry?>(null) }
@@ -218,6 +224,17 @@ fun MacroDailyCounterDetail(
                             }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = { showCustomFoods = true },
+                                modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Restaurant,
+                                    contentDescription = "Custom foods",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
                             IconButton(
                                 onClick = { showCustomMeals = true },
                                 modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
@@ -444,6 +461,7 @@ fun MacroDailyCounterDetail(
             mealType = mealType,
             date = selectedDate,
             foodDataSource = foodDataSource,
+            customFoodRepository = customFoodRepository,
             onDismiss = { addingToMeal = null },
             onAddEntry = { entry ->
                 scope.launch {
@@ -597,6 +615,16 @@ fun MacroDailyCounterDetail(
             onRename = { id, name -> customMealStateHolder.rename(id, name) },
             onDelete = { id -> customMealStateHolder.delete(id) },
             onDismiss = { showCustomMeals = false }
+        )
+    }
+
+    if (showCustomFoods) {
+        CustomFoodManagerSheet(
+            customFoods = customFoods,
+            onCreate = { food -> customFoodStateHolder.create(food) },
+            onUpdate = { food -> customFoodStateHolder.update(food) },
+            onDelete = { id -> customFoodStateHolder.delete(id) },
+            onDismiss = { showCustomFoods = false }
         )
     }
 

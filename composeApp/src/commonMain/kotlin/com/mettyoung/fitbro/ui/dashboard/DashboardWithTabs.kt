@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
 import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.data.repository.CustomFoodRepository
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.settings.MacroGoalsSettings
 
@@ -42,7 +43,9 @@ fun DashboardWithTabs(
     stateHolder: DashboardStateHolder,
     foodDiaryStateHolder: FoodDiaryStateHolder,
     customMealStateHolder: CustomMealStateHolder,
+    customFoodStateHolder: CustomFoodStateHolder,
     foodDataSource: FoodDataSource,
+    customFoodRepository: CustomFoodRepository,
     balances: List<DailyBalance>,
     userSettingsDataSource: UserSettingsDataSource,
     modifier: Modifier = Modifier
@@ -103,7 +106,9 @@ fun DashboardWithTabs(
                         userSettingsDataSource = userSettingsDataSource,
                         foodDiaryStateHolder = foodDiaryStateHolder,
                         customMealStateHolder = customMealStateHolder,
+                        customFoodStateHolder = customFoodStateHolder,
                         foodDataSource = foodDataSource,
+                        customFoodRepository = customFoodRepository,
                         onDateSelected = stateHolder::setSelectedDate,
                         onBalanceRefreshNeeded = stateHolder::refresh
                     )
