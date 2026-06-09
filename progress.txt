@@ -55,3 +55,12 @@ Learnings:
 - Existing `onAddEntry` call site (MacroDailyCounterDetail) already does addEntry().join() → onBalanceRefreshNeeded() → dismiss (addingToMeal=null). Re-route recent taps through it = id/sortOrder reassign + Health Connect sync + dismiss for free.
 - Recent templates already detached (id=0,sortOrder=0 from US-001), but re-stamp date+mealType to the *current* logging context (template carries the original log's date/meal).
 
+## 2026-06-09 — US-006 Copy-to-day action on a meal slot
+Changed:
+- `DatePickerDialog.kt`: added `allowFuture: Boolean = false` param. Gates `isFuture` (`!allowFuture && dayStr > today`) and `canGoNext` (`allowFuture || ...`). Default false keeps the week-trends picker (DashboardScreen) future-blocked & unchanged.
+- `MacroDailyCounterDetail.kt`: `FoodDiarySection` gained `onCopyToDay: () -> Unit = {}`; renders a "Copy to day" `DropdownMenuItem` in the existing slot-header "+" menu ONLY when `entries.isNotEmpty()`. Added `copyingMeal: String?` state; call site sets `onCopyToDay = { copyingMeal = mealType }`. New `copyingMeal?.let { DatePickerDialog(allowFuture=true) }` → on confirm: `foodDiaryStateHolder.copyMeal(selectedDate, mealType, range.startDate).join()` → `onBalanceRefreshNeeded()` → snackbar `"Copied {Slot} to {targetDate}"` via existing `snackbarHostState`.
+Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓. UI wiring only, no data-layer change → no new test.
+Learnings:
+- Spec said "reuse existing DatePickerDialog" but it's a WEEK-range picker that blocks future dates — copy-to-tomorrow needs a future day. Added an `allowFuture` flag (default false) instead of forking the dialog; target day = `range.startDate` (week highlight is cosmetic, the picked start is what's used).
+- "Enabled only when slot has ≥1 entry" satisfied by conditionally emitting the menu item (not a disabled item) — `entries` already in scope in `FoodDiarySection`.
+
