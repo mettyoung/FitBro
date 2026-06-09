@@ -38,3 +38,12 @@ Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓. No dat
 Learnings:
 - `recentFoods` is a top-level (non-date-scoped) flow — no `flatMapLatest` on `_selectedDate` needed; same `stateIn` pattern as `weeklyTotals`/`state`.
 
+## 2026-06-09 — US-004 Recent tab in Log Food sheet
+Changed:
+- `FoodLogSheet.kt`: added `recentFoods: List<FoodDiaryEntry> = emptyList()` param to `FoodSearchSheet`, passed to `FoodSearchContent` (+ `onSelectRecent: (FoodDiaryEntry) -> Unit`, no-op for now → wired in US-005). `FoodSearchContent` now has a `recentTab` toggle via two `SegmentChip` FilterChips (Search default / Recent). Recent tab renders `RecentFoodRow` list (reuses FoodResultRow styling: name, brand?, subtitle `{servingSizeG.roundToInt()}{servingUnit} · {calories.roundToInt()}kcal`) or empty state "No recent foods yet — log something first.". `query`/`searchState` live at `FoodSearchContent` level so tab switches don't reset search. Create-custom + search field stay on Search tab only (early `return@Column` for Recent).
+- `MacroDailyCounterDetail.kt`: collect `foodDiaryStateHolder.recentFoods`, pass to `FoodSearchSheet`.
+Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓. UI-only, no data-layer change → no new test.
+Learnings:
+- Early-exit a Compose content lambda with `return@Column` to render a mutually-exclusive tab without nesting the whole Search branch in an `else`.
+- New `SegmentChip` mirrors existing `ServingUnitChip` (FilterChip + MiOrange selected) — no SegmentedButton dep needed; keeps design-system consistent.
+

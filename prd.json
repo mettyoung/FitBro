@@ -68,7 +68,7 @@
         "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
