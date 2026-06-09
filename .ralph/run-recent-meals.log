@@ -25,3 +25,15 @@ Remaining: US-004, US-005, US-006 (UI). Next iteration takes US-004.
 --- iteration 3 done ---
 
 === Iteration 4/8 — 3 stories remaining ===
+US-004 done. Remaining: US-005, US-006 (`passes: false`). Not complete — next iteration takes US-005.
+
+**US-004 — Recent tab in Log Food sheet**
+- `FoodSearchSheet` gains `recentFoods` param → `FoodSearchContent` renders Search/Recent segments (`SegmentChip`), Recent list (`RecentFoodRow`) or empty state.
+- Tab switch preserves search query; create-custom stays Search-only.
+- Call site wires `foodDiaryStateHolder.recentFoods`.
+- Gates ✓ (Android + iOS typecheck). Committed, prd marked, progress logged.
+
+Tap-to-add wiring deferred to US-005 (`onSelectRecent` is no-op placeholder for now).
+--- iteration 4 done ---
+
+=== Iteration 5/8 — 2 stories remaining ===

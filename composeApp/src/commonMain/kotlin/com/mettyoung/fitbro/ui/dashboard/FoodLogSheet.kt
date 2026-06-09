@@ -143,7 +143,16 @@ fun FoodSearchSheet(
                     foodDataSource = foodDataSource,
                     canCreateCustomFood = customFoodRepository != null,
                     recentFoods = recentFoods,
-                    onSelectRecent = {},
+                    onSelectRecent = { template ->
+                        onAddEntry(
+                            template.copy(
+                                id = 0,
+                                sortOrder = 0,
+                                date = date,
+                                mealType = mealType
+                            )
+                        )
+                    },
                     onCreateCustomFood = { content = SheetContent.CreateCustom },
                     onSelectFood = { food ->
                         val foodId = food.foodId
