@@ -25,6 +25,11 @@ interface FoodDiaryRepository {
         sourceMeal: String,
         sourceOrderedIds: List<Long>
     )
+    /**
+     * Most recently logged distinct foods, newest first, as detached templates
+     * (id = 0, sortOrder = 0). Distinctness = food_id when present, else name+brand.
+     */
+    fun getRecentFoods(limit: Int): Flow<List<FoodDiaryEntry>>
     fun getDailyTotals(date: String): Flow<DailyMacroTotals>
     fun getDailyTotalsForRange(startDate: String, endDate: String): Flow<List<DailyMacroTotals>>
 }

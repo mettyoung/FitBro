@@ -99,6 +99,12 @@ class FoodDiaryRepositoryImpl(private val database: FitBroDatabase) : FoodDiaryR
         }
     }
 
+    override fun getRecentFoods(limit: Int): Flow<List<FoodDiaryEntry>> =
+        database.foodDiaryQueries.recentFoods(limit.toLong())
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+            .map { rows -> rows.map { it.toDomain().copy(id = 0, sortOrder = 0) } }
+
     override fun getDailyTotals(date: String): Flow<DailyMacroTotals> =
         database.foodDiaryQueries.getDailyTotals(date)
             .asFlow()

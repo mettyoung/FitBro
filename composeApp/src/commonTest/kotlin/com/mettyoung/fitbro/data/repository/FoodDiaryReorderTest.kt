@@ -81,6 +81,18 @@ private class FakeFoodDiaryRepository : FoodDiaryRepository {
         }
     }
 
+    override fun getRecentFoods(limit: Int): Flow<List<FoodDiaryEntry>> =
+        rows.map { all ->
+            all.groupBy { row ->
+                row.foodId
+                    ?: (row.foodName.trim().lowercase() + "|" + (row.brandName ?: "").trim().lowercase())
+            }
+                .map { (_, group) -> group.maxBy { it.id } }
+                .sortedByDescending { it.id }
+                .take(limit)
+                .map { it.copy(id = 0, sortOrder = 0) }
+        }
+
     override fun getDailyTotals(date: String): Flow<DailyMacroTotals> =
         rows.map { all ->
             val d = all.filter { it.date == date }
@@ -191,6 +203,27 @@ class FoodDiaryReorderTest {
         )
 
         assertEquals(listOf("c", "a", "b"), repo.getEntriesForDateOnce().map { it.foodName })
+    }
+
+    @Test
+    fun getRecentFoodsDedupsOrdersAndLimits() = runSync {
+        val repo = FakeFoodDiaryRepository()
+        // "a" logged twice (last serving wins), plus b and c.
+        repo.addEntry(entry("a", cal = 100.0))
+        repo.addEntry(entry("b", cal = 200.0))
+        repo.addEntry(entry("a", cal = 150.0)) // newer log of same food
+        repo.addEntry(entry("c", cal = 300.0))
+
+        val recent = repo.getRecentFoods(20).first()
+        // Distinct foods only: a, b, c (one row for a).
+        assertEquals(listOf("c", "a", "b"), recent.map { it.foodName })
+        // Most-recent serving of "a" is the 150-cal one.
+        assertEquals(150.0, recent.first { it.foodName == "a" }.calories, 0.001)
+        // Detached templates.
+        assertEquals(listOf(0L, 0L, 0L), recent.map { it.id })
+
+        // Limit respected.
+        assertEquals(listOf("c", "a"), repo.getRecentFoods(2).first().map { it.foodName })
     }
 
     private suspend fun FoodDiaryRepository.getEntriesForDateOnce(): List<FoodDiaryEntry> =
