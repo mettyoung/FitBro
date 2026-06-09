@@ -117,6 +117,7 @@ fun MacroDailyCounterDetail(
     val foodState by foodDiaryStateHolder.state.collectAsState()
     val selectedDate by foodDiaryStateHolder.selectedDate.collectAsState()
     val weeklyTotals by foodDiaryStateHolder.weeklyTotals.collectAsState()
+    val recentFoods by foodDiaryStateHolder.recentFoods.collectAsState()
     val customMeals by customMealStateHolder.customMeals.collectAsState()
     val customFoods by customFoodStateHolder.customFoods.collectAsState()
 
@@ -462,6 +463,7 @@ fun MacroDailyCounterDetail(
             date = selectedDate,
             foodDataSource = foodDataSource,
             customFoodRepository = customFoodRepository,
+            recentFoods = recentFoods,
             onDismiss = { addingToMeal = null },
             onAddEntry = { entry ->
                 scope.launch {

@@ -19,3 +19,9 @@ Remaining `passes: false`: US-003, US-004, US-005, US-006. Next iteration takes 
 --- iteration 2 done ---
 
 === Iteration 3/8 — 4 stories remaining ===
+US-003 done. Recents `StateFlow` + `copyMeal` action wired into `FoodDiaryStateHolder`. Both typechecks pass. Committed.
+
+Remaining: US-004, US-005, US-006 (UI). Next iteration takes US-004.
+--- iteration 3 done ---
+
+=== Iteration 4/8 — 3 stories remaining ===
