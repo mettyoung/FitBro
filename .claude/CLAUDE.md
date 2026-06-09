@@ -41,6 +41,77 @@ FitBro is a Kotlin Multiplatform (KMP) calorie-tracking app targeting Android an
 ./gradlew :composeApp:installDebug           # Build + install to emulator
 ```
 
+### Installing to Device (Claude workflow)
+
+When asked to "install/run on device", follow this exactly:
+
+1. **Check for a connected physical device** (exclude emulators):
+   ```shell
+   adb devices | grep -v List | grep -v emulator | awk '{print $1}'
+   ```
+2. **If none connected**, prompt the user to pair (user is on Android, wireless):
+   ```shell
+   adb-wireless pair          # prints a QR code for the user to scan
+   ```
+   Wait until the device shows up in `adb devices`, then continue.
+3. **Build, install, and launch** on the physical device:
+   ```shell
+   SERIAL=$(adb devices | grep -v List | grep -v emulator | awk '{print $1}' | xargs)
+   ./gradlew :composeApp:installDebug -Pandroid.injected.device.serial=$SERIAL
+   adb -s "$SERIAL" shell monkey -p com.mettyoung.fitbro -c android.intent.category.LAUNCHER 1
+   ```
+4. **If a device is already connected**, skip pairing — go straight to step 3.
+5. **If install fails** (offline / unauthorized / dropped connection), reconnect and retry:
+   ```shell
+   adb reconnect                      # or: adb reconnect offline
+   adb-wireless pair                  # re-pair if reconnect doesn't recover it
+   ```
+   Then re-run step 3.
+
+Notes: `com.mettyoung.fitbro` is the app id. `installDebug` with no serial targets all devices (including emulators) — always pass `-Pandroid.injected.device.serial` to hit the physical device.
+
+### Installing to a Remote Device (over the internet via Tailscale)
+
+Deploy to the phone when it is NOT on the same LAN. **Tailscale** puts the Mac and
+phone on one private WireGuard network (auto UDP hole-punch; DERP TCP relay fallback
+— cellular usually lands on DERP). Phone Tailscale name: `oppo-find-n5`
+(`100.98.233.108`).
+
+**Primary path — SSH delivery (`scripts/remote-install-ssh.sh`).** Robust to ColorOS
+network/doze flaps. Flow:
+```
+build remote APK (R8 minified, ~12 MB) → zstd over Tailscale SSH (~4 MB)
+  → /sdcard/Download/fitbro.apk + termux-notification ("FitBro build ready")
+  → [MANUAL] Files -> Downloads -> fitbro.apk -> Install -> open the app
+```
+```shell
+scripts/remote-install-ssh.sh oppo-find-n5     # or the Tailscale IP
+```
+Install + launch are **manual** by design — see the BAL note below. The notification
+is a heads-up; tapping it just dismisses it.
+
+One-time setup: Tailscale signed in on both ends; Termux + Termux:API (F-Droid) +
+`pkg install openssh termux-api zstd`; Mac pubkey in the phone's
+`~/.ssh/authorized_keys`; `sshd` running (Termux:Boot for persistence). Make Termux
+survive ColorOS doze: battery "don't optimize" + **Lock it in Recents**. Full steps
+in `scripts/termux-setup.md`.
+
+**Why install/run are manual (Android 16 + ColorOS).** Background Activity Launch
+(BAL) is blocked: a background Termux context (SSH command *or* a notification's
+background tap-action) cannot pop the package installer or `am start` the app —
+`termux-open`/`am` only work when **Termux is foreground**. `pm`/`dumpsys`/`pidof`
+are also visibility-filtered from Termux's uid, so install state can't be detected.
+Net: non-root + no-adb ⇒ one foreground tap to Install and one to open. No reliable
+auto-install/auto-launch over SSH on this device.
+
+**Silent alternative — adb (`scripts/remote-install.sh`), fragile.** adb (shell uid)
+is NOT BAL-bound, so `adb install` + `am start` are fully silent + auto-launch. But it
+needs adbd reachable: bootstrap once on USB/LAN with `scripts/device-bootstrap.sh`
+(`adb tcpip 5555`), then `scripts/remote-install.sh oppo-find-n5`. ColorOS resets adbd
+out of tcpip mode on reboot/network-switch/doze (`Connection refused`), so re-bootstrap
+is frequently needed — reliable only right after a bootstrap. Security: `adb tcpip`
+exposes adbd on `0.0.0.0:5555` to the whole tailnet (restrict via a Tailscale ACL).
+
 ### Build iOS
 ```shell
 # Open in Xcode and build from IDE, or use:
