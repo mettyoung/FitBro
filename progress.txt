@@ -11,3 +11,11 @@ Started: 2026-06-10
 - **Colors** (`ui/Theme.kt`): MiOrange 0xFFFF6B00, MiTextSecondary 0xFF6C757D, ColorProtein 0xFF4361EE, ColorCarbs 0xFFF72585, ColorFat 0xFF4CC9F0. `BreakdownDialog` burn coloring: BMR=ColorProtein, Active(neat)=ColorFat, TEF=ColorCarbs — match it.
 - **Gradle env**: JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home; run UNSANDBOXED. Typecheck = `:composeApp:compileDebugKotlinAndroid` + `:composeApp:compileKotlinIosSimulatorArm64`. No browser test on this KMP app.
 - **Scope guard**: presentation-only — do NOT touch DashboardStateHolder, repositories, data sources, schema, or BreakdownDialog.
+
+## 2026-06-10 — US-001: 3-way segmented toggle + view-mode state
+- New file `ui/dashboard/DashboardViewMode.kt`: enum DashboardViewMode { BALANCE, INTAKE, EXPENDITURE } (each w/ label) + `DashboardViewModeToggle` composable.
+- Toggle styled like date navigator: background+RoundedCornerShape(16.dp) pill, padding(4.dp), 3 weight(1f) Text segments. Selected = MiOrange bg + White text + Bold; unselected = transparent + MiTextSecondary.
+- `DashboardScreen.kt`: hoisted `var viewMode by remember { mutableStateOf(DashboardViewMode.BALANCE) }` in DashboardContent; rendered toggle in content Column between top Spacer and the `when(uiState)` block (below date navigator, above summary card). Default BALANCE.
+- Toggle is currently presentation-only / not yet wired to chart/card/history (US-002..005).
+- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
+- Learnings: enum `.entries` works fine in commonMain (Kotlin 1.9+ stable). Toggle placed in shared content Column so it shows across Loading/Success/Error states — acceptable since it only drives Success-state views.
