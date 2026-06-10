@@ -243,6 +243,7 @@ fun DashboardContent(
                         // Summary Card with Chart
                         SlidingWindowInsightCard(
                             balances = uiState.balances,
+                            viewMode = viewMode,
                             onBarClick = { selectedBreakdown = it },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -419,6 +420,7 @@ private fun ErrorDialog(error: String, onDismiss: () -> Unit) {
 @Composable
 private fun SlidingWindowInsightCard(
     balances: List<DailyBalance>,
+    viewMode: DashboardViewMode,
     onBarClick: (DailyBalance) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -481,7 +483,9 @@ private fun SlidingWindowInsightCard(
             CalorieBalanceChart(
                 balances = balances,
                 onBarClick = onBarClick,
-                modifier = Modifier.fillMaxWidth().height(160.dp)
+                modifier = Modifier.fillMaxWidth().height(160.dp),
+                valueSelector = { viewMode.valueOf(it) },
+                diverging = viewMode.isDiverging
             )
             
             Spacer(Modifier.height(24.dp))

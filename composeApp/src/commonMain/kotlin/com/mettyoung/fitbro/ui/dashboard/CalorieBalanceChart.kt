@@ -33,7 +33,9 @@ import kotlin.math.abs
 fun CalorieBalanceChart(
     balances: List<DailyBalance>,
     onBarClick: (DailyBalance) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    valueSelector: (DailyBalance) -> Double = { it.balance },
+    diverging: Boolean = true
 ) {
     if (balances.isEmpty()) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
@@ -42,7 +44,13 @@ fun CalorieBalanceChart(
         return
     }
 
-    val maxAbsBalance = balances.maxOf { abs(it.balance) }.coerceAtLeast(100.0).coerceAtMost(3000.0)
+    // Diverging (balance) keeps the original 100..3000 clamp; positive-only modes
+    // normalize against the actual window max of the plotted value.
+    val maxValue = if (diverging) {
+        balances.maxOf { abs(valueSelector(it)) }.coerceAtLeast(100.0).coerceAtMost(3000.0)
+    } else {
+        balances.maxOf { abs(valueSelector(it)) }.coerceAtLeast(1.0)
+    }
 
     Box(modifier = modifier) {
         // Zero Line
@@ -65,7 +73,9 @@ fun CalorieBalanceChart(
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     CalorieBarItem(
                         balance = balance,
-                        maxAbsBalance = maxAbsBalance,
+                        value = valueSelector(balance),
+                        maxValue = maxValue,
+                        diverging = diverging,
                         onClick = { onBarClick(balance) }
                     )
                 }
@@ -77,13 +87,19 @@ fun CalorieBalanceChart(
 @Composable
 private fun CalorieBarItem(
     balance: DailyBalance,
-    maxAbsBalance: Double,
+    value: Double,
+    maxValue: Double,
+    diverging: Boolean,
     onClick: () -> Unit
 ) {
     val positiveColor = MiOrange
     val negativeColor = MaterialTheme.colorScheme.tertiary
-    val color = if (balance.balance >= 0) positiveColor else negativeColor
-    val heightFactor = (abs(balance.balance) / maxAbsBalance).toFloat().coerceIn(0.1f, 1f)
+    // Positive-only modes always use the positive accent; diverging keys on sign.
+    val color = if (!diverging || value >= 0) positiveColor else negativeColor
+    val heightFactor = (abs(value) / maxValue).toFloat().coerceIn(0.1f, 1f)
+    // Positive-only modes draw every bar in the top half (upward-only).
+    val drawTop = !diverging || value > 0
+    val drawBottom = diverging && value < 0
 
     Column(
         modifier = Modifier
@@ -97,7 +113,7 @@ private fun CalorieBarItem(
             modifier = Modifier.weight(1f).width(12.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
-            if (balance.balance > 0) {
+            if (drawTop) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -115,7 +131,7 @@ private fun CalorieBarItem(
             modifier = Modifier.weight(1f).width(12.dp),
             contentAlignment = Alignment.TopCenter
         ) {
-            if (balance.balance < 0) {
+            if (drawBottom) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

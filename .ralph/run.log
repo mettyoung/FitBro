@@ -1,3 +1,9 @@
 Ralph start — max 8 iterations — branch ralph/intake-expenditure-views
 
 === Iteration 1/8 — 5 stories remaining ===
+US-001 done. Toggle + `DashboardViewMode` shipped, both typechecks green, committed + logged.
+
+Remaining: US-002 (chart value selector), US-003 (summary card), US-004 (intake history rows), US-005 (expenditure history rows) — all still `passes: false`. Next iteration takes US-002.
+--- iteration 1 done ---
+
+=== Iteration 2/8 — 4 stories remaining ===

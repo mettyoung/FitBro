@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 
@@ -25,6 +26,17 @@ enum class DashboardViewMode(val label: String) {
     INTAKE("Intake"),
     EXPENDITURE("Expenditure")
 }
+
+/** Per-day value plotted/aggregated for this lens. */
+fun DashboardViewMode.valueOf(balance: DailyBalance): Double = when (this) {
+    DashboardViewMode.BALANCE -> balance.balance
+    DashboardViewMode.INTAKE -> balance.intake
+    DashboardViewMode.EXPENDITURE -> balance.burn
+}
+
+/** BALANCE plots diverging bars around zero; the other lenses are upward-only. */
+val DashboardViewMode.isDiverging: Boolean
+    get() = this == DashboardViewMode.BALANCE
 
 /**
  * 3-way segmented toggle styled like the date navigator (rounded pill).
