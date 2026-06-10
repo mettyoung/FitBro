@@ -87,6 +87,7 @@ fun DashboardContent(
 ) {
     var showPicker by remember { mutableStateOf(false) }
     var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
+    var viewMode by remember { mutableStateOf(DashboardViewMode.BALANCE) }
     var wasRefreshing by remember { mutableStateOf(false) }
     var showSuccessToast by remember { mutableStateOf(false) }
     var refreshError by remember { mutableStateOf<String?>(null) }
@@ -219,6 +220,14 @@ fun DashboardContent(
                     .fillMaxSize()
                     .padding(horizontal = 24.dp)
             ) {
+                Spacer(Modifier.height(24.dp))
+
+                DashboardViewModeToggle(
+                    selected = viewMode,
+                    onSelected = { viewMode = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 Spacer(Modifier.height(24.dp))
 
                 when (val uiState = state.uiState) {
