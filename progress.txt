@@ -47,3 +47,12 @@ Started: 2026-06-10
 - Imports added: ColorCarbs/ColorFat/ColorProtein from ui.Theme.
 - Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
 - Learnings: `when(viewMode){ INTAKE -> ...; else -> ...}` keeps EXPENDITURE compiling+non-crashing (falls to balance layout) until US-005 fills it — lets you ship one lens per story without a broken intermediate. Macro order Carbs/Protein/Fat per spec; dot colors are the intake-macro palette (distinct from burn palette in US-005).
+
+## 2026-06-10 — US-005: Expenditure history rows — BMR/TEF/Active + total kcal-out
+- `CondensedLogItem` (DashboardScreen.kt): filled the EXPENDITURE branch in both middle-column and right-value `when(viewMode)` blocks.
+  - Middle: 3 dotted rows BMR/TEF/Active. Colors match BreakdownDialog burn palette: BMR=ColorProtein, TEF=ColorCarbs, Active=ColorFat. Active = `neat + eat`. Each `${field.roundToInt()} kcal <label>`.
+  - Right: `${burn.roundToInt()} kcal` in onSurface (no sign, not green/red), same titleLarge styling as INTAKE.
+- Reused existing `LogDotRow` helper + left column + onClick→BreakdownDialog untouched.
+- No new imports (ColorProtein/ColorCarbs/ColorFat already imported in US-004).
+- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
+- Learnings: bmr+tef+neat+eat == burn by construction in DailyBalance, so showing the three component rows + burn total needs no reconciliation field — rounding each independently is fine per spec. Burn palette (BMR=protein-blue, TEF=carb-pink, Active=fat-cyan) intentionally reuses the macro color constants but maps them to energy components to mirror BreakdownDialog — same tokens, different semantic per lens.

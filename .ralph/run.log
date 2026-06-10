@@ -22,3 +22,11 @@ Summary:
 --- iteration 3 done ---
 
 === Iteration 4/8 — 2 stories remaining ===
+US-004 done. Both gates pass, committed. US-005 still `passes: false` — next iteration takes it.
+
+Done:
+- `CondensedLogItem` now takes `viewMode`. INTAKE → 3 macro-gram rows (Carbs/Protein/Fat dots) + total `intake` kcal, unsigned.
+- Extracted `LogDotRow` helper; BALANCE path unchanged (no regression). EXPENDITURE falls to balance layout until US-005.
+--- iteration 4 done ---
+
+=== Iteration 5/8 — 1 stories remaining ===
