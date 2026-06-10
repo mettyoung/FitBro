@@ -53,6 +53,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.ui.ColorCarbs
+import com.mettyoung.fitbro.ui.ColorFat
+import com.mettyoung.fitbro.ui.ColorProtein
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.formatTimeAgo
@@ -277,6 +280,7 @@ fun DashboardContent(
                                 uiState.balances.reversed().forEachIndexed { index, balance ->
                                     CondensedLogItem(
                                         balance = balance,
+                                        viewMode = viewMode,
                                         onClick = { selectedBreakdown = balance }
                                     )
                                     if (index < uiState.balances.size - 1) {
@@ -525,10 +529,9 @@ private fun SlidingWindowInsightCard(
 @Composable
 private fun CondensedLogItem(
     balance: DailyBalance,
+    viewMode: DashboardViewMode,
     onClick: () -> Unit
 ) {
-    val balanceColor = if (balance.balance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
-    
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -548,28 +551,60 @@ private fun CondensedLogItem(
                 fontWeight = FontWeight.Black
             )
         }
-        
+
         Spacer(Modifier.width(16.dp))
-        
+
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(MiOrange))
-                Spacer(Modifier.width(8.dp))
-                Text("${balance.intake.roundToInt()} kcal in", style = MaterialTheme.typography.bodyMedium)
-            }
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
-                Spacer(Modifier.width(8.dp))
-                Text("${balance.burn.roundToInt()} kcal out", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
+            when (viewMode) {
+                DashboardViewMode.INTAKE -> {
+                    LogDotRow(ColorCarbs, "${balance.carbG.roundToInt()}g carbs")
+                    Spacer(Modifier.height(4.dp))
+                    LogDotRow(ColorProtein, "${balance.proteinG.roundToInt()}g protein")
+                    Spacer(Modifier.height(4.dp))
+                    LogDotRow(ColorFat, "${balance.fatG.roundToInt()}g fat")
+                }
+                else -> {
+                    LogDotRow(MiOrange, "${balance.intake.roundToInt()} kcal in")
+                    Spacer(Modifier.height(4.dp))
+                    LogDotRow(
+                        MaterialTheme.colorScheme.tertiary,
+                        "${balance.burn.roundToInt()} kcal out",
+                        textColor = MiTextSecondary
+                    )
+                }
             }
         }
-        
-        Text(
-            text = "${if (balance.balance >= 0) "+" else ""}${balance.balance.roundToInt()}",
-            style = MaterialTheme.typography.titleLarge,
-            color = balanceColor
-        )
+
+        when (viewMode) {
+            DashboardViewMode.INTAKE -> {
+                Text(
+                    text = "${balance.intake.roundToInt()} kcal",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            else -> {
+                val balanceColor = if (balance.balance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                Text(
+                    text = "${if (balance.balance >= 0) "+" else ""}${balance.balance.roundToInt()}",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = balanceColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LogDotRow(
+    dotColor: Color,
+    text: String,
+    textColor: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(dotColor))
+        Spacer(Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = textColor)
     }
 }
 

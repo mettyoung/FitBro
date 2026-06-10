@@ -13,3 +13,12 @@ Remaining: US-003 (summary card), US-004 (intake history), US-005 (expenditure h
 --- iteration 2 done ---
 
 === Iteration 3/8 — 3 stories remaining ===
+US-003 done. Gates pass, committed. US-004 + US-005 still `passes: false` — next iteration takes US-004.
+
+Summary:
+- `SlidingWindowInsightCard` now branches on `viewMode`: headline label, avg value, footer total all per-lens; trend chip + Trend footer column hidden for INTAKE/EXPENDITURE.
+- Reused `DashboardViewMode.valueOf` for field selection — no duplicated logic. Empty-window guard added.
+- BALANCE path unchanged → no regression.
+--- iteration 3 done ---
+
+=== Iteration 4/8 — 2 stories remaining ===
