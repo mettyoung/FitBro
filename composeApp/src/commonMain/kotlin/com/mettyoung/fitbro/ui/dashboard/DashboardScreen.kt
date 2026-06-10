@@ -563,6 +563,13 @@ private fun CondensedLogItem(
                     Spacer(Modifier.height(4.dp))
                     LogDotRow(ColorFat, "${balance.fatG.roundToInt()}g fat")
                 }
+                DashboardViewMode.EXPENDITURE -> {
+                    LogDotRow(ColorProtein, "${balance.bmr.roundToInt()} kcal BMR")
+                    Spacer(Modifier.height(4.dp))
+                    LogDotRow(ColorCarbs, "${balance.tef.roundToInt()} kcal TEF")
+                    Spacer(Modifier.height(4.dp))
+                    LogDotRow(ColorFat, "${(balance.neat + balance.eat).roundToInt()} kcal Active")
+                }
                 else -> {
                     LogDotRow(MiOrange, "${balance.intake.roundToInt()} kcal in")
                     Spacer(Modifier.height(4.dp))
@@ -579,6 +586,13 @@ private fun CondensedLogItem(
             DashboardViewMode.INTAKE -> {
                 Text(
                     text = "${balance.intake.roundToInt()} kcal",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            DashboardViewMode.EXPENDITURE -> {
+                Text(
+                    text = "${balance.burn.roundToInt()} kcal",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
