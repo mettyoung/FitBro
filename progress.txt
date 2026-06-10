@@ -37,3 +37,13 @@ Started: 2026-06-10
 - BALANCE path uses identical metrics values/typography → no regression.
 - Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
 - Learnings: avg via `sumOf{valueOf(it)}/size` reuses `DashboardViewMode.valueOf` from US-002 — single source for which field each lens reads; no duplicated field-selection logic between chart, card, history. Empty-list guard needed since `List.average()`/manual divide → NaN on empty window.
+
+## 2026-06-10 — US-004: Intake history rows — macro grams + total kcal-in
+- `CondensedLogItem` (DashboardScreen.kt): added `viewMode` param. Middle column + right value now branch on viewMode via `when`.
+  - INTAKE: 3 dotted rows Carbs/Protein/Fat (`ColorCarbs`/`ColorProtein`/`ColorFat`) showing `${field.roundToInt()}g <macro>`; right = `${intake.roundToInt()} kcal` in onSurface (no sign, no green/red).
+  - else (BALANCE, EXPENDITURE for now): unchanged — kcal in/out rows + signed colored balance. EXPENDITURE branch is US-005.
+- Extracted `LogDotRow(dotColor, text, textColor=onSurface)` helper to dedupe the dot+label row (BALANCE & INTAKE both use it). Default textColor=onSurface matches original BALANCE "kcal in" Text (which relied on LocalContentColor) → no regression.
+- Left column (day abbr + day number) and `onClick`→BreakdownDialog unchanged for all modes.
+- Imports added: ColorCarbs/ColorFat/ColorProtein from ui.Theme.
+- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
+- Learnings: `when(viewMode){ INTAKE -> ...; else -> ...}` keeps EXPENDITURE compiling+non-crashing (falls to balance layout) until US-005 fills it — lets you ship one lens per story without a broken intermediate. Macro order Carbs/Protein/Fat per spec; dot colors are the intake-macro palette (distinct from burn palette in US-005).
