@@ -431,6 +431,16 @@ private fun SlidingWindowInsightCard(
         com.mettyoung.fitbro.data.model.TrendDirection.STABLE -> MiOrange
     }
 
+    val isBalance = viewMode == DashboardViewMode.BALANCE
+    val headlineLabel = when (viewMode) {
+        DashboardViewMode.BALANCE -> "AVERAGE BALANCE"
+        DashboardViewMode.INTAKE -> "AVERAGE INTAKE"
+        DashboardViewMode.EXPENDITURE -> "AVERAGE EXPENDITURE"
+    }
+    val avgValue = if (isBalance) metrics.avgDailyBalance
+        else if (balances.isEmpty()) 0.0 else balances.sumOf { viewMode.valueOf(it) } / balances.size
+    val totalValue = if (isBalance) metrics.totalBalance else balances.sumOf { viewMode.valueOf(it) }
+
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(32.dp),
@@ -445,35 +455,37 @@ private fun SlidingWindowInsightCard(
             ) {
                 Column {
                     Text(
-                        text = "AVERAGE BALANCE",
+                        text = headlineLabel,
                         style = MaterialTheme.typography.labelSmall,
                         color = MiTextSecondary
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "${formatCalorieValue(metrics.avgDailyBalance)} kcal",
+                        text = "${formatCalorieValue(avgValue)} kcal",
                         style = MaterialTheme.typography.displayMedium.copy(fontSize = 32.sp),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(trendColor.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (metrics.trend == com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING) 
-                            Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = null,
-                        tint = trendColor,
-                        modifier = if (metrics.trend != com.mettyoung.fitbro.data.model.TrendDirection.STABLE)
-                            Modifier.size(24.dp) else Modifier.size(0.dp) // Simplified for demo
-                    )
-                    if (metrics.trend == com.mettyoung.fitbro.data.model.TrendDirection.STABLE) {
-                        Box(Modifier.size(12.dp, 2.dp).background(trendColor))
+
+                if (isBalance) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(trendColor.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (metrics.trend == com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING)
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = null,
+                            tint = trendColor,
+                            modifier = if (metrics.trend != com.mettyoung.fitbro.data.model.TrendDirection.STABLE)
+                                Modifier.size(24.dp) else Modifier.size(0.dp) // Simplified for demo
+                        )
+                        if (metrics.trend == com.mettyoung.fitbro.data.model.TrendDirection.STABLE) {
+                            Box(Modifier.size(12.dp, 2.dp).background(trendColor))
+                        }
                     }
                 }
             }
@@ -496,12 +508,14 @@ private fun SlidingWindowInsightCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Total Week", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
-                    Text("${formatCalorieValue(metrics.totalBalance)} kcal", style = MaterialTheme.typography.titleMedium)
+                    Text("${formatCalorieValue(totalValue)} kcal", style = MaterialTheme.typography.titleMedium)
                 }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Trend", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
-                    Text(metrics.trend.name.lowercase().replaceFirstChar { it.uppercase() }, 
-                         style = MaterialTheme.typography.titleMedium, color = trendColor)
+                if (isBalance) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Trend", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
+                        Text(metrics.trend.name.lowercase().replaceFirstChar { it.uppercase() },
+                             style = MaterialTheme.typography.titleMedium, color = trendColor)
+                    }
                 }
             }
         }

@@ -7,3 +7,9 @@ Remaining: US-002 (chart value selector), US-003 (summary card), US-004 (intake 
 --- iteration 1 done ---
 
 === Iteration 2/8 — 4 stories remaining ===
+US-002 done. Chart now parameterized by `DashboardViewMode` — diverging balance bars unchanged, intake/expenditure render upward-only with window-max normalization. Both gates green.
+
+Remaining: US-003 (summary card), US-004 (intake history), US-005 (expenditure history) — next iterations.
+--- iteration 2 done ---
+
+=== Iteration 3/8 — 3 stories remaining ===

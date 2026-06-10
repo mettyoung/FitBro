@@ -28,3 +28,12 @@ Started: 2026-06-10
 - `DashboardScreen.kt`: `SlidingWindowInsightCard` gained a `viewMode` param; passes `valueSelector`/`diverging` into the chart. DashboardContent already hoists `viewMode`.
 - Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
 - Learnings: positive-only bars reuse the top-half path so they occupy only the upper half of chart height (zero line stays centered) — matches "upward-only" intent. Keep the 100..3000 clamp scoped to diverging; applying it to intake/burn would flatten all bars to max.
+
+## 2026-06-10 — US-003: Summary insight card adapts per view
+- `SlidingWindowInsightCard` (DashboardScreen.kt): derived `isBalance`, `headlineLabel`, `avgValue`, `totalValue` from `viewMode`.
+  - Headline: BALANCE 'AVERAGE BALANCE', INTAKE 'AVERAGE INTAKE', EXPENDITURE 'AVERAGE EXPENDITURE'.
+  - avgValue: BALANCE keeps `metrics.avgDailyBalance`; else `sumOf{valueOf}/size` (empty-guard → 0.0). totalValue: BALANCE keeps `metrics.totalBalance`; else `sumOf{valueOf}`.
+  - Trend chip (header circle icon) wrapped in `if (isBalance)` — hidden for intake/expenditure. Footer 'Trend' column also gated by `if (isBalance)`; 'Total Week' column always shown with totalValue.
+- BALANCE path uses identical metrics values/typography → no regression.
+- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
+- Learnings: avg via `sumOf{valueOf(it)}/size` reuses `DashboardViewMode.valueOf` from US-002 — single source for which field each lens reads; no duplicated field-selection logic between chart, card, history. Empty-list guard needed since `List.average()`/manual divide → NaN on empty window.
