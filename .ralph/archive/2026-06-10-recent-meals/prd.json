@@ -1,0 +1,106 @@
+{
+  "project": "FitBro",
+  "branchName": "ralph/recent-meals",
+  "description": "Recent Foods & Copy Meal to Another Day — a Recent tab in the Log Food sheet for one-tap re-logging of previously logged foods (most-recent-first), plus per-meal-slot copy to a different day. Derived entirely from existing FoodDiaryEntry rows; NO new table or migration. Stack: Kotlin Multiplatform + Compose Multiplatform, SQLDelight source of truth, StateHolder + StateFlow UDF. Typecheck gate: ./gradlew :composeApp:compileDebugKotlinAndroid. Tests: ./gradlew :composeApp:testDebugUnitTest (commonTest uses runSync + in-memory fakes; NO SQLDelight driver, NO coroutines-test). Full spec: tasks/prd-recent-meals.md.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Recent-foods query + repository method",
+      "description": "As a developer, I need a query returning the most recently logged distinct foods so the Recent tab has data.",
+      "acceptanceCriteria": [
+        "Add `recentFoods` query to FoodDiary.sq returning one row per distinct food, newest first (ORDER BY id DESC), with a LIMIT (?) parameter",
+        "Distinctness key = food_id when present, else lower(trim(foodName)) || '|' || lower(trim(COALESCE(brandName,''))); use subquery SELECT MAX(id) ... GROUP BY that key so a food logged N times appears once with its last-used serving/macros",
+        "No schema change / no migration — query only over the existing FoodDiaryEntry table",
+        "Add fun getRecentFoods(limit: Int): Flow<List<FoodDiaryEntry>> to FoodDiaryRepository + impl in FoodDiaryRepositoryImpl, main-safe via asFlow().mapToList(Dispatchers.Default)",
+        "Returned entries are detached templates: map toDomain then copy(id = 0, sortOrder = 0)",
+        "Update the in-memory FakeFoodDiaryRepository in commonTest (FoodDiaryReorderTest.kt) to implement getRecentFoods",
+        "Unit test in commonTest using runSync + a fake/in-memory repo: dedup keeps one row per food, ordering is most-recent-first, limit is respected",
+        "Tests pass: ./gradlew :composeApp:testDebugUnitTest",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Copy-meal-slot repository operation",
+      "description": "As a developer, I need a repository method that duplicates one meal slot's entries onto another date so the UI can offer Copy to day.",
+      "acceptanceCriteria": [
+        "Add suspend fun copyMealToDate(sourceDate: String, mealType: String, targetDate: String) to FoodDiaryRepository + impl",
+        "Reads source slot via getEntriesByDateAndMeal; inserts a copy of each into targetDate/same mealType inside one SQLDelight transaction, reusing insertEntry",
+        "Copied entries get new ids and sortOrder appended AFTER existing target entries: start at maxSortOrderForDateMeal(targetDate, mealType) + 1; all other fields copied verbatim (id/date/sortOrder excluded)",
+        "No-op (no throw) when the source slot is empty",
+        "Update FakeFoodDiaryRepository in commonTest to implement copyMealToDate with the same append semantics",
+        "Unit test (runSync + fake): copying N entries appends N to target, source unchanged, target's pre-existing entries preserved and first",
+        "Tests pass: ./gradlew :composeApp:testDebugUnitTest",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "StateHolder: recents flow + copyMeal action",
+      "description": "As a developer, I need StateHolder entry points for recents and copy so the UI stays unidirectional.",
+      "acceptanceCriteria": [
+        "FoodDiaryStateHolder exposes recentFoods: StateFlow<List<FoodDiaryEntry>> from repository.getRecentFoods(20) via stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())",
+        "FoodDiaryStateHolder adds fun copyMeal(sourceDate: String, mealType: String, targetDate: String): Job that launches on its scope and calls repository.copyMealToDate",
+        "No change to existing state / weeklyTotals flows",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Recent tab in Log Food sheet",
+      "description": "As a user, I want a Recent tab in the food-logging sheet so I can see foods I've logged before instead of searching.",
+      "acceptanceCriteria": [
+        "FoodSearchSheet/FoodSearchContent in FoodLogSheet.kt shows two segments: Search (default) and Recent",
+        "Add a recentFoods: List<FoodDiaryEntry> = emptyList() parameter to FoodSearchSheet; pass foodDiaryStateHolder.recentFoods (collected) from the addingToMeal call site in MacroDailyCounterDetail.kt",
+        "Recent tab lists rows reusing FoodResultRow styling: name, brand (if any), subtitle \"{servingSizeG.roundToInt()}{servingUnit} · {calories.roundToInt()}kcal\", most-recent-first",
+        "Empty state when list is empty: \"No recent foods yet — log something first.\"",
+        "Switching tabs does not reset an in-progress search query; the Create custom food affordance stays on the Search tab only",
+        "Verify on device: build + ./gradlew :composeApp:installDebug, open Log Food, switch to Recent tab, confirm prior foods render (NOTE: dev-browser skill does not apply — this is an Android/iOS app)",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "One-tap add from Recent tab",
+      "description": "As a user, I want tapping a recent food to add it straight to the meal slot I'm logging into, using the serving I last used.",
+      "acceptanceCriteria": [
+        "Tapping a recent row invokes the sheet's onAddEntry with the template copied to the current mealType + selected date (id = 0, sortOrder = 0), carrying macros/servingSizeG/servingUnit/foodName/brandName/food_id verbatim",
+        "Goes through the existing add path (FoodDiaryStateHolder.addEntry) so a fresh id + appended sortOrder are assigned and Health Connect sync fires",
+        "Sheet dismisses on add (matches add-from-search behavior); daily totals + balance refresh via the existing onBalanceRefreshNeeded callback",
+        "Verify on device: tap a recent → entry appears in the correct slot with correct macros; daily totals update",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Copy-to-day action on a meal slot",
+      "description": "As a user, I want a Copy to another day action on a meal slot so I can replicate it without re-entering each food.",
+      "acceptanceCriteria": [
+        "Each meal slot (Breakfast/Lunch/Dinner/Snacks) in MacroDailyCounterDetail.kt exposes a \"Copy to day\" action in its header, enabled only when the slot has >= 1 entry",
+        "Tapping it opens the existing DatePickerDialog to choose the target date",
+        "On confirm, calls foodDiaryStateHolder.copyMeal(currentDate, mealType, targetDate) then onBalanceRefreshNeeded(); shows snackbar \"Copied {Slot} to {targetDate}\" via the existing snackbar host",
+        "Copying to the same day appends a duplicate set (allowed; no special guard)",
+        "Verify on device: copy Lunch to tomorrow → tomorrow's Lunch shows the same entries appended; today's Lunch unchanged",
+        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

@@ -53,6 +53,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.ui.ColorCarbs
+import com.mettyoung.fitbro.ui.ColorFat
+import com.mettyoung.fitbro.ui.ColorProtein
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.formatTimeAgo
@@ -87,6 +90,7 @@ fun DashboardContent(
 ) {
     var showPicker by remember { mutableStateOf(false) }
     var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
+    var viewMode by remember { mutableStateOf(DashboardViewMode.BALANCE) }
     var wasRefreshing by remember { mutableStateOf(false) }
     var showSuccessToast by remember { mutableStateOf(false) }
     var refreshError by remember { mutableStateOf<String?>(null) }
@@ -221,6 +225,14 @@ fun DashboardContent(
             ) {
                 Spacer(Modifier.height(24.dp))
 
+                DashboardViewModeToggle(
+                    selected = viewMode,
+                    onSelected = { viewMode = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(24.dp))
+
                 when (val uiState = state.uiState) {
                     is DashboardUiState.Loading -> {
                         Box(
@@ -234,6 +246,7 @@ fun DashboardContent(
                         // Summary Card with Chart
                         SlidingWindowInsightCard(
                             balances = uiState.balances,
+                            viewMode = viewMode,
                             onBarClick = { selectedBreakdown = it },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -267,6 +280,7 @@ fun DashboardContent(
                                 uiState.balances.reversed().forEachIndexed { index, balance ->
                                     CondensedLogItem(
                                         balance = balance,
+                                        viewMode = viewMode,
                                         onClick = { selectedBreakdown = balance }
                                     )
                                     if (index < uiState.balances.size - 1) {
@@ -410,6 +424,7 @@ private fun ErrorDialog(error: String, onDismiss: () -> Unit) {
 @Composable
 private fun SlidingWindowInsightCard(
     balances: List<DailyBalance>,
+    viewMode: DashboardViewMode,
     onBarClick: (DailyBalance) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -419,6 +434,16 @@ private fun SlidingWindowInsightCard(
         com.mettyoung.fitbro.data.model.TrendDirection.DECLINING -> Color(0xFFF44336)
         com.mettyoung.fitbro.data.model.TrendDirection.STABLE -> MiOrange
     }
+
+    val isBalance = viewMode == DashboardViewMode.BALANCE
+    val headlineLabel = when (viewMode) {
+        DashboardViewMode.BALANCE -> "AVERAGE BALANCE"
+        DashboardViewMode.INTAKE -> "AVERAGE INTAKE"
+        DashboardViewMode.EXPENDITURE -> "AVERAGE EXPENDITURE"
+    }
+    val avgValue = if (isBalance) metrics.avgDailyBalance
+        else if (balances.isEmpty()) 0.0 else balances.sumOf { viewMode.valueOf(it) } / balances.size
+    val totalValue = if (isBalance) metrics.totalBalance else balances.sumOf { viewMode.valueOf(it) }
 
     Card(
         modifier = modifier,
@@ -434,35 +459,37 @@ private fun SlidingWindowInsightCard(
             ) {
                 Column {
                     Text(
-                        text = "AVERAGE BALANCE",
+                        text = headlineLabel,
                         style = MaterialTheme.typography.labelSmall,
                         color = MiTextSecondary
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "${formatCalorieValue(metrics.avgDailyBalance)} kcal",
+                        text = "${formatCalorieValue(avgValue)} kcal",
                         style = MaterialTheme.typography.displayMedium.copy(fontSize = 32.sp),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(trendColor.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (metrics.trend == com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING) 
-                            Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = null,
-                        tint = trendColor,
-                        modifier = if (metrics.trend != com.mettyoung.fitbro.data.model.TrendDirection.STABLE)
-                            Modifier.size(24.dp) else Modifier.size(0.dp) // Simplified for demo
-                    )
-                    if (metrics.trend == com.mettyoung.fitbro.data.model.TrendDirection.STABLE) {
-                        Box(Modifier.size(12.dp, 2.dp).background(trendColor))
+
+                if (isBalance) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(trendColor.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (metrics.trend == com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING)
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = null,
+                            tint = trendColor,
+                            modifier = if (metrics.trend != com.mettyoung.fitbro.data.model.TrendDirection.STABLE)
+                                Modifier.size(24.dp) else Modifier.size(0.dp) // Simplified for demo
+                        )
+                        if (metrics.trend == com.mettyoung.fitbro.data.model.TrendDirection.STABLE) {
+                            Box(Modifier.size(12.dp, 2.dp).background(trendColor))
+                        }
                     }
                 }
             }
@@ -472,7 +499,9 @@ private fun SlidingWindowInsightCard(
             CalorieBalanceChart(
                 balances = balances,
                 onBarClick = onBarClick,
-                modifier = Modifier.fillMaxWidth().height(160.dp)
+                modifier = Modifier.fillMaxWidth().height(160.dp),
+                valueSelector = { viewMode.valueOf(it) },
+                diverging = viewMode.isDiverging
             )
             
             Spacer(Modifier.height(24.dp))
@@ -483,12 +512,14 @@ private fun SlidingWindowInsightCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Total Week", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
-                    Text("${formatCalorieValue(metrics.totalBalance)} kcal", style = MaterialTheme.typography.titleMedium)
+                    Text("${formatCalorieValue(totalValue)} kcal", style = MaterialTheme.typography.titleMedium)
                 }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Trend", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
-                    Text(metrics.trend.name.lowercase().replaceFirstChar { it.uppercase() }, 
-                         style = MaterialTheme.typography.titleMedium, color = trendColor)
+                if (isBalance) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Trend", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
+                        Text(metrics.trend.name.lowercase().replaceFirstChar { it.uppercase() },
+                             style = MaterialTheme.typography.titleMedium, color = trendColor)
+                    }
                 }
             }
         }
@@ -498,10 +529,9 @@ private fun SlidingWindowInsightCard(
 @Composable
 private fun CondensedLogItem(
     balance: DailyBalance,
+    viewMode: DashboardViewMode,
     onClick: () -> Unit
 ) {
-    val balanceColor = if (balance.balance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
-    
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -521,28 +551,74 @@ private fun CondensedLogItem(
                 fontWeight = FontWeight.Black
             )
         }
-        
+
         Spacer(Modifier.width(16.dp))
-        
+
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(MiOrange))
-                Spacer(Modifier.width(8.dp))
-                Text("${balance.intake.roundToInt()} kcal in", style = MaterialTheme.typography.bodyMedium)
-            }
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
-                Spacer(Modifier.width(8.dp))
-                Text("${balance.burn.roundToInt()} kcal out", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
+            when (viewMode) {
+                DashboardViewMode.INTAKE -> {
+                    LogDotRow(ColorCarbs, "${balance.carbG.roundToInt()}g carbs")
+                    Spacer(Modifier.height(4.dp))
+                    LogDotRow(ColorProtein, "${balance.proteinG.roundToInt()}g protein")
+                    Spacer(Modifier.height(4.dp))
+                    LogDotRow(ColorFat, "${balance.fatG.roundToInt()}g fat")
+                }
+                DashboardViewMode.EXPENDITURE -> {
+                    LogDotRow(ColorProtein, "${balance.bmr.roundToInt()} kcal BMR")
+                    Spacer(Modifier.height(4.dp))
+                    LogDotRow(ColorCarbs, "${balance.tef.roundToInt()} kcal TEF")
+                    Spacer(Modifier.height(4.dp))
+                    LogDotRow(ColorFat, "${(balance.neat + balance.eat).roundToInt()} kcal Active")
+                }
+                else -> {
+                    LogDotRow(MiOrange, "${balance.intake.roundToInt()} kcal in")
+                    Spacer(Modifier.height(4.dp))
+                    LogDotRow(
+                        MaterialTheme.colorScheme.tertiary,
+                        "${balance.burn.roundToInt()} kcal out",
+                        textColor = MiTextSecondary
+                    )
+                }
             }
         }
-        
-        Text(
-            text = "${if (balance.balance >= 0) "+" else ""}${balance.balance.roundToInt()}",
-            style = MaterialTheme.typography.titleLarge,
-            color = balanceColor
-        )
+
+        when (viewMode) {
+            DashboardViewMode.INTAKE -> {
+                Text(
+                    text = "${balance.intake.roundToInt()} kcal",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            DashboardViewMode.EXPENDITURE -> {
+                Text(
+                    text = "${balance.burn.roundToInt()} kcal",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            else -> {
+                val balanceColor = if (balance.balance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                Text(
+                    text = "${if (balance.balance >= 0) "+" else ""}${balance.balance.roundToInt()}",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = balanceColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LogDotRow(
+    dotColor: Color,
+    text: String,
+    textColor: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(dotColor))
+        Spacer(Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = textColor)
     }
 }
 

@@ -31,6 +31,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.CustomFood
 import com.mettyoung.fitbro.ui.MiOrange
+import com.mettyoung.fitbro.util.MacroMath
 import kotlin.math.roundToInt
 
 /**
@@ -52,6 +53,17 @@ internal fun CustomFoodFormContent(
     var carbs by remember { mutableStateOf(initial?.carbG?.let { it.toString() } ?: "") }
     var protein by remember { mutableStateOf(initial?.proteinG?.let { it.toString() } ?: "") }
     var fat by remember { mutableStateOf(initial?.fatG?.let { it.toString() } ?: "") }
+
+    // Atwater: 4 kcal/g carb, 4 kcal/g protein, 9 kcal/g fat. Recompute on any macro change,
+    // overwriting calories (auto-fill). A manual calories edit persists until the next macro change.
+    fun recalcCalories(c: String, p: String, f: String) {
+        val sum = MacroMath.caloriesFromMacros(
+            carbG = c.toDoubleOrNull() ?: 0.0,
+            proteinG = p.toDoubleOrNull() ?: 0.0,
+            fatG = f.toDoubleOrNull() ?: 0.0
+        )
+        calories = if (sum > 0) sum.roundToInt().toString() else ""
+    }
 
     val servingVal = servingG.toDoubleOrNull()
     val caloriesVal = calories.toDoubleOrNull()
@@ -92,11 +104,11 @@ internal fun CustomFoodFormContent(
         Spacer(Modifier.height(12.dp))
         CustomFoodField(label = "Calories (kcal)", value = calories, onValueChange = { calories = it })
         Spacer(Modifier.height(12.dp))
-        CustomFoodField(label = "Carbs (g)", value = carbs, onValueChange = { carbs = it })
+        CustomFoodField(label = "Carbs (g)", value = carbs, onValueChange = { carbs = it; recalcCalories(it, protein, fat) })
         Spacer(Modifier.height(12.dp))
-        CustomFoodField(label = "Protein (g)", value = protein, onValueChange = { protein = it })
+        CustomFoodField(label = "Protein (g)", value = protein, onValueChange = { protein = it; recalcCalories(carbs, it, fat) })
         Spacer(Modifier.height(12.dp))
-        CustomFoodField(label = "Fat (g)", value = fat, onValueChange = { fat = it })
+        CustomFoodField(label = "Fat (g)", value = fat, onValueChange = { fat = it; recalcCalories(carbs, protein, it) })
 
         Spacer(Modifier.height(24.dp))
 

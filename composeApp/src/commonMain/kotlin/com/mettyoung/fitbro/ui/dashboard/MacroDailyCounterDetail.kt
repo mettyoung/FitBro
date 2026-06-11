@@ -91,6 +91,7 @@ import com.mettyoung.fitbro.data.model.MealType
 import com.mettyoung.fitbro.ui.FitroBroIcon
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.util.MacroMath
 import com.mettyoung.fitbro.util.MONTH_ABBR
 import com.mettyoung.fitbro.util.minusDays
 import com.mettyoung.fitbro.util.plusDays
@@ -1109,7 +1110,7 @@ private class MealDragState {
 }
 
 @Composable
-private fun MacroGoalsDialog(
+internal fun MacroGoalsDialog(
     proteinGoal: Double,
     carbsGoal: Double,
     fatGoal: Double,
@@ -1121,6 +1122,17 @@ private fun MacroGoalsDialog(
     var carbsInput by remember { mutableStateOf(carbsGoal.toInt().toString()) }
     var fatInput by remember { mutableStateOf(fatGoal.toInt().toString()) }
     var calorieInput by remember { mutableStateOf(calorieGoal.toInt().toString()) }
+
+    // Atwater: 4 kcal/g carb, 4 kcal/g protein, 9 kcal/g fat. Recompute on any macro change,
+    // overwriting the calorie goal (auto-fill). A manual calorie edit persists until the next macro change.
+    fun recalcCalories(p: String, c: String, f: String) {
+        val sum = MacroMath.caloriesFromMacros(
+            carbG = (c.toIntOrNull() ?: 0).toDouble(),
+            proteinG = (p.toIntOrNull() ?: 0).toDouble(),
+            fatG = (f.toIntOrNull() ?: 0).toDouble()
+        )
+        calorieInput = if (sum > 0) sum.roundToInt().toString() else ""
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -1141,20 +1153,26 @@ private fun MacroGoalsDialog(
                 
                 Spacer(Modifier.height(24.dp))
                 
+                val percents = MacroMath.macroPercents(
+                    carbG = (carbsInput.toIntOrNull() ?: 0).toDouble(),
+                    proteinG = (proteinInput.toIntOrNull() ?: 0).toDouble(),
+                    fatG = (fatInput.toIntOrNull() ?: 0).toDouble()
+                )
+
                 GoalField("Calories (kcal)", calorieInput) {
                     if (it.all { c -> c.isDigit() }) calorieInput = it
                 }
                 Spacer(Modifier.height(16.dp))
-                GoalField("Protein (g)", proteinInput) {
-                    if (it.all { c -> c.isDigit() }) proteinInput = it
+                GoalField("Protein (g)", proteinInput, trailing = percents?.let { "${it.proteinPct}%" }) {
+                    if (it.all { c -> c.isDigit() }) { proteinInput = it; recalcCalories(it, carbsInput, fatInput) }
                 }
                 Spacer(Modifier.height(16.dp))
-                GoalField("Carbohydrates (g)", carbsInput) {
-                    if (it.all { c -> c.isDigit() }) carbsInput = it
+                GoalField("Carbohydrates (g)", carbsInput, trailing = percents?.let { "${it.carbPct}%" }) {
+                    if (it.all { c -> c.isDigit() }) { carbsInput = it; recalcCalories(proteinInput, it, fatInput) }
                 }
                 Spacer(Modifier.height(16.dp))
-                GoalField("Total Fats (g)", fatInput) {
-                    if (it.all { c -> c.isDigit() }) fatInput = it
+                GoalField("Total Fats (g)", fatInput, trailing = percents?.let { "${it.fatPct}%" }) {
+                    if (it.all { c -> c.isDigit() }) { fatInput = it; recalcCalories(proteinInput, carbsInput, it) }
                 }
                 
                 Spacer(Modifier.height(32.dp))
@@ -1191,11 +1209,26 @@ private fun MacroGoalsDialog(
 }
 
 @Composable
-private fun GoalField(label: String, value: String, onValueChange: (String) -> Unit) {
+private fun GoalField(
+    label: String,
+    value: String,
+    trailing: String? = null,
+    onValueChange: (String) -> Unit
+) {
     TextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
+        trailingIcon = trailing?.let {
+            {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MiTextSecondary,
+                    modifier = Modifier.padding(end = 16.dp)
+                )
+            }
+        },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

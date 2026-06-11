@@ -1,66 +1,58 @@
-# Ralph Progress Log — recent-meals
-Started: 2026-06-09
+# Ralph Progress Log — intake-expenditure-views
+Started: 2026-06-10
 
 ## Codebase Patterns
-- **Repo layer**: `FoodDiaryRepository` (interface) + `FoodDiaryRepositoryImpl` (SQLDelight). Flows via `database.foodDiaryQueries.<q>().asFlow().mapToList(Dispatchers.Default).map{...}`. Suspend writes via `withContext(Dispatchers.Default){ ... transactionWithResult{} }`.
-- **SQLDelight queries**: `composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/FoodDiary.sq`. `LIMIT ?` → bind param is `Long`. Single table `FoodDiaryEntry`; no migrations for this feature.
-- **Row→domain**: private `FoodDiaryEntry.toDomain()` extension at bottom of Impl maps `food_id`→`foodId`. Detached template = `.copy(id = 0, sortOrder = 0)`.
-- **Model**: `data/model/FoodDiaryEntry.kt` — `id: Long=0`, `sortOrder: Long=0`, `brandName/foodId` nullable. `MealType.{BREAKFAST,LUNCH,DINNER,SNACKS}`, `MealType.ordered`. `ServingUnit.GRAMS="g"`.
-- **commonTest**: NO SQLDelight driver, NO coroutines-test. `FoodDiaryReorderTest.kt` has its OWN private `FakeFoodDiaryRepository` + private `runSync` (StateFlow emits sync, no real suspension). When adding a repo method, MUST add it to that fake or tests won't compile. Read flows once via `.first()`.
-- **sortOrder contract**: addEntry → maxSortOrderForDateMeal+1; getEntriesForDate orders by (mealType, sortOrder, id).
+- **Screen**: `ui/dashboard/DashboardScreen.kt`. `DashboardScreen` collects `stateHolder.state` → `DashboardContent(state, onRefresh, onDateRangeChanged)`. All view state (showPicker, selectedBreakdown, toasts) is `remember`'d inside `DashboardContent` — add the toggle's `DashboardViewMode` state here too.
+- **Layout order in DashboardContent**: header (title + refresh + date picker) → date navigator (rounded pill, RoundedCornerShape(16.dp), background) → [INSERT TOGGLE HERE] → `SlidingWindowInsightCard` (avg + chart + footer) → History header → Card of `CondensedLogItem` rows (`balances.reversed()`, HorizontalDivider between).
+- **Chart**: `CalorieBalanceChart(balances, onBarClick, modifier)`. Diverging: top half drawn when `balance>0`, bottom half when `balance<0`, around a center zero line; `maxAbsBalance = maxOf(abs(balance)).coerceIn(100,3000)`; height factor `(abs(value)/max).coerceIn(0.1,1)`; takeLast(7); day-initial labels via Zeller. For positive-only modes reuse the top-half path and skip the bottom half.
+- **History row**: `CondensedLogItem(balance, onClick)` — left `Column(width=48dp)` day-abbr + day number; middle `Column(weight=1f)` with dotted rows; right signed balance value colored green(0xFF4CAF50)/red(0xFFF44336). Today it hardcodes 2 middle rows (kcal in / kcal out) — generalize the middle + right per `DashboardViewMode`.
+- **Summary card**: `SlidingWindowInsightCard` uses `calculateWindowMetrics(balances)` (avg/total/trend over balance). Headline 'AVERAGE BALANCE', footer 'Total Week' + 'Trend' chip. For intake/expenditure compute mean/sum of intake|burn directly and hide the trend chip.
+- **Model**: `data/model/DailyBalance` fields: intake, burn, balance, bmr, tef, neat, eat, proteinG, carbG, fatG (all Double). No new fields needed.
+- **Colors** (`ui/Theme.kt`): MiOrange 0xFFFF6B00, MiTextSecondary 0xFF6C757D, ColorProtein 0xFF4361EE, ColorCarbs 0xFFF72585, ColorFat 0xFF4CC9F0. `BreakdownDialog` burn coloring: BMR=ColorProtein, Active(neat)=ColorFat, TEF=ColorCarbs — match it.
+- **Gradle env**: JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home; run UNSANDBOXED. Typecheck = `:composeApp:compileDebugKotlinAndroid` + `:composeApp:compileKotlinIosSimulatorArm64`. No browser test on this KMP app.
+- **Scope guard**: presentation-only — do NOT touch DashboardStateHolder, repositories, data sources, schema, or BreakdownDialog.
 
-## 2026-06-09 — US-001 Recent-foods query + repository method
-Changed:
-- `FoodDiary.sq`: added `recentFoods` query — `WHERE id IN (SELECT MAX(id) ... GROUP BY COALESCE(food_id, lower(trim(foodName))||'|'||lower(trim(COALESCE(brandName,'')))))`, `ORDER BY id DESC LIMIT ?`. Dedup key = food_id else name|brand.
-- `FoodDiaryRepository.kt`: added `fun getRecentFoods(limit: Int): Flow<List<FoodDiaryEntry>>`.
-- `FoodDiaryRepositoryImpl.kt`: impl maps rows toDomain then `.copy(id=0, sortOrder=0)` (detached templates).
-- `FoodDiaryReorderTest.kt`: fake impl of getRecentFoods (groupBy key → maxBy id → sortByDescending id → take limit → copy id/sortOrder 0) + test `getRecentFoodsDedupsOrdersAndLimits`.
-Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓, testDebugUnitTest ✓.
-Learnings:
-- Newest-first = highest id first (AUTOINCREMENT). MAX(id) per group = last-used serving/macros.
-- Both the real query and the fake must agree on the dedup key; keep them mirrored.
+## 2026-06-10 — US-001: 3-way segmented toggle + view-mode state
+- New file `ui/dashboard/DashboardViewMode.kt`: enum DashboardViewMode { BALANCE, INTAKE, EXPENDITURE } (each w/ label) + `DashboardViewModeToggle` composable.
+- Toggle styled like date navigator: background+RoundedCornerShape(16.dp) pill, padding(4.dp), 3 weight(1f) Text segments. Selected = MiOrange bg + White text + Bold; unselected = transparent + MiTextSecondary.
+- `DashboardScreen.kt`: hoisted `var viewMode by remember { mutableStateOf(DashboardViewMode.BALANCE) }` in DashboardContent; rendered toggle in content Column between top Spacer and the `when(uiState)` block (below date navigator, above summary card). Default BALANCE.
+- Toggle is currently presentation-only / not yet wired to chart/card/history (US-002..005).
+- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
+- Learnings: enum `.entries` works fine in commonMain (Kotlin 1.9+ stable). Toggle placed in shared content Column so it shows across Loading/Success/Error states — acceptable since it only drives Success-state views.
 
-## 2026-06-09 — US-002 Copy-meal-slot repository operation
-Changed:
-- `FoodDiaryRepository.kt`: added `suspend fun copyMealToDate(sourceDate, mealType, targetDate)`.
-- `FoodDiaryRepositoryImpl.kt`: impl in ONE `transaction {}` — reads source via `getEntriesByDateAndMeal(...).executeAsList()`, early `return@transaction` if empty, seeds sortOrder from `maxSortOrderForDateMeal(targetDate, mealType)+1` and increments per insert, reuses `insertEntry` with fields copied verbatim (new id auto, date=targetDate).
-- `FoodDiaryReorderTest.kt`: fake `copyMealToDate` (same append semantics, sources sorted by sortOrder/id) + tests `copyMealToDateAppendsAfterExistingTargetEntries`, `copyMealToDateNoOpWhenSourceEmpty`.
-Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓, testDebugUnitTest ✓.
-Learnings:
-- No `copyMeal` SQL needed — compose existing `getEntriesByDateAndMeal` + `maxSortOrderForDateMeal` + `insertEntry` inside one `transaction {}`. `transactionWithResult` only needed when returning a value.
-- `return@transaction` (not `return`) for the empty-source no-op inside the lambda.
-- Fake must sort sources by (sortOrder, id) before copying so appended order is deterministic, mirroring the SQL ORDER BY.
+## 2026-06-10 — US-002: Chart plots the active view's value
+- `CalorieBalanceChart`: added params `valueSelector: (DailyBalance) -> Double = { it.balance }` + `diverging: Boolean = true`. Default args keep BALANCE behavior identical.
+- Normalization: diverging keeps original `coerceIn(100,3000)`; positive-only uses real window max `coerceAtLeast(1.0)` (no 3000 cap, since intake/burn routinely exceed it).
+- `CalorieBarItem` now takes value/maxValue/diverging; `drawTop = \!diverging || value>0`, `drawBottom = diverging && value<0`. Positive-only bars always top-half, MiOrange. Click + day-initial labels untouched.
+- `DashboardViewMode.kt`: added `valueOf(DailyBalance)` (BALANCE→balance, INTAKE→intake, EXPENDITURE→burn) + `isDiverging` (true only for BALANCE).
+- `DashboardScreen.kt`: `SlidingWindowInsightCard` gained a `viewMode` param; passes `valueSelector`/`diverging` into the chart. DashboardContent already hoists `viewMode`.
+- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
+- Learnings: positive-only bars reuse the top-half path so they occupy only the upper half of chart height (zero line stays centered) — matches "upward-only" intent. Keep the 100..3000 clamp scoped to diverging; applying it to intake/burn would flatten all bars to max.
 
-## 2026-06-09 — US-003 StateHolder: recents flow + copyMeal action
-Changed:
-- `FoodDiaryStateHolder.kt`: added `recentFoods: StateFlow<List<FoodDiaryEntry>>` from `repository.getRecentFoods(20)` via `stateIn(scope, WhileSubscribed(5_000), emptyList())`; added `fun copyMeal(sourceDate, mealType, targetDate): Job` launching `repository.copyMealToDate`.
-Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓. No data-layer change → no new test (StateHolder wiring only).
-Learnings:
-- `recentFoods` is a top-level (non-date-scoped) flow — no `flatMapLatest` on `_selectedDate` needed; same `stateIn` pattern as `weeklyTotals`/`state`.
+## 2026-06-10 — US-003: Summary insight card adapts per view
+- `SlidingWindowInsightCard` (DashboardScreen.kt): derived `isBalance`, `headlineLabel`, `avgValue`, `totalValue` from `viewMode`.
+  - Headline: BALANCE 'AVERAGE BALANCE', INTAKE 'AVERAGE INTAKE', EXPENDITURE 'AVERAGE EXPENDITURE'.
+  - avgValue: BALANCE keeps `metrics.avgDailyBalance`; else `sumOf{valueOf}/size` (empty-guard → 0.0). totalValue: BALANCE keeps `metrics.totalBalance`; else `sumOf{valueOf}`.
+  - Trend chip (header circle icon) wrapped in `if (isBalance)` — hidden for intake/expenditure. Footer 'Trend' column also gated by `if (isBalance)`; 'Total Week' column always shown with totalValue.
+- BALANCE path uses identical metrics values/typography → no regression.
+- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
+- Learnings: avg via `sumOf{valueOf(it)}/size` reuses `DashboardViewMode.valueOf` from US-002 — single source for which field each lens reads; no duplicated field-selection logic between chart, card, history. Empty-list guard needed since `List.average()`/manual divide → NaN on empty window.
 
-## 2026-06-09 — US-004 Recent tab in Log Food sheet
-Changed:
-- `FoodLogSheet.kt`: added `recentFoods: List<FoodDiaryEntry> = emptyList()` param to `FoodSearchSheet`, passed to `FoodSearchContent` (+ `onSelectRecent: (FoodDiaryEntry) -> Unit`, no-op for now → wired in US-005). `FoodSearchContent` now has a `recentTab` toggle via two `SegmentChip` FilterChips (Search default / Recent). Recent tab renders `RecentFoodRow` list (reuses FoodResultRow styling: name, brand?, subtitle `{servingSizeG.roundToInt()}{servingUnit} · {calories.roundToInt()}kcal`) or empty state "No recent foods yet — log something first.". `query`/`searchState` live at `FoodSearchContent` level so tab switches don't reset search. Create-custom + search field stay on Search tab only (early `return@Column` for Recent).
-- `MacroDailyCounterDetail.kt`: collect `foodDiaryStateHolder.recentFoods`, pass to `FoodSearchSheet`.
-Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓. UI-only, no data-layer change → no new test.
-Learnings:
-- Early-exit a Compose content lambda with `return@Column` to render a mutually-exclusive tab without nesting the whole Search branch in an `else`.
-- New `SegmentChip` mirrors existing `ServingUnitChip` (FilterChip + MiOrange selected) — no SegmentedButton dep needed; keeps design-system consistent.
+## 2026-06-10 — US-004: Intake history rows — macro grams + total kcal-in
+- `CondensedLogItem` (DashboardScreen.kt): added `viewMode` param. Middle column + right value now branch on viewMode via `when`.
+  - INTAKE: 3 dotted rows Carbs/Protein/Fat (`ColorCarbs`/`ColorProtein`/`ColorFat`) showing `${field.roundToInt()}g <macro>`; right = `${intake.roundToInt()} kcal` in onSurface (no sign, no green/red).
+  - else (BALANCE, EXPENDITURE for now): unchanged — kcal in/out rows + signed colored balance. EXPENDITURE branch is US-005.
+- Extracted `LogDotRow(dotColor, text, textColor=onSurface)` helper to dedupe the dot+label row (BALANCE & INTAKE both use it). Default textColor=onSurface matches original BALANCE "kcal in" Text (which relied on LocalContentColor) → no regression.
+- Left column (day abbr + day number) and `onClick`→BreakdownDialog unchanged for all modes.
+- Imports added: ColorCarbs/ColorFat/ColorProtein from ui.Theme.
+- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
+- Learnings: `when(viewMode){ INTAKE -> ...; else -> ...}` keeps EXPENDITURE compiling+non-crashing (falls to balance layout) until US-005 fills it — lets you ship one lens per story without a broken intermediate. Macro order Carbs/Protein/Fat per spec; dot colors are the intake-macro palette (distinct from burn palette in US-005).
 
-## 2026-06-09 — US-005 One-tap add from Recent tab
-Changed:
-- `FoodLogSheet.kt`: wired `onSelectRecent` in `FoodSearchSheet` (was no-op) → calls `onAddEntry(template.copy(id=0, sortOrder=0, date=date, mealType=mealType))`. Reuses existing `onAddEntry` path.
-Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓. UI wiring only, no data-layer change → no new test.
-Learnings:
-- Existing `onAddEntry` call site (MacroDailyCounterDetail) already does addEntry().join() → onBalanceRefreshNeeded() → dismiss (addingToMeal=null). Re-route recent taps through it = id/sortOrder reassign + Health Connect sync + dismiss for free.
-- Recent templates already detached (id=0,sortOrder=0 from US-001), but re-stamp date+mealType to the *current* logging context (template carries the original log's date/meal).
-
-## 2026-06-09 — US-006 Copy-to-day action on a meal slot
-Changed:
-- `DatePickerDialog.kt`: added `allowFuture: Boolean = false` param. Gates `isFuture` (`!allowFuture && dayStr > today`) and `canGoNext` (`allowFuture || ...`). Default false keeps the week-trends picker (DashboardScreen) future-blocked & unchanged.
-- `MacroDailyCounterDetail.kt`: `FoodDiarySection` gained `onCopyToDay: () -> Unit = {}`; renders a "Copy to day" `DropdownMenuItem` in the existing slot-header "+" menu ONLY when `entries.isNotEmpty()`. Added `copyingMeal: String?` state; call site sets `onCopyToDay = { copyingMeal = mealType }`. New `copyingMeal?.let { DatePickerDialog(allowFuture=true) }` → on confirm: `foodDiaryStateHolder.copyMeal(selectedDate, mealType, range.startDate).join()` → `onBalanceRefreshNeeded()` → snackbar `"Copied {Slot} to {targetDate}"` via existing `snackbarHostState`.
-Gates: compileDebugKotlinAndroid ✓, compileKotlinIosSimulatorArm64 ✓. UI wiring only, no data-layer change → no new test.
-Learnings:
-- Spec said "reuse existing DatePickerDialog" but it's a WEEK-range picker that blocks future dates — copy-to-tomorrow needs a future day. Added an `allowFuture` flag (default false) instead of forking the dialog; target day = `range.startDate` (week highlight is cosmetic, the picked start is what's used).
-- "Enabled only when slot has ≥1 entry" satisfied by conditionally emitting the menu item (not a disabled item) — `entries` already in scope in `FoodDiarySection`.
-
+## 2026-06-10 — US-005: Expenditure history rows — BMR/TEF/Active + total kcal-out
+- `CondensedLogItem` (DashboardScreen.kt): filled the EXPENDITURE branch in both middle-column and right-value `when(viewMode)` blocks.
+  - Middle: 3 dotted rows BMR/TEF/Active. Colors match BreakdownDialog burn palette: BMR=ColorProtein, TEF=ColorCarbs, Active=ColorFat. Active = `neat + eat`. Each `${field.roundToInt()} kcal <label>`.
+  - Right: `${burn.roundToInt()} kcal` in onSurface (no sign, not green/red), same titleLarge styling as INTAKE.
+- Reused existing `LogDotRow` helper + left column + onClick→BreakdownDialog untouched.
+- No new imports (ColorProtein/ColorCarbs/ColorFat already imported in US-004).
+- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
+- Learnings: bmr+tef+neat+eat == burn by construction in DailyBalance, so showing the three component rows + burn total needs no reconciliation field — rounding each independently is fine per spec. Burn palette (BMR=protein-blue, TEF=carb-pink, Active=fat-cyan) intentionally reuses the macro color constants but maps them to energy components to mirror BreakdownDialog — same tokens, different semantic per lens.

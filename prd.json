@@ -1,22 +1,20 @@
 {
   "project": "FitBro",
-  "branchName": "ralph/recent-meals",
-  "description": "Recent Foods & Copy Meal to Another Day — a Recent tab in the Log Food sheet for one-tap re-logging of previously logged foods (most-recent-first), plus per-meal-slot copy to a different day. Derived entirely from existing FoodDiaryEntry rows; NO new table or migration. Stack: Kotlin Multiplatform + Compose Multiplatform, SQLDelight source of truth, StateHolder + StateFlow UDF. Typecheck gate: ./gradlew :composeApp:compileDebugKotlinAndroid. Tests: ./gradlew :composeApp:testDebugUnitTest (commonTest uses runSync + in-memory fakes; NO SQLDelight driver, NO coroutines-test). Full spec: tasks/prd-recent-meals.md.",
+  "branchName": "ralph/intake-expenditure-views",
+  "description": "Extend the dashboard Balance screen with two sibling lenses — Intake and Expenditure — selectable via a 3-way segmented toggle. Presentation-only: DailyBalance already carries intake, burn, balance, bmr, tef, neat, eat, proteinG, carbG, fatG. Reuses existing chart + history-card styling. No data-layer, repository, or schema changes.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Recent-foods query + repository method",
-      "description": "As a developer, I need a query returning the most recently logged distinct foods so the Recent tab has data.",
+      "title": "3-way segmented toggle + view-mode state",
+      "description": "As a user, I want a Balance | Intake | Expenditure toggle at the top of the Balance screen so I can switch lenses in one tap.",
       "acceptanceCriteria": [
-        "Add `recentFoods` query to FoodDiary.sq returning one row per distinct food, newest first (ORDER BY id DESC), with a LIMIT (?) parameter",
-        "Distinctness key = food_id when present, else lower(trim(foodName)) || '|' || lower(trim(COALESCE(brandName,''))); use subquery SELECT MAX(id) ... GROUP BY that key so a food logged N times appears once with its last-used serving/macros",
-        "No schema change / no migration — query only over the existing FoodDiaryEntry table",
-        "Add fun getRecentFoods(limit: Int): Flow<List<FoodDiaryEntry>> to FoodDiaryRepository + impl in FoodDiaryRepositoryImpl, main-safe via asFlow().mapToList(Dispatchers.Default)",
-        "Returned entries are detached templates: map toDomain then copy(id = 0, sortOrder = 0)",
-        "Update the in-memory FakeFoodDiaryRepository in commonTest (FoodDiaryReorderTest.kt) to implement getRecentFoods",
-        "Unit test in commonTest using runSync + a fake/in-memory repo: dedup keeps one row per food, ordering is most-recent-first, limit is respected",
-        "Tests pass: ./gradlew :composeApp:testDebugUnitTest",
-        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
+        "Add enum DashboardViewMode { BALANCE, INTAKE, EXPENDITURE } in ui/dashboard (new small file or alongside DashboardScreen).",
+        "Add a segmented-toggle composable rendered inside DashboardContent, below the date navigator and above the summary card.",
+        "Toggle state hoisted in DashboardContent via remember { mutableStateOf(DashboardViewMode.BALANCE) }; default BALANCE.",
+        "Selected segment uses MiOrange accent; unselected uses MiTextSecondary; matches existing rounded-pill styling (RoundedCornerShape(16.dp) background like the date navigator).",
+        "With BALANCE selected the screen renders identically to current behavior — no visual regression.",
+        "compileDebugKotlinAndroid passes",
+        "compileKotlinIosSimulatorArm64 passes"
       ],
       "priority": 1,
       "passes": true,
@@ -24,17 +22,18 @@
     },
     {
       "id": "US-002",
-      "title": "Copy-meal-slot repository operation",
-      "description": "As a developer, I need a repository method that duplicates one meal slot's entries onto another date so the UI can offer Copy to day.",
+      "title": "Chart plots the active view's value",
+      "description": "As a user, I want the chart to reflect the lens I picked so the bars match the breakdown below.",
       "acceptanceCriteria": [
-        "Add suspend fun copyMealToDate(sourceDate: String, mealType: String, targetDate: String) to FoodDiaryRepository + impl",
-        "Reads source slot via getEntriesByDateAndMeal; inserts a copy of each into targetDate/same mealType inside one SQLDelight transaction, reusing insertEntry",
-        "Copied entries get new ids and sortOrder appended AFTER existing target entries: start at maxSortOrderForDateMeal(targetDate, mealType) + 1; all other fields copied verbatim (id/date/sortOrder excluded)",
-        "No-op (no throw) when the source slot is empty",
-        "Update FakeFoodDiaryRepository in commonTest to implement copyMealToDate with the same append semantics",
-        "Unit test (runSync + fake): copying N entries appends N to target, source unchanged, target's pre-existing entries preserved and first",
-        "Tests pass: ./gradlew :composeApp:testDebugUnitTest",
-        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
+        "Parameterize CalorieBalanceChart with a value selector ((DailyBalance) -> Double) plus a diverging/positive-only flag; do not duplicate the chart.",
+        "BALANCE mode unchanged: diverging bars around the zero line keyed on balance (positive MiOrange, negative tertiary).",
+        "INTAKE mode: plots intake per day as upward-only bars (no negative half).",
+        "EXPENDITURE mode: plots burn per day as upward-only bars.",
+        "Bar-height normalization for intake/expenditure uses the window max of the plotted value, not the balance max.",
+        "Day-initial labels and click-to-open-BreakdownDialog behavior preserved in all three modes.",
+        "DashboardContent passes the active DashboardViewMode into the chart.",
+        "compileDebugKotlinAndroid passes",
+        "compileKotlinIosSimulatorArm64 passes"
       ],
       "priority": 2,
       "passes": true,
@@ -42,13 +41,16 @@
     },
     {
       "id": "US-003",
-      "title": "StateHolder: recents flow + copyMeal action",
-      "description": "As a developer, I need StateHolder entry points for recents and copy so the UI stays unidirectional.",
+      "title": "Summary insight card adapts per view",
+      "description": "As a user, I want the big number and footer on the summary card to describe the lens I'm viewing.",
       "acceptanceCriteria": [
-        "FoodDiaryStateHolder exposes recentFoods: StateFlow<List<FoodDiaryEntry>> from repository.getRecentFoods(20) via stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())",
-        "FoodDiaryStateHolder adds fun copyMeal(sourceDate: String, mealType: String, targetDate: String): Job that launches on its scope and calls repository.copyMealToDate",
-        "No change to existing state / weeklyTotals flows",
-        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
+        "BALANCE unchanged: 'AVERAGE BALANCE', trend chip, 'Total Week' / 'Trend' footer.",
+        "INTAKE: headline label 'AVERAGE INTAKE', value = mean of intake over the window in kcal; footer total = sum of intake.",
+        "EXPENDITURE: headline label 'AVERAGE EXPENDITURE', value = mean of burn; footer total = sum of burn.",
+        "Reuses existing formatCalorieValue and the card's typography/spacing; no new card style.",
+        "For INTAKE/EXPENDITURE the trend chip is hidden (do not show a green/red balance arrow that would mislead).",
+        "compileDebugKotlinAndroid passes",
+        "compileKotlinIosSimulatorArm64 passes"
       ],
       "priority": 3,
       "passes": true,
@@ -56,16 +58,17 @@
     },
     {
       "id": "US-004",
-      "title": "Recent tab in Log Food sheet",
-      "description": "As a user, I want a Recent tab in the food-logging sheet so I can see foods I've logged before instead of searching.",
+      "title": "Intake history rows — macro grams + total kcal-in",
+      "description": "As a user, in Intake view I want each day's history row to show carbs/protein/fat in grams and the day's total calories in.",
       "acceptanceCriteria": [
-        "FoodSearchSheet/FoodSearchContent in FoodLogSheet.kt shows two segments: Search (default) and Recent",
-        "Add a recentFoods: List<FoodDiaryEntry> = emptyList() parameter to FoodSearchSheet; pass foodDiaryStateHolder.recentFoods (collected) from the addingToMeal call site in MacroDailyCounterDetail.kt",
-        "Recent tab lists rows reusing FoodResultRow styling: name, brand (if any), subtitle \"{servingSizeG.roundToInt()}{servingUnit} · {calories.roundToInt()}kcal\", most-recent-first",
-        "Empty state when list is empty: \"No recent foods yet — log something first.\"",
-        "Switching tabs does not reset an in-progress search query; the Create custom food affordance stays on the Search tab only",
-        "Verify on device: build + ./gradlew :composeApp:installDebug, open Log Food, switch to Recent tab, confirm prior foods render (NOTE: dev-browser skill does not apply — this is an Android/iOS app)",
-        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
+        "History list reuses CondensedLogItem format/style, reverse-chronological (balances.reversed()), same Card with HorizontalDivider between rows.",
+        "Left column unchanged: day abbreviation + day-of-month number.",
+        "Middle: three rows Carbs / Protein / Fat, each with a colored dot (ColorCarbs / ColorProtein / ColorFat) and value in grams (e.g. '120g carbs') from carbG / proteinG / fatG rounded to whole grams.",
+        "Right: total kcal-in = intake.roundToInt() + ' kcal', styled like the existing right-side value; no +/- sign, not green/red.",
+        "Tapping a row still opens the existing BreakdownDialog (unchanged).",
+        "Parameterize CondensedLogItem per DashboardViewMode rather than forking the row.",
+        "compileDebugKotlinAndroid passes",
+        "compileKotlinIosSimulatorArm64 passes"
       ],
       "priority": 4,
       "passes": true,
@@ -73,32 +76,19 @@
     },
     {
       "id": "US-005",
-      "title": "One-tap add from Recent tab",
-      "description": "As a user, I want tapping a recent food to add it straight to the meal slot I'm logging into, using the serving I last used.",
+      "title": "Expenditure history rows — BMR/TEF/Active + total kcal-out",
+      "description": "As a user, in Expenditure view I want each day's history row to show BMR / TEF / Active energy and the day's total calories out.",
       "acceptanceCriteria": [
-        "Tapping a recent row invokes the sheet's onAddEntry with the template copied to the current mealType + selected date (id = 0, sortOrder = 0), carrying macros/servingSizeG/servingUnit/foodName/brandName/food_id verbatim",
-        "Goes through the existing add path (FoodDiaryStateHolder.addEntry) so a fresh id + appended sortOrder are assigned and Health Connect sync fires",
-        "Sheet dismisses on add (matches add-from-search behavior); daily totals + balance refresh via the existing onBalanceRefreshNeeded callback",
-        "Verify on device: tap a recent → entry appears in the correct slot with correct macros; daily totals update",
-        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
+        "Same reused CondensedLogItem layout, reverse-chronological, same Card/divider styling.",
+        "Middle: three rows BMR / TEF / Active, each with a colored dot and a kcal value: bmr, tef, and Active = neat + eat, each rounded to whole kcal.",
+        "Dot colors match the burn-breakdown coloring used in BreakdownDialog: BMR = ColorProtein, TEF = ColorCarbs, Active = ColorFat.",
+        "Right: total kcal-out = burn.roundToInt() + ' kcal', styled like the existing right-side value; no sign, not green/red.",
+        "Sanity: bmr + tef + neat + eat equals burn (no fabricated reconciliation field if rounding drifts).",
+        "Tapping a row opens the existing BreakdownDialog (unchanged).",
+        "compileDebugKotlinAndroid passes",
+        "compileKotlinIosSimulatorArm64 passes"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-006",
-      "title": "Copy-to-day action on a meal slot",
-      "description": "As a user, I want a Copy to another day action on a meal slot so I can replicate it without re-entering each food.",
-      "acceptanceCriteria": [
-        "Each meal slot (Breakfast/Lunch/Dinner/Snacks) in MacroDailyCounterDetail.kt exposes a \"Copy to day\" action in its header, enabled only when the slot has >= 1 entry",
-        "Tapping it opens the existing DatePickerDialog to choose the target date",
-        "On confirm, calls foodDiaryStateHolder.copyMeal(currentDate, mealType, targetDate) then onBalanceRefreshNeeded(); shows snackbar \"Copied {Slot} to {targetDate}\" via the existing snackbar host",
-        "Copying to the same day appends a duplicate set (allowed; no special guard)",
-        "Verify on device: copy Lunch to tomorrow → tomorrow's Lunch shows the same entries appended; today's Lunch unchanged",
-        "Typecheck passes: ./gradlew :composeApp:compileDebugKotlinAndroid"
-      ],
-      "priority": 6,
       "passes": true,
       "notes": ""
     }
