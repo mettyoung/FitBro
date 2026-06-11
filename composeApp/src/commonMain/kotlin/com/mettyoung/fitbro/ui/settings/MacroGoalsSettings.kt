@@ -48,7 +48,9 @@ import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.util.MacroMath
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 @Composable
 fun MacroGoalsSettings(
@@ -75,6 +77,23 @@ fun MacroGoalsSettings(
             showSuccess = false
         }
     }
+
+    // Atwater: 4 kcal/g carb, 4 kcal/g protein, 9 kcal/g fat. Recompute on any macro change,
+    // overwriting the calorie goal. A manual calorie edit persists until the next macro change.
+    fun recalcCalories(p: String, c: String, f: String) {
+        val sum = MacroMath.caloriesFromMacros(
+            carbG = (c.toIntOrNull() ?: 0).toDouble(),
+            proteinG = (p.toIntOrNull() ?: 0).toDouble(),
+            fatG = (f.toIntOrNull() ?: 0).toDouble()
+        )
+        calorieGoal = if (sum > 0) sum.roundToInt().toString() else ""
+    }
+
+    val percents = MacroMath.macroPercents(
+        carbG = (carbsGoal.toIntOrNull() ?: 0).toDouble(),
+        proteinG = (proteinGoal.toIntOrNull() ?: 0).toDouble(),
+        fatG = (fatGoal.toIntOrNull() ?: 0).toDouble()
+    )
 
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
@@ -138,25 +157,28 @@ fun MacroGoalsSettings(
                         SettingsInputField(
                             label = "Protein Goal",
                             value = proteinGoal,
-                            onValueChange = { proteinGoal = it },
+                            onValueChange = { proteinGoal = it; recalcCalories(it, carbsGoal, fatGoal) },
                             unit = "g",
-                            color = ColorProtein
+                            color = ColorProtein,
+                            percent = percents?.let { "${it.proteinPct}%" }
                         )
 
                         SettingsInputField(
                             label = "Carbohydrates Goal",
                             value = carbsGoal,
-                            onValueChange = { carbsGoal = it },
+                            onValueChange = { carbsGoal = it; recalcCalories(proteinGoal, it, fatGoal) },
                             unit = "g",
-                            color = ColorCarbs
+                            color = ColorCarbs,
+                            percent = percents?.let { "${it.carbPct}%" }
                         )
 
                         SettingsInputField(
                             label = "Total Fats Goal",
                             value = fatGoal,
-                            onValueChange = { fatGoal = it },
+                            onValueChange = { fatGoal = it; recalcCalories(proteinGoal, carbsGoal, it) },
                             unit = "g",
-                            color = ColorFat
+                            color = ColorFat,
+                            percent = percents?.let { "${it.fatPct}%" }
                         )
                     }
                 }
@@ -211,7 +233,8 @@ private fun SettingsInputField(
     value: String,
     onValueChange: (String) -> Unit,
     unit: String,
-    color: Color
+    color: Color,
+    percent: String? = null
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
@@ -223,13 +246,25 @@ private fun SettingsInputField(
             value = value,
             onValueChange = { if (it.all { char -> char.isDigit() }) onValueChange(it) },
             modifier = Modifier.fillMaxWidth(),
-            trailingIcon = { 
-                Text(
-                    text = unit, 
-                    style = MaterialTheme.typography.labelSmall,
-                    color = color,
+            trailingIcon = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(end = 16.dp)
-                ) 
+                ) {
+                    if (percent != null) {
+                        Text(
+                            text = percent,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MiTextSecondary
+                        )
+                    }
+                    Text(
+                        text = unit,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = color
+                    )
+                }
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
