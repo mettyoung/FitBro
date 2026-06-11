@@ -63,6 +63,12 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+            implementation(compose.uiTest)
+        }
+        androidUnitTest.dependencies {
+            implementation(libs.robolectric)
+            implementation(libs.androidx.test.core)
         }
     }
 }
@@ -106,10 +112,18 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
     debugImplementation(libs.compose.uiTooling)
+    // Registers androidx.activity.ComponentActivity in the debug manifest so
+    // Compose runComposeUiTest can launch under Robolectric (androidUnitTest).
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
 sqldelight {
