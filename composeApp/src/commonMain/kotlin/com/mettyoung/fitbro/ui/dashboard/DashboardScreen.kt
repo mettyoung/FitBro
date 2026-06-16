@@ -564,18 +564,18 @@ private fun CondensedLogItem(
                     LogDotRow(ColorFat, "${balance.fatG.roundToInt()}g fat")
                 }
                 DashboardViewMode.EXPENDITURE -> {
-                    LogDotRow(ColorProtein, "${balance.bmr.roundToInt()} kcal BMR")
+                    LogDotRow(ColorProtein, "${balance.bmr.roundToInt()} BMR")
                     Spacer(Modifier.height(4.dp))
-                    LogDotRow(ColorCarbs, "${balance.tef.roundToInt()} kcal TEF")
+                    LogDotRow(ColorCarbs, "${balance.tef.roundToInt()} TEF")
                     Spacer(Modifier.height(4.dp))
-                    LogDotRow(ColorFat, "${(balance.neat + balance.eat).roundToInt()} kcal Active")
+                    LogDotRow(ColorFat, "${(balance.neat + balance.eat).roundToInt()} Active")
                 }
                 else -> {
-                    LogDotRow(MiOrange, "${balance.intake.roundToInt()} kcal in")
+                    LogDotRow(MiOrange, "${balance.intake.roundToInt()} in")
                     Spacer(Modifier.height(4.dp))
                     LogDotRow(
                         MaterialTheme.colorScheme.tertiary,
-                        "${balance.burn.roundToInt()} kcal out",
+                        "${balance.burn.roundToInt()} out",
                         textColor = MiTextSecondary
                     )
                 }
@@ -585,14 +585,14 @@ private fun CondensedLogItem(
         when (viewMode) {
             DashboardViewMode.INTAKE -> {
                 Text(
-                    text = "${balance.intake.roundToInt()} kcal",
+                    text = "${balance.intake.roundToInt()}",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
             DashboardViewMode.EXPENDITURE -> {
                 Text(
-                    text = "${balance.burn.roundToInt()} kcal",
+                    text = "${balance.burn.roundToInt()}",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
