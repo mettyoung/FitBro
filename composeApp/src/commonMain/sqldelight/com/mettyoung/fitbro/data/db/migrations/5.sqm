@@ -1,0 +1,9 @@
+-- v5 -> v6: cardio session tracking (manual log, no health-platform sync)
+CREATE TABLE IF NOT EXISTS CardioSession (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    minutes INTEGER NOT NULL,
+    note TEXT
+);
+
+CREATE INDEX IF NOT EXISTS cardio_session_date_idx ON CardioSession(date);
