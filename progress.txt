@@ -16,3 +16,22 @@ Started: 2026-06-17
 - **MacroDailyCounterDetail**: `ui/dashboard/MacroDailyCounterDetail.kt` — reads goals at init via LaunchedEffect; US-006 replaces with repo call.
 - **ElevatedCard + ExposedDropdownMenuBox**: already used elsewhere in the app — search for usages before writing from scratch.
 - **App.kt wiring**: data sources first, then repos, then StateHolders — all `remember {}`. `seedDefaultIfEmpty()` call goes here after `MacroGoalRepositoryImpl` is instantiated, inside `LaunchedEffect(Unit)`.
+- **MacroGoalRepositoryImpl constructor**: takes `(database: FitBroDatabase, userSettingsDataSource: UserSettingsDataSource)`. Has `seedDefaultIfEmpty()` as public suspend fun (not in interface — called from App.kt).
+- **macroGoalProfileQueries**: all queries (both `MacroGoalProfile` and `WeekdayGoalMapping` tables) live in `MacroGoalProfile.sq` → accessible via `database.macroGoalProfileQueries`. weekday/profile_id params are Long.
+
+---
+
+## 2026-06-17 — US-001: MacroGoalProfile schema + repository
+
+Files touched:
+- `composeApp/src/commonMain/sqldelight/.../MacroGoalProfile.sq` (new) — both tables + all queries
+- `composeApp/src/commonMain/sqldelight/.../migrations/6.sqm` (new)
+- `data/model/MacroGoalProfile.kt` (new)
+- `data/repository/MacroGoalRepository.kt` (new)
+- `data/repository/MacroGoalRepositoryImpl.kt` (new)
+
+Learnings:
+- SQLDelight: two tables in one .sq file → all queries under `<fileName>Queries`. `MacroGoalProfile.sq` → `database.macroGoalProfileQueries` covers `WeekdayGoalMapping` queries too.
+- `getActiveProfileForDate` waterfall: mapping row → profile by id → Default profile by name → first profile → in-memory fallback from UserSettingsDataSource.
+- `seedDefaultIfEmpty()` is NOT in the `MacroGoalRepository` interface; it's a concrete method on impl, called from App.kt.
+- SQLite INTEGER PRIMARY KEY without AUTOINCREMENT = rowid alias. WeekdayGoalMapping.weekday is PK so INSERT OR REPLACE handles upsert cleanly.

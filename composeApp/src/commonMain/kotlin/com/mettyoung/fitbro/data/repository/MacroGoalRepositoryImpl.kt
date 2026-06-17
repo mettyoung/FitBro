@@ -23,6 +23,12 @@ class MacroGoalRepositoryImpl(
             .mapToList(Dispatchers.Default)
             .map { rows -> rows.map { it.toDomain() } }
 
+    override fun getAllMappings(): Flow<Map<Int, Long>> =
+        database.macroGoalProfileQueries.getAllMappings()
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+            .map { rows -> rows.associate { it.weekday.toInt() to it.profile_id } }
+
     override suspend fun addProfile(
         name: String,
         protein: Double,

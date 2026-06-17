@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface MacroGoalRepository {
     fun getAllProfiles(): Flow<List<MacroGoalProfile>>
+    fun getAllMappings(): Flow<Map<Int, Long>>
     suspend fun addProfile(name: String, protein: Double, carbs: Double, fat: Double, calories: Double): Long
     suspend fun updateProfile(id: Long, name: String, protein: Double, carbs: Double, fat: Double, calories: Double)
     suspend fun deleteProfile(id: Long)

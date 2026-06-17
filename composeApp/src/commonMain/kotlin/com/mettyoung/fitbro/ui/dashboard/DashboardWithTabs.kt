@@ -37,7 +37,8 @@ import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.repository.CustomFoodRepository
 import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.settings.MacroGoalsSettings
+import com.mettyoung.fitbro.ui.settings.MacroProfilesSettings
+import com.mettyoung.fitbro.ui.settings.MacroProfilesStateHolder
 
 @Composable
 fun DashboardWithTabs(
@@ -46,6 +47,7 @@ fun DashboardWithTabs(
     customMealStateHolder: CustomMealStateHolder,
     customFoodStateHolder: CustomFoodStateHolder,
     cardioStateHolder: CardioStateHolder,
+    macroProfilesStateHolder: MacroProfilesStateHolder,
     foodDataSource: FoodDataSource,
     customFoodRepository: CustomFoodRepository,
     balances: List<DailyBalance>,
@@ -116,8 +118,10 @@ fun DashboardWithTabs(
                         onBalanceRefreshNeeded = stateHolder::refresh
                     )
                     2 -> CardioScreen(stateHolder = cardioStateHolder)
-                    3 -> MacroGoalsSettings(
-                        userSettingsDataSource = userSettingsDataSource
+                    3 -> MacroProfilesSettings(
+                        stateHolder = macroProfilesStateHolder,
+                        onAddProfile = {},
+                        onEditProfile = {}
                     )
                 }
             }
