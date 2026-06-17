@@ -18,9 +18,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -34,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.MacroGoalProfile
@@ -159,6 +166,38 @@ fun MacroProfilesSettings(
                     }
                 }
 
+                if (state.profiles.isNotEmpty()) {
+                    Spacer(Modifier.height(24.dp))
+
+                    Text(
+                        text = "Weekly Schedule",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    val dayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                    val defaultProfile = state.profiles.firstOrNull { it.name == "Default" }
+                        ?: state.profiles.first()
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        dayLabels.forEachIndexed { weekday, label ->
+                            val mappedProfileId = state.weekdayMappings[weekday]
+                            val currentProfile = state.profiles.firstOrNull { it.id == mappedProfileId }
+                                ?: defaultProfile
+                            WeekdayRow(
+                                dayLabel = label,
+                                selectedProfile = currentProfile,
+                                profiles = state.profiles,
+                                onProfileSelected = { profile ->
+                                    stateHolder.setMapping(weekday, profile.id)
+                                }
+                            )
+                        }
+                    }
+                }
+
                 Spacer(Modifier.height(48.dp))
             }
         }
@@ -175,5 +214,61 @@ fun MacroProfilesSettings(
                 }
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WeekdayRow(
+    dayLabel: String,
+    selectedProfile: MacroGoalProfile,
+    profiles: List<MacroGoalProfile>,
+    onProfileSelected: (MacroGoalProfile) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = dayLabel,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it },
+            modifier = Modifier.weight(2f)
+        ) {
+            OutlinedTextField(
+                value = selectedProfile.name,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth(),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                profiles.forEach { profile ->
+                    DropdownMenuItem(
+                        text = { Text(profile.name, style = MaterialTheme.typography.bodyMedium) },
+                        onClick = {
+                            onProfileSelected(profile)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
     }
 }
