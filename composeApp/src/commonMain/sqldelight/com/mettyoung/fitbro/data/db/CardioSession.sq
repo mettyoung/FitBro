@@ -1,0 +1,28 @@
+CREATE TABLE CardioSession (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    minutes INTEGER NOT NULL,
+    note TEXT
+);
+
+CREATE INDEX cardio_session_date_idx ON CardioSession(date);
+
+insertSession:
+INSERT INTO CardioSession (date, minutes, note)
+VALUES (?, ?, ?);
+
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+updateSession:
+UPDATE CardioSession
+SET date = ?, minutes = ?, note = ?
+WHERE id = ?;
+
+deleteSession:
+DELETE FROM CardioSession WHERE id = ?;
+
+getSessionsForRange:
+SELECT * FROM CardioSession
+WHERE date >= ? AND date <= ?
+ORDER BY date DESC, id DESC;

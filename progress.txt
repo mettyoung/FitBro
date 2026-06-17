@@ -1,58 +1,78 @@
-# Ralph Progress Log — intake-expenditure-views
-Started: 2026-06-10
+# Ralph Progress Log — cardio-tracking
+Started: 2026-06-16
 
 ## Codebase Patterns
-- **Screen**: `ui/dashboard/DashboardScreen.kt`. `DashboardScreen` collects `stateHolder.state` → `DashboardContent(state, onRefresh, onDateRangeChanged)`. All view state (showPicker, selectedBreakdown, toasts) is `remember`'d inside `DashboardContent` — add the toggle's `DashboardViewMode` state here too.
-- **Layout order in DashboardContent**: header (title + refresh + date picker) → date navigator (rounded pill, RoundedCornerShape(16.dp), background) → [INSERT TOGGLE HERE] → `SlidingWindowInsightCard` (avg + chart + footer) → History header → Card of `CondensedLogItem` rows (`balances.reversed()`, HorizontalDivider between).
-- **Chart**: `CalorieBalanceChart(balances, onBarClick, modifier)`. Diverging: top half drawn when `balance>0`, bottom half when `balance<0`, around a center zero line; `maxAbsBalance = maxOf(abs(balance)).coerceIn(100,3000)`; height factor `(abs(value)/max).coerceIn(0.1,1)`; takeLast(7); day-initial labels via Zeller. For positive-only modes reuse the top-half path and skip the bottom half.
-- **History row**: `CondensedLogItem(balance, onClick)` — left `Column(width=48dp)` day-abbr + day number; middle `Column(weight=1f)` with dotted rows; right signed balance value colored green(0xFF4CAF50)/red(0xFFF44336). Today it hardcodes 2 middle rows (kcal in / kcal out) — generalize the middle + right per `DashboardViewMode`.
-- **Summary card**: `SlidingWindowInsightCard` uses `calculateWindowMetrics(balances)` (avg/total/trend over balance). Headline 'AVERAGE BALANCE', footer 'Total Week' + 'Trend' chip. For intake/expenditure compute mean/sum of intake|burn directly and hide the trend chip.
-- **Model**: `data/model/DailyBalance` fields: intake, burn, balance, bmr, tef, neat, eat, proteinG, carbG, fatG (all Double). No new fields needed.
-- **Colors** (`ui/Theme.kt`): MiOrange 0xFFFF6B00, MiTextSecondary 0xFF6C757D, ColorProtein 0xFF4361EE, ColorCarbs 0xFFF72585, ColorFat 0xFF4CC9F0. `BreakdownDialog` burn coloring: BMR=ColorProtein, Active(neat)=ColorFat, TEF=ColorCarbs — match it.
 - **Gradle env**: JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home; run UNSANDBOXED. Typecheck = `:composeApp:compileDebugKotlinAndroid` + `:composeApp:compileKotlinIosSimulatorArm64`. No browser test on this KMP app.
-- **Scope guard**: presentation-only — do NOT touch DashboardStateHolder, repositories, data sources, schema, or BreakdownDialog.
+- **SQLDelight schema version**: current highest migration = 4.sqm → next migration = 5.sqm. Place in `composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/migrations/`.
+- **SQLDelight .sq files**: live in `composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/`. Each .sq file = one entity. Queries return generated types; use `.asFlow().mapToList(Dispatchers.Default)` for Flow, `withContext(Dispatchers.Default)` for suspend ops.
+- **StateHolder pattern**: `DashboardStateHolder.kt` / `FoodDiaryStateHolder.kt` — receives repo + CoroutineScope; exposes `StateFlow<UiState>`; launches coroutines in `scope.launch {}`. Wired in `App.kt` via `remember { ... }`.
+- **App.kt wiring**: data sources instantiated first, then repos, then StateHolders, all via `remember {}` blocks. Pass StateHolder down to composable.
+- **Tab wiring**: `DashboardWithTabs` in `DashboardScreen.kt` — uses `TabRow` + `when(selectedTab)`. Add new tab enum value and new `when` branch.
+- **Colors** (`ui/Theme.kt`): MiOrange 0xFFFF6B00, MiTextSecondary 0xFF6C757D, ColorProtein 0xFF4361EE, ColorCarbs 0xFFF72585, ColorFat 0xFF4CC9F0.
+- **Date util**: `todayString()` returns today as "YYYY-MM-DD". `kotlinx.datetime` available in commonMain — use `Clock.System.todayIn(TimeZone.currentSystemDefault())` for LocalDate; `LocalDate.parse(str)` for formatting day labels.
+- **Domain models**: `data/model/` — plain data classes. Keep fields nullable where DB column is nullable.
+- **ModalBottomSheet**: used in `CustomFoodManagerSheet.kt` — reuse that pattern for the cardio log dialog.
+- **DatePickerDialog**: already exists in codebase — locate and reuse rather than writing from scratch.
+- **CardioSession SQLDelight**: table uses `INTEGER` for minutes; SQLDelight maps it to `Long` in generated code → `toDomain()` must call `.toInt()`. Queries accessor = `database.cardioSessionQueries`.
+- **Schema version**: 5.sqm is v5→v6 migration. CardioSession.sq defines the final schema; 5.sqm is the incremental DDL for upgrades.
+- **DatePickerDialog reuse for single date**: takes the `range.startDate` from the returned DateRange; this existing composable only does week ranges but single-date use is fine by ignoring the end.
+- **CardioScreen FAB + Scaffold**: wrap CardioScreen in its own `Scaffold` with FAB so the FAB hovers above the LazyColumn content; pass `containerColor = MaterialTheme.colorScheme.background` to avoid double-surface tinting.
+- **ModalBottomSheet disabled OutlinedTextField trick**: date field is `readOnly = true` + `enabled = false` + `Modifier.clickable {}` to show the picker on tap (disabled fields don't capture keyboard focus, clickable still fires).
 
-## 2026-06-10 — US-001: 3-way segmented toggle + view-mode state
-- New file `ui/dashboard/DashboardViewMode.kt`: enum DashboardViewMode { BALANCE, INTAKE, EXPENDITURE } (each w/ label) + `DashboardViewModeToggle` composable.
-- Toggle styled like date navigator: background+RoundedCornerShape(16.dp) pill, padding(4.dp), 3 weight(1f) Text segments. Selected = MiOrange bg + White text + Bold; unselected = transparent + MiTextSecondary.
-- `DashboardScreen.kt`: hoisted `var viewMode by remember { mutableStateOf(DashboardViewMode.BALANCE) }` in DashboardContent; rendered toggle in content Column between top Spacer and the `when(uiState)` block (below date navigator, above summary card). Default BALANCE.
-- Toggle is currently presentation-only / not yet wired to chart/card/history (US-002..005).
-- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
-- Learnings: enum `.entries` works fine in commonMain (Kotlin 1.9+ stable). Toggle placed in shared content Column so it shows across Loading/Success/Error states — acceptable since it only drives Success-state views.
+---
 
-## 2026-06-10 — US-002: Chart plots the active view's value
-- `CalorieBalanceChart`: added params `valueSelector: (DailyBalance) -> Double = { it.balance }` + `diverging: Boolean = true`. Default args keep BALANCE behavior identical.
-- Normalization: diverging keeps original `coerceIn(100,3000)`; positive-only uses real window max `coerceAtLeast(1.0)` (no 3000 cap, since intake/burn routinely exceed it).
-- `CalorieBarItem` now takes value/maxValue/diverging; `drawTop = \!diverging || value>0`, `drawBottom = diverging && value<0`. Positive-only bars always top-half, MiOrange. Click + day-initial labels untouched.
-- `DashboardViewMode.kt`: added `valueOf(DailyBalance)` (BALANCE→balance, INTAKE→intake, EXPENDITURE→burn) + `isDiverging` (true only for BALANCE).
-- `DashboardScreen.kt`: `SlidingWindowInsightCard` gained a `viewMode` param; passes `valueSelector`/`diverging` into the chart. DashboardContent already hoists `viewMode`.
-- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
-- Learnings: positive-only bars reuse the top-half path so they occupy only the upper half of chart height (zero line stays centered) — matches "upward-only" intent. Keep the 100..3000 clamp scoped to diverging; applying it to intake/burn would flatten all bars to max.
+## 2026-06-16 — US-002 through US-005: Cardio tab full implementation
 
-## 2026-06-10 — US-003: Summary insight card adapts per view
-- `SlidingWindowInsightCard` (DashboardScreen.kt): derived `isBalance`, `headlineLabel`, `avgValue`, `totalValue` from `viewMode`.
-  - Headline: BALANCE 'AVERAGE BALANCE', INTAKE 'AVERAGE INTAKE', EXPENDITURE 'AVERAGE EXPENDITURE'.
-  - avgValue: BALANCE keeps `metrics.avgDailyBalance`; else `sumOf{valueOf}/size` (empty-guard → 0.0). totalValue: BALANCE keeps `metrics.totalBalance`; else `sumOf{valueOf}`.
-  - Trend chip (header circle icon) wrapped in `if (isBalance)` — hidden for intake/expenditure. Footer 'Trend' column also gated by `if (isBalance)`; 'Total Week' column always shown with totalValue.
-- BALANCE path uses identical metrics values/typography → no regression.
-- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
-- Learnings: avg via `sumOf{valueOf(it)}/size` reuses `DashboardViewMode.valueOf` from US-002 — single source for which field each lens reads; no duplicated field-selection logic between chart, card, history. Empty-list guard needed since `List.average()`/manual divide → NaN on empty window.
+**US-002 — Tab + StateHolder wiring:**
+- `CardioState.kt`, `CardioStateHolder.kt` (StateFlow<CardioState>, reactive sessionsForRange)
+- `CardioScreen.kt` stub
+- `DashboardWithTabs.kt`: added Cardio tab at index 2 (Settings moved to 3), `Icons.AutoMirrored.Filled.DirectionsRun`
+- `App.kt`: wired `CardioRepositoryImpl` + `CardioStateHolder` via `remember {}`
 
-## 2026-06-10 — US-004: Intake history rows — macro grams + total kcal-in
-- `CondensedLogItem` (DashboardScreen.kt): added `viewMode` param. Middle column + right value now branch on viewMode via `when`.
-  - INTAKE: 3 dotted rows Carbs/Protein/Fat (`ColorCarbs`/`ColorProtein`/`ColorFat`) showing `${field.roundToInt()}g <macro>`; right = `${intake.roundToInt()} kcal` in onSurface (no sign, no green/red).
-  - else (BALANCE, EXPENDITURE for now): unchanged — kcal in/out rows + signed colored balance. EXPENDITURE branch is US-005.
-- Extracted `LogDotRow(dotColor, text, textColor=onSurface)` helper to dedupe the dot+label row (BALANCE & INTAKE both use it). Default textColor=onSurface matches original BALANCE "kcal in" Text (which relied on LocalContentColor) → no regression.
-- Left column (day abbr + day number) and `onClick`→BreakdownDialog unchanged for all modes.
-- Imports added: ColorCarbs/ColorFat/ColorProtein from ui.Theme.
-- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
-- Learnings: `when(viewMode){ INTAKE -> ...; else -> ...}` keeps EXPENDITURE compiling+non-crashing (falls to balance layout) until US-005 fills it — lets you ship one lens per story without a broken intermediate. Macro order Carbs/Protein/Fat per spec; dot colors are the intake-macro palette (distinct from burn palette in US-005).
+**US-003 — Weekly summary header:**
+- `CardioScreen` renders `WeeklySummaryCard` ("This week: X min"), same Card style as MacroSummaryCard
 
-## 2026-06-10 — US-005: Expenditure history rows — BMR/TEF/Active + total kcal-out
-- `CondensedLogItem` (DashboardScreen.kt): filled the EXPENDITURE branch in both middle-column and right-value `when(viewMode)` blocks.
-  - Middle: 3 dotted rows BMR/TEF/Active. Colors match BreakdownDialog burn palette: BMR=ColorProtein, TEF=ColorCarbs, Active=ColorFat. Active = `neat + eat`. Each `${field.roundToInt()} kcal <label>`.
-  - Right: `${burn.roundToInt()} kcal` in onSurface (no sign, not green/red), same titleLarge styling as INTAKE.
-- Reused existing `LogDotRow` helper + left column + onClick→BreakdownDialog untouched.
-- No new imports (ColorProtein/ColorCarbs/ColorFat already imported in US-004).
-- Gates: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64 both BUILD SUCCESSFUL (only pre-existing warnings).
-- Learnings: bmr+tef+neat+eat == burn by construction in DailyBalance, so showing the three component rows + burn total needs no reconciliation field — rounding each independently is fine per spec. Burn palette (BMR=protein-blue, TEF=carb-pink, Active=fat-cyan) intentionally reuses the macro color constants but maps them to energy components to mirror BreakdownDialog — same tokens, different semantic per lens.
+**US-004 — Per-day session list:**
+- Sessions grouped by date (most recent first), `SessionDayGroup` card per day
+- `formatDayLabel` uses `dayOfWeekMonBased` + `MONTH_ABBR` from DateUtil
+- `HorizontalDivider` between session rows within a day group
+
+**US-005 — Log/edit/delete dialog + FAB:**
+- `CardioStateHolder`: added `logSession`, `updateSession`, `deleteSession` (scope.launch)
+- `CardioLogSheet.kt`: ModalBottomSheet, date (reuses DatePickerDialog), minutes (KeyboardType.Number, validation > 0), note optional; Delete button in edit mode
+- `CardioScreen`: Scaffold + MiOrange FAB, `showSheet` + `sheetSession` state drives dialog
+
+**Files touched (US-002—005):**
+- `ui/dashboard/CardioState.kt` (new)
+- `ui/dashboard/CardioStateHolder.kt` (new → expanded)
+- `ui/dashboard/CardioScreen.kt` (stub → full)
+- `ui/dashboard/CardioLogSheet.kt` (new)
+- `ui/dashboard/DashboardWithTabs.kt`
+- `App.kt`
+
+**Learnings:**
+- Tab index shift: inserting Cardio at index 2 pushed Settings from 2→3; update `when` blocks accordingly.
+- `Icons.Default.DirectionsRun` is deprecated; use `Icons.AutoMirrored.Filled.DirectionsRun`.
+- `todayString()` + `minusDays(6)` sufficient for rolling 7-day window; no kotlinx.datetime needed in StateHolder.
+
+---
+
+## 2026-06-16 — US-001: Cardio schema + repository
+
+**Changed:**
+- Created `CardioSession.sq` with `cardio_session` table + CRUD + range query
+- Created `migrations/5.sqm` (v5→v6: cardio_session table)
+- Created `data/model/CardioSession.kt` domain model
+- Created `CardioRepository` interface + `CardioRepositoryImpl`
+
+**Files touched:**
+- `composeApp/src/commonMain/sqldelight/.../CardioSession.sq`
+- `composeApp/src/commonMain/sqldelight/.../migrations/5.sqm`
+- `composeApp/src/commonMain/kotlin/.../data/model/CardioSession.kt`
+- `composeApp/src/commonMain/kotlin/.../data/repository/CardioRepository.kt`
+- `composeApp/src/commonMain/kotlin/.../data/repository/CardioRepositoryImpl.kt`
+
+**Learnings:**
+- SQLDelight `INTEGER` columns map to `Long` in generated Kotlin; need `.toInt()` in `toDomain()` for `Int` domain fields.
+- `cardioSessionQueries` accessor auto-generated from `CardioSession.sq` filename.
+- `5.sqm` naming = v5→v6; comment convention matches prior migrations.

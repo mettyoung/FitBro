@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
@@ -44,6 +45,7 @@ fun DashboardWithTabs(
     foodDiaryStateHolder: FoodDiaryStateHolder,
     customMealStateHolder: CustomMealStateHolder,
     customFoodStateHolder: CustomFoodStateHolder,
+    cardioStateHolder: CardioStateHolder,
     foodDataSource: FoodDataSource,
     customFoodRepository: CustomFoodRepository,
     balances: List<DailyBalance>,
@@ -68,7 +70,8 @@ fun DashboardWithTabs(
                 val items = listOf(
                     Triple(0, Icons.Default.Info, "Balance"),
                     Triple(1, Icons.AutoMirrored.Filled.List, "Macros"),
-                    Triple(2, Icons.Default.Settings, "Settings")
+                    Triple(2, Icons.AutoMirrored.Filled.DirectionsRun, "Cardio"),
+                    Triple(3, Icons.Default.Settings, "Settings")
                 )
 
                 items.forEach { (index, icon, label) ->
@@ -112,7 +115,8 @@ fun DashboardWithTabs(
                         onDateSelected = stateHolder::setSelectedDate,
                         onBalanceRefreshNeeded = stateHolder::refresh
                     )
-                    2 -> MacroGoalsSettings(
+                    2 -> CardioScreen(stateHolder = cardioStateHolder)
+                    3 -> MacroGoalsSettings(
                         userSettingsDataSource = userSettingsDataSource
                     )
                 }

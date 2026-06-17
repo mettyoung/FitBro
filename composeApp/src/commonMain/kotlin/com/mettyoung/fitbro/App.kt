@@ -18,10 +18,12 @@ import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.food.FatSecretFoodDataSource
 import com.mettyoung.fitbro.data.health.createHealthDataSource
 import com.mettyoung.fitbro.data.repository.CalorieMathRepositoryImpl
+import com.mettyoung.fitbro.data.repository.CardioRepositoryImpl
 import com.mettyoung.fitbro.data.repository.CustomFoodRepositoryImpl
 import com.mettyoung.fitbro.data.repository.CustomMealRepositoryImpl
 import com.mettyoung.fitbro.data.repository.FoodDiaryRepositoryImpl
 import com.mettyoung.fitbro.ui.FitBroTheme
+import com.mettyoung.fitbro.ui.dashboard.CardioStateHolder
 import com.mettyoung.fitbro.ui.dashboard.CustomFoodStateHolder
 import com.mettyoung.fitbro.ui.dashboard.CustomMealStateHolder
 import com.mettyoung.fitbro.ui.dashboard.DashboardStateHolder
@@ -47,6 +49,7 @@ fun App() {
         val foodDiaryRepository = remember(database) { FoodDiaryRepositoryImpl(database) }
         val customMealRepository = remember(database) { CustomMealRepositoryImpl(database) }
         val customFoodRepository = remember(database) { CustomFoodRepositoryImpl(database) }
+        val cardioRepository = remember(database) { CardioRepositoryImpl(database) }
 
         val foodDataSource: FoodDataSource = remember(customFoodRepository) {
             CompositeFoodDataSource(
@@ -70,6 +73,10 @@ fun App() {
 
         val customFoodStateHolder = remember(customFoodRepository, scope) {
             CustomFoodStateHolder(repository = customFoodRepository, scope = scope)
+        }
+
+        val cardioStateHolder = remember(cardioRepository, scope) {
+            CardioStateHolder(repository = cardioRepository, scope = scope)
         }
 
         val initialDateRange = remember {
@@ -107,6 +114,7 @@ fun App() {
             foodDiaryStateHolder = foodDiaryStateHolder,
             customMealStateHolder = customMealStateHolder,
             customFoodStateHolder = customFoodStateHolder,
+            cardioStateHolder = cardioStateHolder,
             foodDataSource = foodDataSource,
             customFoodRepository = customFoodRepository,
             balances = balances,
