@@ -83,7 +83,7 @@
         "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

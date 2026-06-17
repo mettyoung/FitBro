@@ -32,10 +32,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
 import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.repository.CustomFoodRepository
+import com.mettyoung.fitbro.data.repository.MacroGoalRepository
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.settings.MacroProfilesSettings
 import com.mettyoung.fitbro.ui.settings.MacroProfilesStateHolder
@@ -48,10 +48,10 @@ fun DashboardWithTabs(
     customFoodStateHolder: CustomFoodStateHolder,
     cardioStateHolder: CardioStateHolder,
     macroProfilesStateHolder: MacroProfilesStateHolder,
+    macroGoalRepository: MacroGoalRepository,
     foodDataSource: FoodDataSource,
     customFoodRepository: CustomFoodRepository,
     balances: List<DailyBalance>,
-    userSettingsDataSource: UserSettingsDataSource,
     modifier: Modifier = Modifier
 ) {
     var selectedTabIndex by remember { mutableStateOf(0) }
@@ -108,7 +108,7 @@ fun DashboardWithTabs(
                 when (targetIndex) {
                     0 -> DashboardScreen(stateHolder = stateHolder)
                     1 -> MacroDailyCounterDetail(
-                        userSettingsDataSource = userSettingsDataSource,
+                        macroGoalRepository = macroGoalRepository,
                         foodDiaryStateHolder = foodDiaryStateHolder,
                         customMealStateHolder = customMealStateHolder,
                         customFoodStateHolder = customFoodStateHolder,

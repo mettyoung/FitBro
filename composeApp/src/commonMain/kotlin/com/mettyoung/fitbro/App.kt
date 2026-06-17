@@ -22,6 +22,7 @@ import com.mettyoung.fitbro.data.repository.CardioRepositoryImpl
 import com.mettyoung.fitbro.data.repository.CustomFoodRepositoryImpl
 import com.mettyoung.fitbro.data.repository.CustomMealRepositoryImpl
 import com.mettyoung.fitbro.data.repository.FoodDiaryRepositoryImpl
+import com.mettyoung.fitbro.data.repository.MacroGoalRepository
 import com.mettyoung.fitbro.data.repository.MacroGoalRepositoryImpl
 import com.mettyoung.fitbro.ui.FitBroTheme
 import com.mettyoung.fitbro.ui.settings.MacroProfilesStateHolder
@@ -52,9 +53,10 @@ fun App() {
         val customMealRepository = remember(database) { CustomMealRepositoryImpl(database) }
         val customFoodRepository = remember(database) { CustomFoodRepositoryImpl(database) }
         val cardioRepository = remember(database) { CardioRepositoryImpl(database) }
-        val macroGoalRepository = remember(database, userSettingsDataSource) {
+        val macroGoalRepository: MacroGoalRepository = remember(database, userSettingsDataSource) {
             MacroGoalRepositoryImpl(database, userSettingsDataSource)
         }
+        val macroGoalRepositoryImpl = macroGoalRepository as MacroGoalRepositoryImpl
         val macroProfilesStateHolder = remember(macroGoalRepository, scope) {
             MacroProfilesStateHolder(macroGoalRepository, scope)
         }
@@ -111,7 +113,7 @@ fun App() {
         }
 
         LaunchedEffect(Unit) {
-            macroGoalRepository.seedDefaultIfEmpty()
+            macroGoalRepositoryImpl.seedDefaultIfEmpty()
             stateHolder.refresh()
         }
 
@@ -125,10 +127,10 @@ fun App() {
             customFoodStateHolder = customFoodStateHolder,
             cardioStateHolder = cardioStateHolder,
             macroProfilesStateHolder = macroProfilesStateHolder,
+            macroGoalRepository = macroGoalRepository,
             foodDataSource = foodDataSource,
             customFoodRepository = customFoodRepository,
             balances = balances,
-            userSettingsDataSource = userSettingsDataSource,
             modifier = Modifier.fillMaxSize()
         )
     }
