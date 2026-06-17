@@ -22,6 +22,7 @@ import com.mettyoung.fitbro.data.repository.CardioRepositoryImpl
 import com.mettyoung.fitbro.data.repository.CustomFoodRepositoryImpl
 import com.mettyoung.fitbro.data.repository.CustomMealRepositoryImpl
 import com.mettyoung.fitbro.data.repository.FoodDiaryRepositoryImpl
+import com.mettyoung.fitbro.data.repository.MacroGoalRepositoryImpl
 import com.mettyoung.fitbro.ui.FitBroTheme
 import com.mettyoung.fitbro.ui.dashboard.CardioStateHolder
 import com.mettyoung.fitbro.ui.dashboard.CustomFoodStateHolder
@@ -50,6 +51,9 @@ fun App() {
         val customMealRepository = remember(database) { CustomMealRepositoryImpl(database) }
         val customFoodRepository = remember(database) { CustomFoodRepositoryImpl(database) }
         val cardioRepository = remember(database) { CardioRepositoryImpl(database) }
+        val macroGoalRepository = remember(database, userSettingsDataSource) {
+            MacroGoalRepositoryImpl(database, userSettingsDataSource)
+        }
 
         val foodDataSource: FoodDataSource = remember(customFoodRepository) {
             CompositeFoodDataSource(
@@ -103,6 +107,7 @@ fun App() {
         }
 
         LaunchedEffect(Unit) {
+            macroGoalRepository.seedDefaultIfEmpty()
             stateHolder.refresh()
         }
 
