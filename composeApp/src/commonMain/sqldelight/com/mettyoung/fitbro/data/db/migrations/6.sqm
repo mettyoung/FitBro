@@ -1,0 +1,14 @@
+-- v6: macro goal profiles + weekday mappings
+CREATE TABLE IF NOT EXISTS MacroGoalProfile (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    protein_g REAL NOT NULL,
+    carbs_g REAL NOT NULL,
+    fat_g REAL NOT NULL,
+    calories_kcal REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS WeekdayGoalMapping (
+    weekday INTEGER PRIMARY KEY,
+    profile_id INTEGER NOT NULL REFERENCES MacroGoalProfile(id)
+);
