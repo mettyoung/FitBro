@@ -41,7 +41,6 @@ class MacroProfilesStateHolder(
     fun setMapping(weekday: Int, profileId: Long): Job =
         scope.launch { repository.setMappingForWeekday(weekday, profileId) }
 
-    suspend fun isMappedToAnyWeekday(profileId: Long): Boolean {
-        return state.value.weekdayMappings.values.any { it == profileId }
-    }
+    fun isMappedToAnyWeekday(profileId: Long): Boolean =
+        state.value.weekdayMappings.values.any { it == profileId }
 }

@@ -119,9 +119,7 @@ fun DashboardWithTabs(
                     )
                     2 -> CardioScreen(stateHolder = cardioStateHolder)
                     3 -> MacroProfilesSettings(
-                        stateHolder = macroProfilesStateHolder,
-                        onAddProfile = {},
-                        onEditProfile = {}
+                        stateHolder = macroProfilesStateHolder
                     )
                 }
             }

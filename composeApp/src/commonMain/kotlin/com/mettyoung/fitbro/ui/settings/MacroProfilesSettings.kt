@@ -3,7 +3,6 @@ package com.mettyoung.fitbro.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,53 +21,74 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.MacroGoalProfile
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
 fun MacroProfilesSettings(
     stateHolder: MacroProfilesStateHolder,
-    onAddProfile: () -> Unit,
-    onEditProfile: (MacroGoalProfile) -> Unit,
+    onAddProfile: () -> Unit = {},
+    onEditProfile: (MacroGoalProfile) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by stateHolder.state.collectAsState()
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-    Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    var showSheet by remember { mutableStateOf(false) }
+    var selectedProfile by remember { mutableStateOf<MacroGoalProfile?>(null) }
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(snackbarData = data)
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(paddingValues)
+                .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState())
         ) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(top = statusBarPadding + 16.dp, bottom = 32.dp, start = 24.dp, end = 24.dp)
             ) {
-                Column {
-                    Text(
-                        text = "Settings",
-                        style = MaterialTheme.typography.displayMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Customize your metabolic targets",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MiOrange
-                    )
-                }
+                Text(
+                    text = "Settings",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Customize your metabolic targets",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MiOrange
+                )
             }
 
             Column(
@@ -91,7 +111,10 @@ fun MacroProfilesSettings(
                         ElevatedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onEditProfile(profile) },
+                                .clickable {
+                                    selectedProfile = profile
+                                    showSheet = true
+                                },
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -119,7 +142,10 @@ fun MacroProfilesSettings(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Start
                 ) {
-                    TextButton(onClick = onAddProfile) {
+                    TextButton(onClick = {
+                        selectedProfile = null
+                        showSheet = true
+                    }) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
@@ -136,5 +162,18 @@ fun MacroProfilesSettings(
                 Spacer(Modifier.height(48.dp))
             }
         }
+    }
+
+    if (showSheet) {
+        MacroProfileSheet(
+            profile = selectedProfile,
+            stateHolder = stateHolder,
+            onDismiss = { showSheet = false },
+            onDeleteBlocked = {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Unassign from all days first")
+                }
+            }
+        )
     }
 }
