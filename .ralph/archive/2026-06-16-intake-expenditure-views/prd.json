@@ -1,0 +1,96 @@
+{
+  "project": "FitBro",
+  "branchName": "ralph/intake-expenditure-views",
+  "description": "Extend the dashboard Balance screen with two sibling lenses — Intake and Expenditure — selectable via a 3-way segmented toggle. Presentation-only: DailyBalance already carries intake, burn, balance, bmr, tef, neat, eat, proteinG, carbG, fatG. Reuses existing chart + history-card styling. No data-layer, repository, or schema changes.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "3-way segmented toggle + view-mode state",
+      "description": "As a user, I want a Balance | Intake | Expenditure toggle at the top of the Balance screen so I can switch lenses in one tap.",
+      "acceptanceCriteria": [
+        "Add enum DashboardViewMode { BALANCE, INTAKE, EXPENDITURE } in ui/dashboard (new small file or alongside DashboardScreen).",
+        "Add a segmented-toggle composable rendered inside DashboardContent, below the date navigator and above the summary card.",
+        "Toggle state hoisted in DashboardContent via remember { mutableStateOf(DashboardViewMode.BALANCE) }; default BALANCE.",
+        "Selected segment uses MiOrange accent; unselected uses MiTextSecondary; matches existing rounded-pill styling (RoundedCornerShape(16.dp) background like the date navigator).",
+        "With BALANCE selected the screen renders identically to current behavior — no visual regression.",
+        "compileDebugKotlinAndroid passes",
+        "compileKotlinIosSimulatorArm64 passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Chart plots the active view's value",
+      "description": "As a user, I want the chart to reflect the lens I picked so the bars match the breakdown below.",
+      "acceptanceCriteria": [
+        "Parameterize CalorieBalanceChart with a value selector ((DailyBalance) -> Double) plus a diverging/positive-only flag; do not duplicate the chart.",
+        "BALANCE mode unchanged: diverging bars around the zero line keyed on balance (positive MiOrange, negative tertiary).",
+        "INTAKE mode: plots intake per day as upward-only bars (no negative half).",
+        "EXPENDITURE mode: plots burn per day as upward-only bars.",
+        "Bar-height normalization for intake/expenditure uses the window max of the plotted value, not the balance max.",
+        "Day-initial labels and click-to-open-BreakdownDialog behavior preserved in all three modes.",
+        "DashboardContent passes the active DashboardViewMode into the chart.",
+        "compileDebugKotlinAndroid passes",
+        "compileKotlinIosSimulatorArm64 passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Summary insight card adapts per view",
+      "description": "As a user, I want the big number and footer on the summary card to describe the lens I'm viewing.",
+      "acceptanceCriteria": [
+        "BALANCE unchanged: 'AVERAGE BALANCE', trend chip, 'Total Week' / 'Trend' footer.",
+        "INTAKE: headline label 'AVERAGE INTAKE', value = mean of intake over the window in kcal; footer total = sum of intake.",
+        "EXPENDITURE: headline label 'AVERAGE EXPENDITURE', value = mean of burn; footer total = sum of burn.",
+        "Reuses existing formatCalorieValue and the card's typography/spacing; no new card style.",
+        "For INTAKE/EXPENDITURE the trend chip is hidden (do not show a green/red balance arrow that would mislead).",
+        "compileDebugKotlinAndroid passes",
+        "compileKotlinIosSimulatorArm64 passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Intake history rows — macro grams + total kcal-in",
+      "description": "As a user, in Intake view I want each day's history row to show carbs/protein/fat in grams and the day's total calories in.",
+      "acceptanceCriteria": [
+        "History list reuses CondensedLogItem format/style, reverse-chronological (balances.reversed()), same Card with HorizontalDivider between rows.",
+        "Left column unchanged: day abbreviation + day-of-month number.",
+        "Middle: three rows Carbs / Protein / Fat, each with a colored dot (ColorCarbs / ColorProtein / ColorFat) and value in grams (e.g. '120g carbs') from carbG / proteinG / fatG rounded to whole grams.",
+        "Right: total kcal-in = intake.roundToInt() + ' kcal', styled like the existing right-side value; no +/- sign, not green/red.",
+        "Tapping a row still opens the existing BreakdownDialog (unchanged).",
+        "Parameterize CondensedLogItem per DashboardViewMode rather than forking the row.",
+        "compileDebugKotlinAndroid passes",
+        "compileKotlinIosSimulatorArm64 passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Expenditure history rows — BMR/TEF/Active + total kcal-out",
+      "description": "As a user, in Expenditure view I want each day's history row to show BMR / TEF / Active energy and the day's total calories out.",
+      "acceptanceCriteria": [
+        "Same reused CondensedLogItem layout, reverse-chronological, same Card/divider styling.",
+        "Middle: three rows BMR / TEF / Active, each with a colored dot and a kcal value: bmr, tef, and Active = neat + eat, each rounded to whole kcal.",
+        "Dot colors match the burn-breakdown coloring used in BreakdownDialog: BMR = ColorProtein, TEF = ColorCarbs, Active = ColorFat.",
+        "Right: total kcal-out = burn.roundToInt() + ' kcal', styled like the existing right-side value; no sign, not green/red.",
+        "Sanity: bmr + tef + neat + eat equals burn (no fabricated reconciliation field if rounding drifts).",
+        "Tapping a row opens the existing BreakdownDialog (unchanged).",
+        "compileDebugKotlinAndroid passes",
+        "compileKotlinIosSimulatorArm64 passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}
