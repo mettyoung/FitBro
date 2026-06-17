@@ -1,0 +1,78 @@
+# Ralph Progress Log — cardio-tracking
+Started: 2026-06-16
+
+## Codebase Patterns
+- **Gradle env**: JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home; run UNSANDBOXED. Typecheck = `:composeApp:compileDebugKotlinAndroid` + `:composeApp:compileKotlinIosSimulatorArm64`. No browser test on this KMP app.
+- **SQLDelight schema version**: current highest migration = 4.sqm → next migration = 5.sqm. Place in `composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/migrations/`.
+- **SQLDelight .sq files**: live in `composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/`. Each .sq file = one entity. Queries return generated types; use `.asFlow().mapToList(Dispatchers.Default)` for Flow, `withContext(Dispatchers.Default)` for suspend ops.
+- **StateHolder pattern**: `DashboardStateHolder.kt` / `FoodDiaryStateHolder.kt` — receives repo + CoroutineScope; exposes `StateFlow<UiState>`; launches coroutines in `scope.launch {}`. Wired in `App.kt` via `remember { ... }`.
+- **App.kt wiring**: data sources instantiated first, then repos, then StateHolders, all via `remember {}` blocks. Pass StateHolder down to composable.
+- **Tab wiring**: `DashboardWithTabs` in `DashboardScreen.kt` — uses `TabRow` + `when(selectedTab)`. Add new tab enum value and new `when` branch.
+- **Colors** (`ui/Theme.kt`): MiOrange 0xFFFF6B00, MiTextSecondary 0xFF6C757D, ColorProtein 0xFF4361EE, ColorCarbs 0xFFF72585, ColorFat 0xFF4CC9F0.
+- **Date util**: `todayString()` returns today as "YYYY-MM-DD". `kotlinx.datetime` available in commonMain — use `Clock.System.todayIn(TimeZone.currentSystemDefault())` for LocalDate; `LocalDate.parse(str)` for formatting day labels.
+- **Domain models**: `data/model/` — plain data classes. Keep fields nullable where DB column is nullable.
+- **ModalBottomSheet**: used in `CustomFoodManagerSheet.kt` — reuse that pattern for the cardio log dialog.
+- **DatePickerDialog**: already exists in codebase — locate and reuse rather than writing from scratch.
+- **CardioSession SQLDelight**: table uses `INTEGER` for minutes; SQLDelight maps it to `Long` in generated code → `toDomain()` must call `.toInt()`. Queries accessor = `database.cardioSessionQueries`.
+- **Schema version**: 5.sqm is v5→v6 migration. CardioSession.sq defines the final schema; 5.sqm is the incremental DDL for upgrades.
+- **DatePickerDialog reuse for single date**: takes the `range.startDate` from the returned DateRange; this existing composable only does week ranges but single-date use is fine by ignoring the end.
+- **CardioScreen FAB + Scaffold**: wrap CardioScreen in its own `Scaffold` with FAB so the FAB hovers above the LazyColumn content; pass `containerColor = MaterialTheme.colorScheme.background` to avoid double-surface tinting.
+- **ModalBottomSheet disabled OutlinedTextField trick**: date field is `readOnly = true` + `enabled = false` + `Modifier.clickable {}` to show the picker on tap (disabled fields don't capture keyboard focus, clickable still fires).
+
+---
+
+## 2026-06-16 — US-002 through US-005: Cardio tab full implementation
+
+**US-002 — Tab + StateHolder wiring:**
+- `CardioState.kt`, `CardioStateHolder.kt` (StateFlow<CardioState>, reactive sessionsForRange)
+- `CardioScreen.kt` stub
+- `DashboardWithTabs.kt`: added Cardio tab at index 2 (Settings moved to 3), `Icons.AutoMirrored.Filled.DirectionsRun`
+- `App.kt`: wired `CardioRepositoryImpl` + `CardioStateHolder` via `remember {}`
+
+**US-003 — Weekly summary header:**
+- `CardioScreen` renders `WeeklySummaryCard` ("This week: X min"), same Card style as MacroSummaryCard
+
+**US-004 — Per-day session list:**
+- Sessions grouped by date (most recent first), `SessionDayGroup` card per day
+- `formatDayLabel` uses `dayOfWeekMonBased` + `MONTH_ABBR` from DateUtil
+- `HorizontalDivider` between session rows within a day group
+
+**US-005 — Log/edit/delete dialog + FAB:**
+- `CardioStateHolder`: added `logSession`, `updateSession`, `deleteSession` (scope.launch)
+- `CardioLogSheet.kt`: ModalBottomSheet, date (reuses DatePickerDialog), minutes (KeyboardType.Number, validation > 0), note optional; Delete button in edit mode
+- `CardioScreen`: Scaffold + MiOrange FAB, `showSheet` + `sheetSession` state drives dialog
+
+**Files touched (US-002—005):**
+- `ui/dashboard/CardioState.kt` (new)
+- `ui/dashboard/CardioStateHolder.kt` (new → expanded)
+- `ui/dashboard/CardioScreen.kt` (stub → full)
+- `ui/dashboard/CardioLogSheet.kt` (new)
+- `ui/dashboard/DashboardWithTabs.kt`
+- `App.kt`
+
+**Learnings:**
+- Tab index shift: inserting Cardio at index 2 pushed Settings from 2→3; update `when` blocks accordingly.
+- `Icons.Default.DirectionsRun` is deprecated; use `Icons.AutoMirrored.Filled.DirectionsRun`.
+- `todayString()` + `minusDays(6)` sufficient for rolling 7-day window; no kotlinx.datetime needed in StateHolder.
+
+---
+
+## 2026-06-16 — US-001: Cardio schema + repository
+
+**Changed:**
+- Created `CardioSession.sq` with `cardio_session` table + CRUD + range query
+- Created `migrations/5.sqm` (v5→v6: cardio_session table)
+- Created `data/model/CardioSession.kt` domain model
+- Created `CardioRepository` interface + `CardioRepositoryImpl`
+
+**Files touched:**
+- `composeApp/src/commonMain/sqldelight/.../CardioSession.sq`
+- `composeApp/src/commonMain/sqldelight/.../migrations/5.sqm`
+- `composeApp/src/commonMain/kotlin/.../data/model/CardioSession.kt`
+- `composeApp/src/commonMain/kotlin/.../data/repository/CardioRepository.kt`
+- `composeApp/src/commonMain/kotlin/.../data/repository/CardioRepositoryImpl.kt`
+
+**Learnings:**
+- SQLDelight `INTEGER` columns map to `Long` in generated Kotlin; need `.toInt()` in `toDomain()` for `Int` domain fields.
+- `cardioSessionQueries` accessor auto-generated from `CardioSession.sq` filename.
+- `5.sqm` naming = v5→v6; comment convention matches prior migrations.

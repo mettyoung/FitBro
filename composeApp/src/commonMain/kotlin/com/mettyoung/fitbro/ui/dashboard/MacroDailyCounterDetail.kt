@@ -34,7 +34,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -52,10 +51,10 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -82,16 +81,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.window.Dialog
 import com.mettyoung.fitbro.getPlatform
-import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
 import com.mettyoung.fitbro.data.food.FoodDataSource
-import com.mettyoung.fitbro.data.repository.CustomFoodRepository
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.MacroDataSource
+import com.mettyoung.fitbro.data.model.MacroGoalProfile
 import com.mettyoung.fitbro.data.model.MealType
+import com.mettyoung.fitbro.data.repository.CustomFoodRepository
+import com.mettyoung.fitbro.data.repository.MacroGoalRepository
 import com.mettyoung.fitbro.ui.FitroBroIcon
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
-import com.mettyoung.fitbro.util.MacroMath
 import com.mettyoung.fitbro.util.MONTH_ABBR
 import com.mettyoung.fitbro.util.minusDays
 import com.mettyoung.fitbro.util.plusDays
@@ -103,7 +102,7 @@ import kotlin.math.roundToInt
 
 @Composable
 fun MacroDailyCounterDetail(
-    userSettingsDataSource: UserSettingsDataSource,
+    macroGoalRepository: MacroGoalRepository,
     foodDiaryStateHolder: FoodDiaryStateHolder,
     customMealStateHolder: CustomMealStateHolder,
     customFoodStateHolder: CustomFoodStateHolder,
@@ -124,12 +123,13 @@ fun MacroDailyCounterDetail(
 
     val today = todayString()
 
-    var proteinGoal by remember { mutableStateOf(userSettingsDataSource.getProteinGoalG()) }
-    var carbsGoal by remember { mutableStateOf(userSettingsDataSource.getCarbsGoalG()) }
-    var fatGoal by remember { mutableStateOf(userSettingsDataSource.getFatGoalG()) }
-    var calorieGoal by remember { mutableStateOf(userSettingsDataSource.getCalorieGoalKcal()) }
+    var activeProfile by remember {
+        mutableStateOf(MacroGoalProfile(id = 0L, name = "Default", proteinG = 0.0, carbsG = 0.0, fatG = 0.0, caloriesKcal = 0.0))
+    }
 
-    var showGoalsDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(selectedDate) {
+        activeProfile = macroGoalRepository.getActiveProfileForDate(selectedDate)
+    }
     var showCustomMeals by remember { mutableStateOf(false) }
     var showCustomFoods by remember { mutableStateOf(false) }
     var addingToMeal by remember { mutableStateOf<String?>(null) }
@@ -248,17 +248,6 @@ fun MacroDailyCounterDetail(
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                            Spacer(Modifier.width(8.dp))
-                            IconButton(
-                                onClick = { showGoalsDialog = true },
-                                modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = "Edit Goals",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
                         }
                     }
 
@@ -318,10 +307,10 @@ fun MacroDailyCounterDetail(
 
                     MacroSummaryHeader(
                         totals = foodState.dailyTotals,
-                        proteinGoal = proteinGoal,
-                        carbGoal = carbsGoal,
-                        fatGoal = fatGoal,
-                        calorieGoal = calorieGoal
+                        proteinGoal = activeProfile.proteinG,
+                        carbGoal = activeProfile.carbsG,
+                        fatGoal = activeProfile.fatG,
+                        calorieGoal = activeProfile.caloriesKcal
                     )
                 }
             }
@@ -651,22 +640,6 @@ fun MacroDailyCounterDetail(
         )
     }
 
-    if (showGoalsDialog) {
-        MacroGoalsDialog(
-            proteinGoal = proteinGoal,
-            carbsGoal = carbsGoal,
-            fatGoal = fatGoal,
-            calorieGoal = calorieGoal,
-            onDismiss = { showGoalsDialog = false },
-            onSave = { p, c, f, cal ->
-                userSettingsDataSource.setProteinGoalG(p); proteinGoal = p
-                userSettingsDataSource.setCarbsGoalG(c); carbsGoal = c
-                userSettingsDataSource.setFatGoalG(f); fatGoal = f
-                userSettingsDataSource.setCalorieGoalKcal(cal); calorieGoal = cal
-                showGoalsDialog = false
-            }
-        )
-    }
 }
 
 @Composable
@@ -1109,136 +1082,3 @@ private class MealDragState {
     }
 }
 
-@Composable
-internal fun MacroGoalsDialog(
-    proteinGoal: Double,
-    carbsGoal: Double,
-    fatGoal: Double,
-    calorieGoal: Double,
-    onDismiss: () -> Unit,
-    onSave: (protein: Double, carbs: Double, fat: Double, calorie: Double) -> Unit
-) {
-    var proteinInput by remember { mutableStateOf(proteinGoal.toInt().toString()) }
-    var carbsInput by remember { mutableStateOf(carbsGoal.toInt().toString()) }
-    var fatInput by remember { mutableStateOf(fatGoal.toInt().toString()) }
-    var calorieInput by remember { mutableStateOf(calorieGoal.toInt().toString()) }
-
-    // Atwater: 4 kcal/g carb, 4 kcal/g protein, 9 kcal/g fat. Recompute on any macro change,
-    // overwriting the calorie goal (auto-fill). A manual calorie edit persists until the next macro change.
-    fun recalcCalories(p: String, c: String, f: String) {
-        val sum = MacroMath.caloriesFromMacros(
-            carbG = (c.toIntOrNull() ?: 0).toDouble(),
-            proteinG = (p.toIntOrNull() ?: 0).toDouble(),
-            fatG = (f.toIntOrNull() ?: 0).toDouble()
-        )
-        calorieInput = if (sum > 0) sum.roundToInt().toString() else ""
-    }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(32.dp),
-            color = MaterialTheme.colorScheme.surface
-        ) {
-            Column(modifier = Modifier.padding(32.dp)) {
-                Text(
-                    text = "Target Goals",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Adjust your daily targets",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MiTextSecondary
-                )
-                
-                Spacer(Modifier.height(24.dp))
-                
-                val percents = MacroMath.macroPercents(
-                    carbG = (carbsInput.toIntOrNull() ?: 0).toDouble(),
-                    proteinG = (proteinInput.toIntOrNull() ?: 0).toDouble(),
-                    fatG = (fatInput.toIntOrNull() ?: 0).toDouble()
-                )
-
-                GoalField("Calories (kcal)", calorieInput) {
-                    if (it.all { c -> c.isDigit() }) calorieInput = it
-                }
-                Spacer(Modifier.height(16.dp))
-                GoalField("Protein (g)", proteinInput, trailing = percents?.let { "${it.proteinPct}%" }) {
-                    if (it.all { c -> c.isDigit() }) { proteinInput = it; recalcCalories(it, carbsInput, fatInput) }
-                }
-                Spacer(Modifier.height(16.dp))
-                GoalField("Carbohydrates (g)", carbsInput, trailing = percents?.let { "${it.carbPct}%" }) {
-                    if (it.all { c -> c.isDigit() }) { carbsInput = it; recalcCalories(proteinInput, it, fatInput) }
-                }
-                Spacer(Modifier.height(16.dp))
-                GoalField("Total Fats (g)", fatInput, trailing = percents?.let { "${it.fatPct}%" }) {
-                    if (it.all { c -> c.isDigit() }) { fatInput = it; recalcCalories(proteinInput, carbsInput, it) }
-                }
-                
-                Spacer(Modifier.height(32.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text("Discard", color = MiTextSecondary)
-                    }
-                    Button(
-                        onClick = {
-                            val p = proteinInput.toDoubleOrNull() ?: return@Button
-                            val c = carbsInput.toDoubleOrNull() ?: return@Button
-                            val f = fatInput.toDoubleOrNull() ?: return@Button
-                            val cal = calorieInput.toDoubleOrNull() ?: return@Button
-                            onSave(p, c, f, cal)
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
-                    ) {
-                        Text("Apply")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GoalField(
-    label: String,
-    value: String,
-    trailing: String? = null,
-    onValueChange: (String) -> Unit
-) {
-    TextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        trailingIcon = trailing?.let {
-            {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary,
-                    modifier = Modifier.padding(end = 16.dp)
-                )
-            }
-        },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        shape = RoundedCornerShape(16.dp),
-        colors = TextFieldDefaults.colors(
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            focusedContainerColor = MaterialTheme.colorScheme.background,
-            unfocusedContainerColor = MaterialTheme.colorScheme.background,
-            focusedLabelColor = MiOrange
-        )
-    )
-}

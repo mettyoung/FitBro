@@ -1,0 +1,56 @@
+CREATE TABLE MacroGoalProfile (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    protein_g REAL NOT NULL,
+    carbs_g REAL NOT NULL,
+    fat_g REAL NOT NULL,
+    calories_kcal REAL NOT NULL
+);
+
+CREATE TABLE WeekdayGoalMapping (
+    weekday INTEGER PRIMARY KEY,
+    profile_id INTEGER NOT NULL REFERENCES MacroGoalProfile(id)
+);
+
+insertProfile:
+INSERT INTO MacroGoalProfile (name, protein_g, carbs_g, fat_g, calories_kcal)
+VALUES (?, ?, ?, ?, ?);
+
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+updateProfile:
+UPDATE MacroGoalProfile
+SET name = ?, protein_g = ?, carbs_g = ?, fat_g = ?, calories_kcal = ?
+WHERE id = ?;
+
+deleteProfile:
+DELETE FROM MacroGoalProfile WHERE id = ?;
+
+getAllProfiles:
+SELECT * FROM MacroGoalProfile ORDER BY id ASC;
+
+getProfileById:
+SELECT * FROM MacroGoalProfile WHERE id = ?;
+
+getDefaultProfile:
+SELECT * FROM MacroGoalProfile WHERE name = 'Default' LIMIT 1;
+
+getFirstProfile:
+SELECT * FROM MacroGoalProfile ORDER BY id ASC LIMIT 1;
+
+countProfiles:
+SELECT COUNT(*) FROM MacroGoalProfile;
+
+getMappingForWeekday:
+SELECT profile_id FROM WeekdayGoalMapping WHERE weekday = ?;
+
+setMappingForWeekday:
+INSERT OR REPLACE INTO WeekdayGoalMapping (weekday, profile_id)
+VALUES (?, ?);
+
+getAllMappings:
+SELECT weekday, profile_id FROM WeekdayGoalMapping;
+
+getMappingsForProfileId:
+SELECT weekday FROM WeekdayGoalMapping WHERE profile_id = ?;

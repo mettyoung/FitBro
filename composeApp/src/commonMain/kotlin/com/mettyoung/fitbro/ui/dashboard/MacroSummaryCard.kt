@@ -30,8 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.data.model.MacroGoalProfile
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
@@ -42,14 +42,10 @@ import kotlin.math.roundToInt
 @Composable
 fun MacroSummaryCard(
     balance: DailyBalance?,
-    userSettingsDataSource: UserSettingsDataSource,
+    activeProfile: MacroGoalProfile,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val proteinGoal = userSettingsDataSource.getProteinGoalG()
-    val carbsGoal = userSettingsDataSource.getCarbsGoalG()
-    val fatGoal = userSettingsDataSource.getFatGoalG()
-
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -72,9 +68,9 @@ fun MacroSummaryCard(
                 ) {
                     Text("🍏", fontSize = 20.sp)
                 }
-                
+
                 Spacer(Modifier.width(16.dp))
-                
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Nutrition",
@@ -82,12 +78,12 @@ fun MacroSummaryCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Daily Macro Breakdown",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = activeProfile.name,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MiTextSecondary
                     )
                 }
-                
+
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
@@ -97,7 +93,7 @@ fun MacroSummaryCard(
 
             if (balance != null) {
                 Spacer(Modifier.height(24.dp))
-                
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -105,21 +101,21 @@ fun MacroSummaryCard(
                     MiniMacroStatus(
                         label = "Protein",
                         value = balance.proteinG,
-                        goal = proteinGoal,
+                        goal = activeProfile.proteinG,
                         color = ColorProtein,
                         modifier = Modifier.weight(1f)
                     )
                     MiniMacroStatus(
                         label = "Carbs",
                         value = balance.carbG,
-                        goal = carbsGoal,
+                        goal = activeProfile.carbsG,
                         color = ColorCarbs,
                         modifier = Modifier.weight(1f)
                     )
                     MiniMacroStatus(
                         label = "Fat",
                         value = balance.fatG,
-                        goal = fatGoal,
+                        goal = activeProfile.fatG,
                         color = ColorFat,
                         modifier = Modifier.weight(1f)
                     )
@@ -145,7 +141,7 @@ private fun MiniMacroStatus(
     modifier: Modifier = Modifier
 ) {
     val progress = (value / goal.coerceAtLeast(1.0)).toFloat().coerceIn(0f, 1f)
-    
+
     Column(modifier = modifier) {
         Text(
             text = label,
