@@ -1,37 +1,36 @@
 {
   "project": "FitBro",
-  "branchName": "ralph/cardio-page-polish",
-  "description": "Two UX polish items for the Cardio feature: (1) add a consistent pinned header to CardioScreen matching Settings/FoodDiary style; (2) surface weekly cardio total on the main dashboard Balance view between the insight card and history section.",
+  "branchName": "ralph/rolling-date-range",
+  "description": "Change dashboard date range to rolling: user picks a start date (persisted across sessions), end date always = today. Remove 7-day chart cap. Rename 'Total Week' to 'Total'.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Cardio screen consistent header",
-      "description": "As a user, I want the Cardio tab to have a header like other screens so the app feels cohesive.",
+      "title": "Persist start date + rolling end date",
+      "description": "As a user, I want my chosen start date remembered across sessions with the end date always being today.",
       "acceptanceCriteria": [
-        "Header pinned at top of CardioScreen (outside scroll area) with title 'Cardio' (headlineMedium or displayMedium) and subtitle 'Weekly Training Log' (labelSmall, MiOrange color)",
-        "Header uses statusBarsPadding() + background(MaterialTheme.colorScheme.surface) + horizontal padding 24.dp — same pattern as MacroProfilesSettings header",
-        "WeeklySummaryCard and session list scroll beneath the pinned header — header does not scroll away",
+        "New getDashboardStartDate(): String and setDashboardStartDate(date: String) added to UserSettingsDataSource interface and UserSettingsDataSourceImpl (key: 'dashboard_start_date'; default = todayString() minus 6 days via minusDays util)",
+        "App.kt initialDateRange uses DateRange(startDate = userSettingsDataSource.getDashboardStartDate(), endDate = todayString())",
+        "When user picks a date via DatePickerDialog, only range.startDate is used; endDate always = todayString(); picked end date from dialog ignored",
+        "setDashboardStartDate(range.startDate) persisted on every date selection — either in DashboardStateHolder.setDateRange() or in the onDateRangeSelected lambda in App.kt/DashboardWithTabs",
+        "Cold restart restores persisted start date; end date recalculated as today at runtime",
         "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
       ],
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Weekly cardio total on main dashboard",
-      "description": "As a user, I want to see my weekly cardio total on the main dashboard so I don't need to switch tabs to check it.",
+      "title": "Remove 7-day chart cap + rename Total Week",
+      "description": "As a user, I want the chart and history to show all days from my start date to today with no artificial cutoff.",
       "acceptanceCriteria": [
-        "New private CardioSummaryRow composable in DashboardScreen.kt; rendered in DashboardContent between SlidingWindowInsightCard and the History section header",
-        "Row shows: Icons.AutoMirrored.Filled.DirectionsRun icon (MiOrange, 20.dp), label 'Cardio this week' (bodyMedium, MiTextSecondary), value right-aligned e.g. '120 min' (bodyLarge, onSurface); shows '0 min' when no sessions",
-        "DashboardContent gains a new weeklyCardioMinutes: Int = 0 parameter; existing call sites compile unchanged",
-        "App.kt passes cardioStateHolder.state.collectAsState().value.weeklyTotalMinutes into DashboardContent",
-        "CardioSummaryRow only rendered when viewMode == DashboardViewMode.BALANCE (hidden for INTAKE and EXPENDITURE)",
-        "Same horizontal padding (24.dp) as surrounding content",
+        "CalorieBalanceChart.kt: remove balances.takeLast(7) — chart renders all entries in the list passed to it",
+        "DashboardScreen.kt: 'Total Week' text renamed to 'Total' (search entire file for the string — may appear in SlidingWindowInsightCard call or as a hardcoded Text label)",
+        "Verify no other takeLast or size-cap exists in the history row rendering in DashboardScreen.kt; remove if found",
         "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     }
   ]
