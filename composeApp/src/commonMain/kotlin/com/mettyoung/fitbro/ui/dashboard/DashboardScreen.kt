@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
@@ -32,7 +31,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -96,7 +95,7 @@ fun DashboardContent(
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
     var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
-    var viewMode by remember { mutableStateOf(DashboardViewMode.BALANCE) }
+    var selectedLens: DashboardViewMode? by remember { mutableStateOf(null) }
     var wasRefreshing by remember { mutableStateOf(false) }
     var showSuccessToast by remember { mutableStateOf(false) }
     var refreshError by remember { mutableStateOf<String?>(null) }
@@ -250,14 +249,6 @@ fun DashboardContent(
             ) {
                 Spacer(Modifier.height(24.dp))
 
-                DashboardViewModeToggle(
-                    selected = viewMode,
-                    onSelected = { viewMode = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(Modifier.height(24.dp))
-
                 when (val uiState = state.uiState) {
                     is DashboardUiState.Loading -> {
                         Box(
@@ -268,61 +259,21 @@ fun DashboardContent(
                         }
                     }
                     is DashboardUiState.Success -> {
-                        // Summary Card with Chart
-                        SlidingWindowInsightCard(
-                            balances = uiState.balances,
-                            viewMode = viewMode,
-                            onBarClick = { selectedBreakdown = it },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        if (viewMode == DashboardViewMode.BALANCE) {
-                            Spacer(Modifier.height(16.dp))
-                            CardioSummaryRow(weeklyCardioMinutes = weeklyCardioMinutes)
-                        }
-
-                        Spacer(Modifier.height(32.dp))
-
-                        // Daily History Section Header
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "History",
-                                style = MaterialTheme.typography.titleLarge
+                        if (selectedLens == null) {
+                            DashboardHome(
+                                balances = uiState.balances,
+                                weeklyCardioMinutes = weeklyCardioMinutes,
+                                onIntakeClick = { selectedLens = DashboardViewMode.INTAKE },
+                                onExpenditureClick = { selectedLens = DashboardViewMode.EXPENDITURE }
                             )
-                            Text(
-                                text = "${uiState.balances.size} days",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MiTextSecondary
+                        } else {
+                            DashboardDetail(
+                                balances = uiState.balances,
+                                viewMode = selectedLens!!,
+                                onBack = { selectedLens = null },
+                                onBarClick = { selectedBreakdown = it }
                             )
                         }
-                        
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                        ) {
-                            Column {
-                                uiState.balances.reversed().forEachIndexed { index, balance ->
-                                    CondensedLogItem(
-                                        balance = balance,
-                                        viewMode = viewMode,
-                                        onClick = { selectedBreakdown = balance }
-                                    )
-                                    if (index < uiState.balances.size - 1) {
-                                        HorizontalDivider(
-                                            modifier = Modifier.padding(horizontal = 24.dp),
-                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        
                         if (uiState.warnings.isNotEmpty()) {
                             Spacer(Modifier.height(24.dp))
                             uiState.warnings.forEach { warning ->
@@ -378,6 +329,106 @@ fun DashboardContent(
             singleDay = true
         )
     }
+}
+
+@Composable
+private fun DashboardHome(
+    balances: List<DailyBalance>,
+    weeklyCardioMinutes: Int,
+    onIntakeClick: () -> Unit,
+    onExpenditureClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        CalorieBalanceBannerCard(
+            balances = balances,
+            weeklyCardioMinutes = weeklyCardioMinutes,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ElevatedCard(
+                onClick = onIntakeClick,
+                modifier = Modifier.weight(1f),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Intake",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MiOrange
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "${balances.sumOf { it.intake }.roundToInt()}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+            ElevatedCard(
+                onClick = onExpenditureClick,
+                modifier = Modifier.weight(1f),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Expenditure",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MiOrange
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "${balances.sumOf { it.burn }.roundToInt()}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalorieBalanceBannerCard(
+    balances: List<DailyBalance>,
+    weeklyCardioMinutes: Int,
+    modifier: Modifier = Modifier
+) {
+    val netBalance = balances.sumOf { it.balance }.roundToInt()
+    val balanceColor = if (netBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+    val sign = if (netBalance >= 0) "+" else ""
+    ElevatedCard(
+        modifier = modifier,
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text(
+                text = "$sign$netBalance kcal",
+                style = MaterialTheme.typography.displayMedium,
+                color = balanceColor
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "🏃 $weeklyCardioMinutes min",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MiTextSecondary
+            )
+        }
+    }
+}
+
+@Composable
+private fun DashboardDetail(
+    balances: List<DailyBalance>,
+    viewMode: DashboardViewMode,
+    onBack: () -> Unit,
+    onBarClick: (DailyBalance) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // placeholder — US-002
 }
 
 @Composable
@@ -694,33 +745,6 @@ private fun suggestAction(errorMessage: String): String = when {
     "Network" in errorMessage -> "Suggestion: Check your internet connection"
     "Rate limited" in errorMessage -> "Suggestion: Wait a moment and try again"
     else -> "Suggestion: Try again later"
-}
-
-@Composable
-private fun CardioSummaryRow(weeklyCardioMinutes: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
-            contentDescription = null,
-            tint = MiOrange,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = "Cardio this week",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MiTextSecondary,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = "$weeklyCardioMinutes min",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
 }
 
 @Composable
