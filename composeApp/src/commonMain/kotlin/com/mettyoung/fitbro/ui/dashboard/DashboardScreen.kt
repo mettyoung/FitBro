@@ -265,6 +265,7 @@ fun DashboardContent(
                             DashboardHome(
                                 balances = uiState.balances,
                                 weeklyCardioMinutes = weeklyCardioMinutes,
+                                onBalanceClick = { selectedLens = DashboardViewMode.BALANCE },
                                 onIntakeClick = { selectedLens = DashboardViewMode.INTAKE },
                                 onExpenditureClick = { selectedLens = DashboardViewMode.EXPENDITURE }
                             )
@@ -337,6 +338,7 @@ fun DashboardContent(
 private fun DashboardHome(
     balances: List<DailyBalance>,
     weeklyCardioMinutes: Int,
+    onBalanceClick: () -> Unit,
     onIntakeClick: () -> Unit,
     onExpenditureClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -345,6 +347,7 @@ private fun DashboardHome(
         CalorieBalanceBannerCard(
             balances = balances,
             weeklyCardioMinutes = weeklyCardioMinutes,
+            onClick = onBalanceClick,
             modifier = Modifier.fillMaxWidth()
         )
         Row(
@@ -397,12 +400,14 @@ private fun DashboardHome(
 private fun CalorieBalanceBannerCard(
     balances: List<DailyBalance>,
     weeklyCardioMinutes: Int,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val netBalance = balances.sumOf { it.balance }.roundToInt()
     val balanceColor = if (netBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
     val sign = if (netBalance >= 0) "+" else ""
     ElevatedCard(
+        onClick = onClick,
         modifier = modifier,
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
     ) {
