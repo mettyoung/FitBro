@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.ui.BackHandlerEffect
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
@@ -100,6 +101,8 @@ fun DashboardContent(
     var wasRefreshing by remember { mutableStateOf(false) }
     var showSuccessToast by remember { mutableStateOf(false) }
     var refreshError by remember { mutableStateOf<String?>(null) }
+
+    BackHandlerEffect(enabled = selectedLens != null) { selectedLens = null }
 
     val today = todayString()
     val startDate = state.selectedDateRange.startDate
