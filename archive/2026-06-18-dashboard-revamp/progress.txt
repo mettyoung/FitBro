@@ -1,0 +1,39 @@
+# Ralph Progress Log — dashboard-revamp
+Started: 2026-06-18
+
+## Codebase Patterns
+- **Gradle env**: JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home; run UNSANDBOXED. Typecheck = `:composeApp:compileDebugKotlinAndroid` + `:composeApp:compileKotlinIosSimulatorArm64`. No browser test.
+- **DashboardScreen.kt**: `ui/dashboard/DashboardScreen.kt` — main file for this revamp. Contains `DashboardContent` composable (top-level), `DashboardViewModeToggle` (delete this), `SlidingWindowInsightCard`, `CondensedLogItem`, `CardioSummaryRow`.
+- **DashboardViewMode enum**: `ui/dashboard/DashboardViewMode.kt` — BALANCE, INTAKE, EXPENDITURE. Keep the enum; just stop passing it via toggle. BALANCE still used by chart diverging param and CondensedLogItem.
+- **Colors**: `MiOrange`, `MiGreen` (0xFF4CAF50), `MiTextSecondary` are defined in `ui/FitBroTheme.kt` or similar — grep to confirm. Red for negative balance = `Color(0xFFF44336)`.
+- **ElevatedCard**: Use Material3 `ElevatedCard(onClick = { ... }, modifier = ...) { ... }` for clickable cards. `tonalElevation = 4.dp` for banner, `2.dp` for grid cards.
+- **DailyBalance fields**: `balance: Double` (net), `intake: Double` (kcal in), `burn: Double` (kcal out). All in `data/model/DailyBalance.kt`.
+- **weeklyCardioMinutes**: Already a param in `DashboardContent`. Pass it through to `DashboardHome`.
+- **SlidingWindowInsightCard**: Already accepts `viewMode: DashboardViewMode` param — pass INTAKE or EXPENDITURE from DashboardDetail.
+- **CondensedLogItem**: `CondensedLogItem(balance: DailyBalance, viewMode: DashboardViewMode, onClick: () -> Unit)` — reuse as-is in DashboardDetail history rows.
+- **Back nav**: Use `Icons.AutoMirrored.Filled.ArrowBack` — needs `import androidx.compose.material.icons.automirrored.filled.ArrowBack`.
+- **selectedLens state**: `var selectedLens: DashboardViewMode? by remember { mutableStateOf(null) }` in DashboardContent. Null = home, non-null = detail.
+- **kotlin.math.roundToInt**: Available via `import kotlin.math.roundToInt` for `balances.sumOf{it.balance}.roundToInt()`.
+
+---
+
+## 2026-06-18 — US-001 + US-002
+
+**US-001: Balance home — banner + 2-column grid**
+- Removed `DashboardViewModeToggle` composable from `DashboardViewMode.kt` (all compose imports stripped; only enum + extensions remain)
+- Replaced `var viewMode` state with `var selectedLens: DashboardViewMode?` in `DashboardContent`
+- Removed `CardioSummaryRow` composable
+- Added `DashboardHome`: Column with `CalorieBalanceBannerCard` + Row of two `ElevatedCard` (Intake/Expenditure)
+- Added `CalorieBalanceBannerCard`: net balance signed (green/red), cardio emoji row
+- Added `DashboardDetail` placeholder (filled in US-002)
+- Files: `DashboardScreen.kt`, `DashboardViewMode.kt`
+
+**US-002: Detail drill-down — chart + history for selected lens**
+- Filled `DashboardDetail`: back `IconButton` (ArrowBack, MiOrange), `SlidingWindowInsightCard`, history `CondensedLogItem` list with `HorizontalDivider` separators
+- Intake/Expenditure card taps already wired in US-001; back sets `selectedLens = null`
+- Files: `DashboardScreen.kt`
+
+Learnings:
+- `CardDefaults.elevatedCardElevation(defaultElevation = X.dp)` is the correct API for `ElevatedCard` in this project's Material3 version
+- `HorizontalDivider` import must be added back when DashboardDetail reuses the history pattern removed from DashboardContent's Success branch
+- `DashboardViewModeToggle` was in `DashboardViewMode.kt`, not `DashboardScreen.kt` — check file boundaries before deleting imports

@@ -1,0 +1,43 @@
+{
+  "project": "FitBro",
+  "branchName": "ralph/dashboard-revamp",
+  "description": "Dashboard UX Revamp — replace 3-way toggle with banner + 2-column card grid + detail drill-down",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Balance home — banner + 2-column grid",
+      "description": "As a user, I want to see my calorie balance and key metrics at a glance from the main dashboard without switching tabs.",
+      "acceptanceCriteria": [
+        "DashboardViewMode toggle removed from DashboardContent; 3-way segmented control deleted",
+        "New DashboardHome composable renders: CalorieBalanceBannerCard (full-width ElevatedCard, tonalElevation=4.dp) showing net balance signed ('+320 kcal' green if >=0, red if <0) from balances.sumOf{it.balance}.roundToInt() in displayMedium; below that '🏃 X min' weeklyCardioMinutes in bodyMedium MiTextSecondary",
+        "Row of two equal-width ElevatedCard items (Modifier.weight(1f) each, tonalElevation=2.dp, Modifier.padding(8.dp) gap): left=Intake, right=Expenditure",
+        "Intake card: title 'Intake' (labelSmall, MiOrange), total kcal in (balances.sumOf{it.intake}.roundToInt(), bodyLarge, onSurface)",
+        "Expenditure card: title 'Expenditure' (labelSmall, MiOrange), total kcal out (balances.sumOf{it.burn}.roundToInt(), bodyLarge, onSurface)",
+        "DashboardContent renders DashboardHome when selectedLens==null; DashboardDetail when selectedLens!=null (placeholder onBack/onBarClick lambdas ok for this story)",
+        "CardioSummaryRow removed from DashboardContent",
+        "selectedLens: DashboardViewMode? state hoisted in DashboardContent (initially null)",
+        "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Detail drill-down — chart + history for selected lens",
+      "description": "As a user, I want to tap an Intake or Expenditure card and see the full chart and daily history for that lens so I can analyze trends.",
+      "acceptanceCriteria": [
+        "New DashboardDetail composable: takes balances: List<DailyBalance>, viewMode: DashboardViewMode (INTAKE or EXPENDITURE), onBack: () -> Unit, onBarClick: (DailyBalance) -> Unit",
+        "DashboardDetail renders: back IconButton (Icons.AutoMirrored.Filled.ArrowBack, tint=MiOrange) in the header row alongside date navigator; SlidingWindowInsightCard(balances, viewMode); history rows as CondensedLogItem list (reverse-chronological) scoped to selected viewMode",
+        "Tapping Intake card sets selectedLens = DashboardViewMode.INTAKE; tapping Expenditure sets selectedLens = DashboardViewMode.EXPENDITURE",
+        "Back button sets selectedLens = null, returning to DashboardHome",
+        "BreakdownDialog still opens on bar tap (unchanged behavior)",
+        "BALANCE DashboardViewMode not handled in DashboardDetail (banner handles balance; no detail drill for BALANCE)",
+        "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}
