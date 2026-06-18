@@ -63,6 +63,7 @@ import com.mettyoung.fitbro.util.formatTimeAgo
 import com.mettyoung.fitbro.util.minusDays
 import com.mettyoung.fitbro.util.plusDays
 import com.mettyoung.fitbro.util.toDisplayRange
+import com.mettyoung.fitbro.util.toShortDate
 import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -92,7 +93,8 @@ fun DashboardContent(
     weeklyCardioMinutes: Int = 0,
     modifier: Modifier = Modifier
 ) {
-    var showPicker by remember { mutableStateOf(false) }
+    var showStartPicker by remember { mutableStateOf(false) }
+    var showEndPicker by remember { mutableStateOf(false) }
     var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
     var viewMode by remember { mutableStateOf(DashboardViewMode.BALANCE) }
     var wasRefreshing by remember { mutableStateOf(false) }
@@ -101,6 +103,7 @@ fun DashboardContent(
 
     val today = todayString()
     val startDate = state.selectedDateRange.startDate
+    val endDate = state.selectedDateRange.endDate
     val canGoNext = startDate.plusDays(7) <= today
     val isLoading = state.uiState is DashboardUiState.Loading
 
@@ -174,7 +177,7 @@ fun DashboardContent(
                             }
                             Spacer(Modifier.width(8.dp))
                             IconButton(
-                                onClick = { showPicker = true },
+                                onClick = { showStartPicker = true },
                                 modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
                             ) {
                                 Icon(Icons.Default.DateRange, contentDescription = "Select Date", tint = MaterialTheme.colorScheme.onSurface)
@@ -195,20 +198,38 @@ fun DashboardContent(
                     ) {
                         IconButton(onClick = {
                             val newStart = startDate.minusDays(7)
-                            onDateRangeChanged(DateRange(newStart, today))
+                            onDateRangeChanged(DateRange(newStart, endDate))
                         }) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
                         }
 
-                        Text(
-                            text = startDate.toDisplayRange(),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = startDate.toShortDate(),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { showStartPicker = true }
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                            Text("–", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                text = endDate.toShortDate(),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { showEndPicker = true }
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
 
                         IconButton(
                             onClick = {
                                 val newStart = startDate.plusDays(7)
-                                onDateRangeChanged(DateRange(newStart, today))
+                                onDateRangeChanged(DateRange(newStart, endDate))
                             },
                             enabled = canGoNext
                         ) {
@@ -333,13 +354,26 @@ fun DashboardContent(
         BreakdownDialog(balance = breakdown, onDismiss = { selectedBreakdown = null })
     }
 
-    if (showPicker) {
+    if (showStartPicker) {
         DatePickerDialog(
             initialStartDate = startDate,
-            onDismiss = { showPicker = false },
+            onDismiss = { showStartPicker = false },
             onDateRangeSelected = { range ->
-                onDateRangeChanged(range)
-                showPicker = false
+                onDateRangeChanged(DateRange(range.startDate, endDate))
+                showStartPicker = false
+            },
+            singleDay = true
+        )
+    }
+
+    if (showEndPicker) {
+        DatePickerDialog(
+            initialStartDate = endDate,
+            onDismiss = { showEndPicker = false },
+            onDateRangeSelected = { range ->
+                val newEnd = if (range.startDate >= startDate) range.startDate else endDate
+                onDateRangeChanged(DateRange(startDate, newEnd))
+                showEndPicker = false
             },
             singleDay = true
         )

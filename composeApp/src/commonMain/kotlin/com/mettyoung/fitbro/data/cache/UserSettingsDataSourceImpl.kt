@@ -15,6 +15,7 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         private const val FOOD_DATABASE_KEY = "food_database"
         private const val MACRO_DATA_SOURCE_PREFIX = "macro_data_source_"
         private const val DASHBOARD_START_DATE_KEY = "dashboard_start_date"
+        private const val DASHBOARD_END_DATE_KEY = "dashboard_end_date"
         private const val DEFAULT_PROTEIN_GOAL = 150.0
         private const val DEFAULT_CARBS_GOAL = 200.0
         private const val DEFAULT_FAT_GOAL = 65.0
@@ -72,5 +73,12 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
 
     override fun setDashboardStartDate(date: String) {
         settings.putString(DASHBOARD_START_DATE_KEY, date)
+    }
+
+    override fun getDashboardEndDate(): String =
+        settings.getStringOrNull(DASHBOARD_END_DATE_KEY) ?: todayString()
+
+    override fun setDashboardEndDate(date: String) {
+        settings.putString(DASHBOARD_END_DATE_KEY, date)
     }
 }

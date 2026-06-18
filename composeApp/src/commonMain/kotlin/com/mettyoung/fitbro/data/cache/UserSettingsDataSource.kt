@@ -24,6 +24,9 @@ interface UserSettingsDataSource {
 
     fun getDashboardStartDate(): String
     fun setDashboardStartDate(date: String)
+
+    fun getDashboardEndDate(): String
+    fun setDashboardEndDate(date: String)
 }
 
 expect fun createUserSettingsDataSource(): UserSettingsDataSource

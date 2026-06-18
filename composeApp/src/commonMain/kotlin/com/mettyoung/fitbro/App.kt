@@ -89,7 +89,7 @@ fun App() {
         }
 
         val initialDateRange = remember {
-            DateRange(userSettingsDataSource.getDashboardStartDate(), todayString())
+            DateRange(userSettingsDataSource.getDashboardStartDate(), userSettingsDataSource.getDashboardEndDate())
         }
         val stateHolder = remember(
             healthDataSource,

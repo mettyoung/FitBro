@@ -56,6 +56,11 @@ fun String.toYMD(): Triple<Int, Int, Int> {
     return Triple(p[0].toInt(), p[1].toInt(), p[2].toInt())
 }
 
+fun String.toShortDate(): String {
+    val (_, m, d) = toYMD()
+    return "${MONTH_ABBR[m]} $d"
+}
+
 fun String.toDisplayRange(): String {
     val (sy, sm, sd) = toYMD()
     val end = plusDays(6)
