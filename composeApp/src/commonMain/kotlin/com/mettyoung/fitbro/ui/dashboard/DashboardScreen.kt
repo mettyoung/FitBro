@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
@@ -70,6 +71,7 @@ import kotlin.math.roundToInt
 @Composable
 fun DashboardScreen(
     stateHolder: DashboardStateHolder,
+    weeklyCardioMinutes: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val state by stateHolder.state.collectAsState()
@@ -77,6 +79,7 @@ fun DashboardScreen(
         state = state,
         onRefresh = { stateHolder.refresh() },
         onDateRangeChanged = { stateHolder.selectDateRange(it) },
+        weeklyCardioMinutes = weeklyCardioMinutes,
         modifier = modifier
     )
 }
@@ -86,6 +89,7 @@ fun DashboardContent(
     state: DashboardState,
     onRefresh: () -> Unit,
     onDateRangeChanged: (DateRange) -> Unit = {},
+    weeklyCardioMinutes: Int = 0,
     modifier: Modifier = Modifier
 ) {
     var showPicker by remember { mutableStateOf(false) }
@@ -250,9 +254,14 @@ fun DashboardContent(
                             onBarClick = { selectedBreakdown = it },
                             modifier = Modifier.fillMaxWidth()
                         )
-                        
+
+                        if (viewMode == DashboardViewMode.BALANCE) {
+                            Spacer(Modifier.height(16.dp))
+                            CardioSummaryRow(weeklyCardioMinutes = weeklyCardioMinutes)
+                        }
+
                         Spacer(Modifier.height(32.dp))
-                        
+
                         // Daily History Section Header
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
@@ -650,6 +659,33 @@ private fun suggestAction(errorMessage: String): String = when {
     "Network" in errorMessage -> "Suggestion: Check your internet connection"
     "Rate limited" in errorMessage -> "Suggestion: Wait a moment and try again"
     else -> "Suggestion: Try again later"
+}
+
+@Composable
+private fun CardioSummaryRow(weeklyCardioMinutes: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
+            contentDescription = null,
+            tint = MiOrange,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = "Cardio this week",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MiTextSecondary,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = "$weeklyCardioMinutes min",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
 }
 
 @Composable

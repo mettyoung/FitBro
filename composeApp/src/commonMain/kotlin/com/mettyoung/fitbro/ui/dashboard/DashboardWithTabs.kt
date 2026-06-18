@@ -105,8 +105,12 @@ fun DashboardWithTabs(
                     fadeIn() togetherWith fadeOut()
                 }
             ) { targetIndex ->
+                val cardioState by cardioStateHolder.state.collectAsState()
                 when (targetIndex) {
-                    0 -> DashboardScreen(stateHolder = stateHolder)
+                    0 -> DashboardScreen(
+                        stateHolder = stateHolder,
+                        weeklyCardioMinutes = cardioState.weeklyTotalMinutes
+                    )
                     1 -> MacroDailyCounterDetail(
                         macroGoalRepository = macroGoalRepository,
                         foodDiaryStateHolder = foodDiaryStateHolder,
