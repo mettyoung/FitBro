@@ -264,7 +264,6 @@ fun DashboardContent(
                         if (selectedLens == null) {
                             DashboardHome(
                                 balances = uiState.balances,
-                                weeklyCardioMinutes = weeklyCardioMinutes,
                                 onBalanceClick = { selectedLens = DashboardViewMode.BALANCE },
                                 onIntakeClick = { selectedLens = DashboardViewMode.INTAKE },
                                 onExpenditureClick = { selectedLens = DashboardViewMode.EXPENDITURE }
@@ -337,16 +336,16 @@ fun DashboardContent(
 @Composable
 private fun DashboardHome(
     balances: List<DailyBalance>,
-    weeklyCardioMinutes: Int,
     onBalanceClick: () -> Unit,
     onIntakeClick: () -> Unit,
     onExpenditureClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        CalorieBalanceBannerCard(
+        SlidingWindowInsightCard(
             balances = balances,
-            weeklyCardioMinutes = weeklyCardioMinutes,
+            viewMode = DashboardViewMode.BALANCE,
+            onBarClick = {},
             onClick = onBalanceClick,
             modifier = Modifier.fillMaxWidth()
         )
@@ -392,37 +391,6 @@ private fun DashboardHome(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun CalorieBalanceBannerCard(
-    balances: List<DailyBalance>,
-    weeklyCardioMinutes: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val netBalance = balances.sumOf { it.balance }.roundToInt()
-    val balanceColor = if (netBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
-    val sign = if (netBalance >= 0) "+" else ""
-    ElevatedCard(
-        onClick = onClick,
-        modifier = modifier,
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            Text(
-                text = "$sign$netBalance kcal",
-                style = MaterialTheme.typography.displayMedium,
-                color = balanceColor
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "🏃 $weeklyCardioMinutes min",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MiTextSecondary
-            )
         }
     }
 }
@@ -586,7 +554,8 @@ private fun SlidingWindowInsightCard(
     balances: List<DailyBalance>,
     viewMode: DashboardViewMode,
     onBarClick: (DailyBalance) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
     val metrics = remember(balances) { com.mettyoung.fitbro.data.model.calculateWindowMetrics(balances) }
     val trendColor = when (metrics.trend) {
@@ -606,7 +575,7 @@ private fun SlidingWindowInsightCard(
     val totalValue = if (isBalance) metrics.totalBalance else balances.sumOf { viewMode.valueOf(it) }
 
     Card(
-        modifier = modifier,
+        modifier = if (onClick != null) modifier.clickable { onClick() } else modifier,
         shape = RoundedCornerShape(32.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
