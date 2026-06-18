@@ -34,7 +34,6 @@ import com.mettyoung.fitbro.ui.dashboard.DashboardUiState
 import com.mettyoung.fitbro.ui.dashboard.DashboardWithTabs
 import com.mettyoung.fitbro.ui.dashboard.DateRange
 import com.mettyoung.fitbro.ui.dashboard.FoodDiaryStateHolder
-import com.mettyoung.fitbro.util.minusDays
 import com.mettyoung.fitbro.util.todayString
 
 @Composable
@@ -90,8 +89,7 @@ fun App() {
         }
 
         val initialDateRange = remember {
-            val today = todayString()
-            DateRange(today.minusDays(6), today)
+            DateRange(userSettingsDataSource.getDashboardStartDate(), todayString())
         }
         val stateHolder = remember(
             healthDataSource,

@@ -195,7 +195,7 @@ fun DashboardContent(
                     ) {
                         IconButton(onClick = {
                             val newStart = startDate.minusDays(7)
-                            onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
+                            onDateRangeChanged(DateRange(newStart, today))
                         }) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
                         }
@@ -208,7 +208,7 @@ fun DashboardContent(
                         IconButton(
                             onClick = {
                                 val newStart = startDate.plusDays(7)
-                                onDateRangeChanged(DateRange(newStart, newStart.plusDays(6)))
+                                onDateRangeChanged(DateRange(newStart, today))
                             },
                             enabled = canGoNext
                         ) {

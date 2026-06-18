@@ -143,9 +143,11 @@ class DashboardStateHolder(
     }
 
     fun selectDateRange(dateRange: DateRange) {
-        _state.update { it.copy(selectedDateRange = dateRange) }
-        if (dateRange.startDate == dateRange.endDate) {
-            _selectedDate.value = dateRange.startDate
+        val rollingRange = dateRange.copy(endDate = todayString())
+        userSettingsDataSource.setDashboardStartDate(rollingRange.startDate)
+        _state.update { it.copy(selectedDateRange = rollingRange) }
+        if (rollingRange.startDate == rollingRange.endDate) {
+            _selectedDate.value = rollingRange.startDate
         }
         refresh()
     }
