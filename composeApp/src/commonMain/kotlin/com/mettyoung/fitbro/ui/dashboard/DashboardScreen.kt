@@ -340,7 +340,8 @@ fun DashboardContent(
             onDateRangeSelected = { range ->
                 onDateRangeChanged(range)
                 showPicker = false
-            }
+            },
+            singleDay = true
         )
     }
 }

@@ -50,7 +50,8 @@ fun DatePickerDialog(
     initialStartDate: String,
     onDismiss: () -> Unit,
     onDateRangeSelected: (DateRange) -> Unit,
-    allowFuture: Boolean = false
+    allowFuture: Boolean = false,
+    singleDay: Boolean = false
 ) {
     val today = todayString()
     val (iy, im, _) = initialStartDate.toYMD()
@@ -66,7 +67,7 @@ fun DatePickerDialog(
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(
-                    text = "Select Week",
+                    text = if (singleDay) "Select Start Date" else "Select Week",
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
@@ -132,7 +133,7 @@ fun DatePickerDialog(
                 // Day grid
                 val firstOffset = dayOfWeekMonBased(displayYear, displayMonth, 1)
                 val daysCount = daysInMonth(displayYear, displayMonth)
-                val selectedEnd = selectedStart.plusDays(6)
+                val selectedEnd = if (singleDay) selectedStart else selectedStart.plusDays(6)
                 val totalCells = firstOffset + daysCount
                 val weeks = (totalCells + 6) / 7
 
@@ -146,8 +147,8 @@ fun DatePickerDialog(
                                     val dayStr = "$displayYear-${displayMonth.toString().padStart(2,'0')}-${dayNum.toString().padStart(2,'0')}"
                                     val isFuture = !allowFuture && dayStr > today
                                     val isStart = dayStr == selectedStart
-                                    val isEnd = dayStr == selectedEnd
-                                    val inRange = dayStr in selectedStart..selectedEnd
+                                    val isEnd = !singleDay && dayStr == selectedEnd
+                                    val inRange = !singleDay && dayStr in selectedStart..selectedEnd
 
                                     val bgColor = when {
                                         isStart || isEnd -> MiOrange
@@ -205,7 +206,8 @@ fun DatePickerDialog(
                     }
                     TextButton(
                         onClick = {
-                            onDateRangeSelected(DateRange(selectedStart, selectedStart.plusDays(6)))
+                            val endDate = if (singleDay) selectedStart else selectedStart.plusDays(6)
+                            onDateRangeSelected(DateRange(selectedStart, endDate))
                             onDismiss()
                         },
                         modifier = Modifier.weight(1f).background(MiOrange.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
