@@ -35,7 +35,8 @@ fun CalorieBalanceChart(
     onBarClick: (DailyBalance) -> Unit = {},
     modifier: Modifier = Modifier,
     valueSelector: (DailyBalance) -> Double = { it.balance },
-    diverging: Boolean = true
+    diverging: Boolean = true,
+    showDayLabels: Boolean = true
 ) {
     if (balances.isEmpty()) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
@@ -74,6 +75,7 @@ fun CalorieBalanceChart(
                         value = valueSelector(balance),
                         maxValue = maxValue,
                         diverging = diverging,
+                        showLabel = showDayLabels,
                         onClick = { onBarClick(balance) }
                     )
                 }
@@ -88,6 +90,7 @@ private fun CalorieBarItem(
     value: Double,
     maxValue: Double,
     diverging: Boolean,
+    showLabel: Boolean,
     onClick: () -> Unit
 ) {
     val positiveColor = MiOrange
@@ -140,14 +143,15 @@ private fun CalorieBarItem(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        Text(
-            text = balance.date.toDayInitial(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MiTextSecondary,
-            fontWeight = FontWeight.Bold
-        )
+        if (showLabel) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = balance.date.toDayInitial(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MiTextSecondary,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 

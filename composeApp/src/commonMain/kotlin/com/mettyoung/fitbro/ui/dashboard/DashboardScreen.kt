@@ -447,7 +447,8 @@ private fun SummaryMetricCard(
                     .fillMaxWidth()
                     .height(if (isBig) 120.dp else 60.dp),
                 valueSelector = { viewMode.valueOf(it) },
-                diverging = viewMode.isDiverging
+                diverging = viewMode.isDiverging,
+                showDayLabels = isBig
             )
             
         }
