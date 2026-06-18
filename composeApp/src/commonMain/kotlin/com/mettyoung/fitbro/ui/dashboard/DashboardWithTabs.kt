@@ -61,6 +61,11 @@ fun DashboardWithTabs(
         foodDiaryStateHolder.setDate(dashboardDate)
     }
 
+    val dashboardState by stateHolder.state.collectAsState()
+    LaunchedEffect(dashboardState.selectedDateRange) {
+        cardioStateHolder.setDateRange(dashboardState.selectedDateRange)
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
@@ -71,8 +76,8 @@ fun DashboardWithTabs(
             ) {
                 val items = listOf(
                     Triple(0, Icons.Default.Info, "Balance"),
-                    Triple(1, Icons.AutoMirrored.Filled.List, "Macros"),
-                    Triple(2, Icons.AutoMirrored.Filled.DirectionsRun, "Cardio"),
+                    Triple(1, Icons.AutoMirrored.Filled.DirectionsRun, "Cardio"),
+                    Triple(2, Icons.AutoMirrored.Filled.List, "Macros"),
                     Triple(3, Icons.Default.Settings, "Settings")
                 )
 
@@ -109,9 +114,10 @@ fun DashboardWithTabs(
                 when (targetIndex) {
                     0 -> DashboardScreen(
                         stateHolder = stateHolder,
-                        weeklyCardioMinutes = cardioState.weeklyTotalMinutes
+                        weeklyCardioMinutes = cardioState.totalMinutes
                     )
-                    1 -> MacroDailyCounterDetail(
+                    1 -> CardioScreen(stateHolder = cardioStateHolder)
+                    2 -> MacroDailyCounterDetail(
                         macroGoalRepository = macroGoalRepository,
                         foodDiaryStateHolder = foodDiaryStateHolder,
                         customMealStateHolder = customMealStateHolder,
@@ -121,7 +127,6 @@ fun DashboardWithTabs(
                         onDateSelected = stateHolder::setSelectedDate,
                         onBalanceRefreshNeeded = stateHolder::refresh
                     )
-                    2 -> CardioScreen(stateHolder = cardioStateHolder)
                     3 -> MacroProfilesSettings(
                         stateHolder = macroProfilesStateHolder
                     )
