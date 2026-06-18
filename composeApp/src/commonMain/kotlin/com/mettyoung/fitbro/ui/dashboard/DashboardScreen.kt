@@ -347,50 +347,29 @@ private fun DashboardHome(
             viewMode = DashboardViewMode.BALANCE,
             onBarClick = {},
             onClick = onBalanceClick,
+            compact = true,
             modifier = Modifier.fillMaxWidth()
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            ElevatedCard(
+            SlidingWindowInsightCard(
+                balances = balances,
+                viewMode = DashboardViewMode.INTAKE,
+                onBarClick = {},
                 onClick = onIntakeClick,
-                modifier = Modifier.weight(1f),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Intake",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MiOrange
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "${balances.sumOf { it.intake }.roundToInt()}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-            ElevatedCard(
+                compact = true,
+                modifier = Modifier.weight(1f)
+            )
+            SlidingWindowInsightCard(
+                balances = balances,
+                viewMode = DashboardViewMode.EXPENDITURE,
+                onBarClick = {},
                 onClick = onExpenditureClick,
-                modifier = Modifier.weight(1f),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Expenditure",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MiOrange
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "${balances.sumOf { it.burn }.roundToInt()}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
+                compact = true,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -555,7 +534,8 @@ private fun SlidingWindowInsightCard(
     viewMode: DashboardViewMode,
     onBarClick: (DailyBalance) -> Unit,
     modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    compact: Boolean = false
 ) {
     val metrics = remember(balances) { com.mettyoung.fitbro.data.model.calculateWindowMetrics(balances) }
     val trendColor = when (metrics.trend) {
@@ -574,13 +554,17 @@ private fun SlidingWindowInsightCard(
         else if (balances.isEmpty()) 0.0 else balances.sumOf { viewMode.valueOf(it) } / balances.size
     val totalValue = if (isBalance) metrics.totalBalance else balances.sumOf { viewMode.valueOf(it) }
 
+    val cardPadding = if (compact) 12.dp else 24.dp
+    val chartHeight = if (compact) 80.dp else 160.dp
+    val innerSpacer = if (compact) 8.dp else 24.dp
+
     Card(
         modifier = if (onClick != null) modifier.clickable { onClick() } else modifier,
         shape = RoundedCornerShape(32.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(modifier = Modifier.padding(cardPadding)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -595,12 +579,14 @@ private fun SlidingWindowInsightCard(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "${formatCalorieValue(avgValue)} kcal",
-                        style = MaterialTheme.typography.displayMedium.copy(fontSize = 32.sp),
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontSize = if (compact) 18.sp else 32.sp
+                        ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
-                if (isBalance) {
+                if (isBalance && !compact) {
                     Box(
                         modifier = Modifier
                             .size(48.dp)
@@ -622,32 +608,34 @@ private fun SlidingWindowInsightCard(
                     }
                 }
             }
-            
-            Spacer(Modifier.height(24.dp))
-            
+
+            Spacer(Modifier.height(innerSpacer))
+
             CalorieBalanceChart(
                 balances = balances,
                 onBarClick = onBarClick,
-                modifier = Modifier.fillMaxWidth().height(160.dp),
+                modifier = Modifier.fillMaxWidth().height(chartHeight),
                 valueSelector = { viewMode.valueOf(it) },
                 diverging = viewMode.isDiverging
             )
-            
-            Spacer(Modifier.height(24.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Total", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
-                    Text("${formatCalorieValue(totalValue)} kcal", style = MaterialTheme.typography.titleMedium)
-                }
-                if (isBalance) {
+
+            if (!compact) {
+                Spacer(Modifier.height(innerSpacer))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Trend", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
-                        Text(metrics.trend.name.lowercase().replaceFirstChar { it.uppercase() },
-                             style = MaterialTheme.typography.titleMedium, color = trendColor)
+                        Text("Total", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
+                        Text("${formatCalorieValue(totalValue)} kcal", style = MaterialTheme.typography.titleMedium)
+                    }
+                    if (isBalance) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Trend", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
+                            Text(metrics.trend.name.lowercase().replaceFirstChar { it.uppercase() },
+                                 style = MaterialTheme.typography.titleMedium, color = trendColor)
+                        }
                     }
                 }
             }
