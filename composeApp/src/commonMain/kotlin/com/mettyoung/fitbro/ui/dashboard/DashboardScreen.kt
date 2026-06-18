@@ -138,119 +138,92 @@ fun DashboardContent(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            // High-End Header
-            Box(
+            // Header — Samsung Health style: flat, large title, compact date nav
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(top = statusBarPadding + 16.dp, bottom = 24.dp, start = 24.dp, end = 24.dp)
+                    .padding(top = statusBarPadding + 20.dp, bottom = 16.dp, start = 24.dp, end = 24.dp)
             ) {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Metabolic",
-                                style = MaterialTheme.typography.displayMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Daily Caloric Balance",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MiOrange
-                            )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (selectedLens != null) {
+                            IconButton(
+                                onClick = { selectedLens = null },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Spacer(Modifier.width(4.dp))
                         }
-                        Row {
-                            IconButton(
-                                onClick = { wasRefreshing = true; onRefresh() },
-                                enabled = !isLoading,
-                                modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
-                            ) {
-                                if (isLoading && wasRefreshing) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MiOrange)
-                                } else {
-                                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.onSurface)
-                                }
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            IconButton(
-                                onClick = { showStartPicker = true },
-                                modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
-                            ) {
-                                Icon(Icons.Default.DateRange, contentDescription = "Select Date", tint = MaterialTheme.colorScheme.onSurface)
-                            }
+                        Text(
+                            text = selectedLens?.label ?: "FitBro",
+                            style = MaterialTheme.typography.displayMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    if (isLoading && wasRefreshing) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MiOrange)
+                    } else {
+                        IconButton(onClick = { wasRefreshing = true; onRefresh() }, enabled = !isLoading) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MiTextSecondary)
                         }
                     }
+                }
 
-                    Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
 
-                    // Premium Date Navigator
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.background, RoundedCornerShape(16.dp))
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                // Compact date navigator
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { onDateRangeChanged(DateRange(startDate.minusDays(7), endDate)) },
+                        modifier = Modifier.size(36.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (selectedLens != null) {
-                                IconButton(onClick = { selectedLens = null }) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Back",
-                                        tint = MiOrange
-                                    )
-                                }
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            IconButton(onClick = {
-                                val newStart = startDate.minusDays(7)
-                                onDateRangeChanged(DateRange(newStart, endDate))
-                            }) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
-                            }
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = startDate.toShortDate(),
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { showStartPicker = true }
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                            Text("–", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                text = endDate.toShortDate(),
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { showEndPicker = true }
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = {
-                                val newStart = startDate.plusDays(7)
-                                onDateRangeChanged(DateRange(newStart, endDate))
-                            },
-                            enabled = canGoNext
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = "Next",
-                                tint = if (canGoNext) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                            )
-                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev", modifier = Modifier.size(20.dp), tint = MiTextSecondary)
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = startDate.toShortDate(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { showStartPicker = true }.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                        Text("–", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
+                        Text(
+                            text = endDate.toShortDate(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { showEndPicker = true }.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = { onDateRangeChanged(DateRange(startDate.plusDays(7), endDate)) },
+                        enabled = canGoNext,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Next",
+                            modifier = Modifier.size(20.dp),
+                            tint = if (canGoNext) MiTextSecondary else MiTextSecondary.copy(alpha = 0.3f)
+                        )
                     }
                 }
             }
@@ -402,55 +375,68 @@ private fun SummaryMetricCard(
 ) {
     val avgValue = if (balances.isEmpty()) 0.0 else balances.sumOf { viewMode.valueOf(it) } / balances.size
     val netBalance = balances.sumOf { it.balance }.roundToInt()
-    
+
+    val (iconEmoji, iconColor) = when (viewMode) {
+        DashboardViewMode.BALANCE -> "⚖️" to MiOrange
+        DashboardViewMode.INTAKE  -> "🥗" to Color(0xFFE91E63)
+        DashboardViewMode.EXPENDITURE -> "🔥" to Color(0xFFFF9800)
+    }
     val valueColor = if (viewMode == DashboardViewMode.BALANCE) {
         if (netBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
     } else {
         MaterialTheme.colorScheme.onSurface
     }
 
-    ElevatedCard(
+    Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = if (isBig) 4.dp else 2.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(if (isBig) 24.dp else 16.dp),
-            horizontalAlignment = if (isBig) Alignment.CenterHorizontally else Alignment.Start
-        ) {
-            Text(
-                text = if (!isBig && viewMode != DashboardViewMode.BALANCE) "AVE ${viewMode.label.uppercase()}" else viewMode.label.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MiOrange,
-                fontWeight = FontWeight.Bold
-            )
-            
-            Spacer(Modifier.height(4.dp))
-            
+        Column(modifier = Modifier.padding(if (isBig) 20.dp else 16.dp)) {
+            // Icon + label row
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(if (isBig) 40.dp else 32.dp)
+                        .clip(CircleShape)
+                        .background(iconColor.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(iconEmoji, fontSize = if (isBig) 20.sp else 16.sp)
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = if (!isBig && viewMode != DashboardViewMode.BALANCE) "Ave ${viewMode.label}" else viewMode.label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MiTextSecondary
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
             Text(
                 text = "${formatCalorieValue(avgValue)} kcal",
-                style = if (isBig) MaterialTheme.typography.displayMedium else MaterialTheme.typography.titleLarge,
+                style = if (isBig) MaterialTheme.typography.displayMedium else MaterialTheme.typography.headlineMedium,
                 color = valueColor,
-                fontWeight = if (isBig) FontWeight.Normal else FontWeight.Bold
+                fontWeight = FontWeight.Black
             )
 
             extraContent()
 
-            Spacer(Modifier.height(if (isBig) 24.dp else 16.dp))
+            Spacer(Modifier.height(if (isBig) 20.dp else 12.dp))
 
             CalorieBalanceChart(
                 balances = balances,
                 onBarClick = { _ -> onClick() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (isBig) 120.dp else 60.dp),
+                    .height(if (isBig) 120.dp else 64.dp),
                 valueSelector = { viewMode.valueOf(it) },
                 diverging = viewMode.isDiverging,
                 showDayLabels = isBig
             )
-            
         }
     }
 }
