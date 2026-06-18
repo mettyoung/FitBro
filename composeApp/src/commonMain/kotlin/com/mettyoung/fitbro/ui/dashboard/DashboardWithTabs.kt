@@ -61,6 +61,11 @@ fun DashboardWithTabs(
         foodDiaryStateHolder.setDate(dashboardDate)
     }
 
+    val dashboardState by stateHolder.state.collectAsState()
+    LaunchedEffect(dashboardState.selectedDateRange) {
+        cardioStateHolder.setDateRange(dashboardState.selectedDateRange)
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
@@ -109,7 +114,7 @@ fun DashboardWithTabs(
                 when (targetIndex) {
                     0 -> DashboardScreen(
                         stateHolder = stateHolder,
-                        weeklyCardioMinutes = cardioState.weeklyTotalMinutes
+                        weeklyCardioMinutes = cardioState.totalMinutes
                     )
                     1 -> CardioScreen(stateHolder = cardioStateHolder)
                     2 -> MacroDailyCounterDetail(

@@ -98,7 +98,7 @@ fun CardioScreen(
                 )
             ) {
                 item {
-                    WeeklySummaryCard(weeklyTotalMinutes = state.weeklyTotalMinutes)
+                    WeeklySummaryCard(totalMinutes = state.totalMinutes)
                     Spacer(Modifier.height(24.dp))
                 }
 
@@ -134,7 +134,7 @@ fun CardioScreen(
 
 @Composable
 private fun WeeklySummaryCard(
-    weeklyTotalMinutes: Int,
+    totalMinutes: Int,
     modifier: Modifier = Modifier
 ) {
     ElevatedCard(
@@ -150,7 +150,7 @@ private fun WeeklySummaryCard(
                 color = MiOrange
             )
             Text(
-                text = "$weeklyTotalMinutes min",
+                text = "$totalMinutes min",
                 style = MaterialTheme.typography.displayMedium.copy(fontSize = 32.sp),
                 color = MaterialTheme.colorScheme.onSurface
             )
