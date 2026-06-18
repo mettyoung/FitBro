@@ -1,36 +1,39 @@
-# Ralph Progress Log — rolling-date-range
+# Ralph Progress Log — dashboard-revamp
 Started: 2026-06-18
 
 ## Codebase Patterns
 - **Gradle env**: JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home; run UNSANDBOXED. Typecheck = `:composeApp:compileDebugKotlinAndroid` + `:composeApp:compileKotlinIosSimulatorArm64`. No browser test.
-- **UserSettingsDataSource**: `data/cache/UserSettingsDataSource.kt` (interface) + `UserSettingsDataSourceImpl.kt` (impl). Add new key constant + getter/setter alongside existing macro goal keys. Impl uses `settings.string(key, default)` pattern.
-- **todayString() / minusDays**: `util/DateUtil.kt` — `todayString()` returns "YYYY-MM-DD". `String.minusDays(n)` or `String.plusDays(n)` extension also in DateUtil — use to compute default start date.
-- **App.kt initialDateRange**: `val initialDateRange = DateRange(startDate = ..., endDate = todayString())` constructed before `DashboardStateHolder` is created.
-- **DateRange picker callback**: `onDateRangeSelected` lambda is passed from `App.kt`/`DashboardWithTabs` into `DashboardContent`. Override end date to `todayString()` here and persist start date.
-- **DashboardStateHolder.setDateRange**: `data/DashboardStateHolder.kt:146` — called when user picks a new range. Can add persistence call here if `userSettingsDataSource` is available in StateHolder; otherwise do it in the lambda before calling setDateRange.
-- **CalorieBalanceChart**: `ui/dashboard/CalorieBalanceChart.kt:70` — `balances.takeLast(7)` — DELETE this line; chart already normalises bar heights to window max so all entries render correctly.
-- **"Total Week" string**: `DashboardScreen.kt:523` — hardcoded `Text("Total Week"...)` — rename to `Text("Total"...)`.
+- **DashboardScreen.kt**: `ui/dashboard/DashboardScreen.kt` — main file for this revamp. Contains `DashboardContent` composable (top-level), `DashboardViewModeToggle` (delete this), `SlidingWindowInsightCard`, `CondensedLogItem`, `CardioSummaryRow`.
+- **DashboardViewMode enum**: `ui/dashboard/DashboardViewMode.kt` — BALANCE, INTAKE, EXPENDITURE. Keep the enum; just stop passing it via toggle. BALANCE still used by chart diverging param and CondensedLogItem.
+- **Colors**: `MiOrange`, `MiGreen` (0xFF4CAF50), `MiTextSecondary` are defined in `ui/FitBroTheme.kt` or similar — grep to confirm. Red for negative balance = `Color(0xFFF44336)`.
+- **ElevatedCard**: Use Material3 `ElevatedCard(onClick = { ... }, modifier = ...) { ... }` for clickable cards. `tonalElevation = 4.dp` for banner, `2.dp` for grid cards.
+- **DailyBalance fields**: `balance: Double` (net), `intake: Double` (kcal in), `burn: Double` (kcal out). All in `data/model/DailyBalance.kt`.
+- **weeklyCardioMinutes**: Already a param in `DashboardContent`. Pass it through to `DashboardHome`.
+- **SlidingWindowInsightCard**: Already accepts `viewMode: DashboardViewMode` param — pass INTAKE or EXPENDITURE from DashboardDetail.
+- **CondensedLogItem**: `CondensedLogItem(balance: DailyBalance, viewMode: DashboardViewMode, onClick: () -> Unit)` — reuse as-is in DashboardDetail history rows.
+- **Back nav**: Use `Icons.AutoMirrored.Filled.ArrowBack` — needs `import androidx.compose.material.icons.automirrored.filled.ArrowBack`.
+- **selectedLens state**: `var selectedLens: DashboardViewMode? by remember { mutableStateOf(null) }` in DashboardContent. Null = home, non-null = detail.
+- **kotlin.math.roundToInt**: Available via `import kotlin.math.roundToInt` for `balances.sumOf{it.balance}.roundToInt()`.
 
-## 2026-06-18 — US-001: Persist start date + rolling end date
+---
 
-Files touched:
-- `data/cache/UserSettingsDataSource.kt` — added `getDashboardStartDate()` / `setDashboardStartDate()`
-- `data/cache/UserSettingsDataSourceImpl.kt` — added `DASHBOARD_START_DATE_KEY`, getter (default = today-6d), setter
-- `App.kt` — `initialDateRange` now reads `userSettingsDataSource.getDashboardStartDate()` for start; end = `todayString()`; removed unused `minusDays` import
-- `ui/dashboard/DashboardStateHolder.kt` — `selectDateRange` overrides `endDate = todayString()`, persists start date via `setDashboardStartDate`
-- `ui/dashboard/DashboardScreen.kt` — nav arrows now pass `today` (not `newStart.plusDays(6)`) as end date
+## 2026-06-18 — US-001 + US-002
+
+**US-001: Balance home — banner + 2-column grid**
+- Removed `DashboardViewModeToggle` composable from `DashboardViewMode.kt` (all compose imports stripped; only enum + extensions remain)
+- Replaced `var viewMode` state with `var selectedLens: DashboardViewMode?` in `DashboardContent`
+- Removed `CardioSummaryRow` composable
+- Added `DashboardHome`: Column with `CalorieBalanceBannerCard` + Row of two `ElevatedCard` (Intake/Expenditure)
+- Added `CalorieBalanceBannerCard`: net balance signed (green/red), cardio emoji row
+- Added `DashboardDetail` placeholder (filled in US-002)
+- Files: `DashboardScreen.kt`, `DashboardViewMode.kt`
+
+**US-002: Detail drill-down — chart + history for selected lens**
+- Filled `DashboardDetail`: back `IconButton` (ArrowBack, MiOrange), `SlidingWindowInsightCard`, history `CondensedLogItem` list with `HorizontalDivider` separators
+- Intake/Expenditure card taps already wired in US-001; back sets `selectedLens = null`
+- Files: `DashboardScreen.kt`
 
 Learnings:
-- `DashboardStateHolder` is the right place to enforce the rolling-end invariant — it owns the state and already has `userSettingsDataSource`.
-- `DateRange` is a data class so `copy(endDate = ...)` works cleanly.
-- Nav arrows were constructing fixed 7-day windows; switching to `today` as end aligns them with the rolling model.
-
-## 2026-06-18 — US-002: Remove 7-day chart cap + rename Total Week
-
-Files touched:
-- `ui/dashboard/CalorieBalanceChart.kt:70` — removed `takeLast(7)` guard; chart renders all entries
-- `ui/dashboard/DashboardScreen.kt:523` — renamed `"Total Week"` → `"Total"`
-
-Learnings:
-- The `if (balances.size > 7) balances.takeLast(7) else balances` pattern was a single line; removing it meant inlining `balances.forEach` directly.
-- No other size caps or `"Total Week"` strings found in the file.
+- `CardDefaults.elevatedCardElevation(defaultElevation = X.dp)` is the correct API for `ElevatedCard` in this project's Material3 version
+- `HorizontalDivider` import must be added back when DashboardDetail reuses the history pattern removed from DashboardContent's Success branch
+- `DashboardViewModeToggle` was in `DashboardViewMode.kt`, not `DashboardScreen.kt` — check file boundaries before deleting imports
