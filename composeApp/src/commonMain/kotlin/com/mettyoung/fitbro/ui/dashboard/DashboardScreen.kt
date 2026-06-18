@@ -336,7 +336,7 @@ private fun DashboardHome(
                 if (weeklyCardioMinutes > 0) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "🏃 $weeklyCardioMinutes min this week",
+                        text = "🏃 $weeklyCardioMinutes min",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MiTextSecondary
                     )
