@@ -252,7 +252,7 @@ fun DashboardContent(
                             DashboardHome(
                                 balances = uiState.balances,
                                 weeklyCardioMinutes = weeklyCardioMinutes,
-                                onBalanceClick = { selectedLens = DashboardViewMode.BALANCE },
+                                onBarClick = { selectedBreakdown = it },
                                 onIntakeClick = { selectedLens = DashboardViewMode.INTAKE },
                                 onExpenditureClick = { selectedLens = DashboardViewMode.EXPENDITURE }
                             )
@@ -324,27 +324,17 @@ fun DashboardContent(
 private fun DashboardHome(
     balances: List<DailyBalance>,
     weeklyCardioMinutes: Int,
-    onBalanceClick: () -> Unit,
+    onBarClick: (DailyBalance) -> Unit,
     onIntakeClick: () -> Unit,
     onExpenditureClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SummaryMetricCard(
-            viewMode = DashboardViewMode.BALANCE,
+        SlidingWindowInsightCard(
             balances = balances,
-            onClick = onBalanceClick,
-            isBig = true,
-            extraContent = {
-                if (weeklyCardioMinutes > 0) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = "🏃 $weeklyCardioMinutes min",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MiTextSecondary
-                    )
-                }
-            }
+            viewMode = DashboardViewMode.BALANCE,
+            onBarClick = onBarClick,
+            modifier = Modifier.fillMaxWidth()
         )
 
         Row(
