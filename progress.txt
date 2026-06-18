@@ -10,3 +10,27 @@ Started: 2026-06-18
 - **DashboardStateHolder.setDateRange**: `data/DashboardStateHolder.kt:146` — called when user picks a new range. Can add persistence call here if `userSettingsDataSource` is available in StateHolder; otherwise do it in the lambda before calling setDateRange.
 - **CalorieBalanceChart**: `ui/dashboard/CalorieBalanceChart.kt:70` — `balances.takeLast(7)` — DELETE this line; chart already normalises bar heights to window max so all entries render correctly.
 - **"Total Week" string**: `DashboardScreen.kt:523` — hardcoded `Text("Total Week"...)` — rename to `Text("Total"...)`.
+
+## 2026-06-18 — US-001: Persist start date + rolling end date
+
+Files touched:
+- `data/cache/UserSettingsDataSource.kt` — added `getDashboardStartDate()` / `setDashboardStartDate()`
+- `data/cache/UserSettingsDataSourceImpl.kt` — added `DASHBOARD_START_DATE_KEY`, getter (default = today-6d), setter
+- `App.kt` — `initialDateRange` now reads `userSettingsDataSource.getDashboardStartDate()` for start; end = `todayString()`; removed unused `minusDays` import
+- `ui/dashboard/DashboardStateHolder.kt` — `selectDateRange` overrides `endDate = todayString()`, persists start date via `setDashboardStartDate`
+- `ui/dashboard/DashboardScreen.kt` — nav arrows now pass `today` (not `newStart.plusDays(6)`) as end date
+
+Learnings:
+- `DashboardStateHolder` is the right place to enforce the rolling-end invariant — it owns the state and already has `userSettingsDataSource`.
+- `DateRange` is a data class so `copy(endDate = ...)` works cleanly.
+- Nav arrows were constructing fixed 7-day windows; switching to `today` as end aligns them with the rolling model.
+
+## 2026-06-18 — US-002: Remove 7-day chart cap + rename Total Week
+
+Files touched:
+- `ui/dashboard/CalorieBalanceChart.kt:70` — removed `takeLast(7)` guard; chart renders all entries
+- `ui/dashboard/DashboardScreen.kt:523` — renamed `"Total Week"` → `"Total"`
+
+Learnings:
+- The `if (balances.size > 7) balances.takeLast(7) else balances` pattern was a single line; removing it meant inlining `balances.forEach` directly.
+- No other size caps or `"Total Week"` strings found in the file.
