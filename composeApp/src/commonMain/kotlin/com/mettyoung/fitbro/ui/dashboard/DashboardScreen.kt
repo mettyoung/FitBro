@@ -421,7 +421,7 @@ private fun SummaryMetricCard(
             horizontalAlignment = if (isBig) Alignment.CenterHorizontally else Alignment.Start
         ) {
             Text(
-                text = viewMode.label.uppercase(),
+                text = if (!isBig && viewMode != DashboardViewMode.BALANCE) "AVE ${viewMode.label.uppercase()}" else viewMode.label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MiOrange,
                 fontWeight = FontWeight.Bold
@@ -450,14 +450,6 @@ private fun SummaryMetricCard(
                 diverging = viewMode.isDiverging
             )
             
-            if (!isBig) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "Avg daily",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MiTextSecondary
-                )
-            }
         }
     }
 }
