@@ -376,11 +376,6 @@ private fun SummaryMetricCard(
     val avgValue = if (balances.isEmpty()) 0.0 else balances.sumOf { viewMode.valueOf(it) } / balances.size
     val netBalance = balances.sumOf { it.balance }.roundToInt()
 
-    val (iconEmoji, iconColor) = when (viewMode) {
-        DashboardViewMode.BALANCE     -> "⚖️" to MiOrange
-        DashboardViewMode.INTAKE      -> "🥗" to Color(0xFF4CAF50)
-        DashboardViewMode.EXPENDITURE -> "🔥" to Color(0xFFF44336)
-    }
     val valueColor = when (viewMode) {
         DashboardViewMode.BALANCE     -> if (netBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
         DashboardViewMode.INTAKE      -> Color(0xFF4CAF50)
@@ -395,24 +390,11 @@ private fun SummaryMetricCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(if (isBig) 20.dp else 16.dp)) {
-            // Icon + label row
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(if (isBig) 40.dp else 32.dp)
-                        .clip(CircleShape)
-                        .background(iconColor.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(iconEmoji, fontSize = if (isBig) 20.sp else 16.sp)
-                }
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = viewMode.label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary
-                )
-            }
+            Text(
+                text = viewMode.label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MiTextSecondary
+            )
 
             Spacer(Modifier.height(10.dp))
 
