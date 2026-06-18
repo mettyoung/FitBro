@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -52,27 +51,28 @@ fun BreakdownDialog(
             shape = RoundedCornerShape(32.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
-            Column(modifier = Modifier.padding(32.dp)) {
+            Column(modifier = Modifier.padding(24.dp)) {
                 Text(
                     text = dateDisplay,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MiTextSecondary
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MiOrange
                 )
                 Text(
                     text = "Daily Breakdown",
                     style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
                 
                 val balanceColor = if (balance.balance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
                 
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.background, RoundedCornerShape(20.dp))
-                        .padding(20.dp),
+                        .background(MaterialTheme.colorScheme.background, RoundedCornerShape(24.dp))
+                        .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
@@ -82,12 +82,12 @@ fun BreakdownDialog(
                     )
                     Text(
                         text = "${if (balance.balance >= 0) "+" else ""}${balance.balance.roundToInt()} kcal",
-                        style = MaterialTheme.typography.displayMedium,
+                        style = MaterialTheme.typography.displayMedium.copy(fontSize = 32.sp),
                         color = balanceColor
                     )
                 }
 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
 
                 // Intake Section
                 SectionTitle("INTAKE")
@@ -98,7 +98,7 @@ fun BreakdownDialog(
                     color = MiOrange
                 )
 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
 
                 // Burn Section
                 SectionTitle("BURN BREAKDOWN")
@@ -110,13 +110,13 @@ fun BreakdownDialog(
                 
                 components.forEachIndexed { index, (label, value, color) ->
                     ComponentRow(label = label, value = value, total = balance.burn, color = color)
-                    if (index < components.size - 1) Spacer(Modifier.height(20.dp))
+                    if (index < components.size - 1) Spacer(Modifier.height(16.dp))
                 }
 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
                 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background, RoundedCornerShape(16.dp)).padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -128,19 +128,20 @@ fun BreakdownDialog(
                     Text(
                         "${balance.burn.roundToInt()} kcal",
                         style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.tertiary
+                        color = MaterialTheme.colorScheme.tertiary,
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
 
                 Button(
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.background, 
-                        contentColor = MaterialTheme.colorScheme.onSurface
+                        containerColor = MiOrange, 
+                        contentColor = Color.White
                     )
                 ) {
                     Text("Dismiss", style = MaterialTheme.typography.titleMedium)
@@ -155,8 +156,8 @@ private fun SectionTitle(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelSmall,
-        color = MiTextSecondary,
-        modifier = Modifier.padding(bottom = 16.dp)
+        color = MiOrange,
+        modifier = Modifier.padding(bottom = 12.dp)
     )
 }
 
@@ -171,7 +172,7 @@ private fun ComponentRow(label: String, value: Double, total: Double, color: Col
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(color))
+                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
                 Spacer(Modifier.width(10.dp))
                 Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
             }
@@ -181,11 +182,11 @@ private fun ComponentRow(label: String, value: Double, total: Double, color: Col
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(10.dp)
+                .height(8.dp)
                 .background(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = CircleShape
@@ -194,7 +195,7 @@ private fun ComponentRow(label: String, value: Double, total: Double, color: Col
             Box(
                 modifier = Modifier
                     .fillMaxWidth(fraction)
-                    .height(10.dp)
+                    .height(8.dp)
                     .background(color = color, shape = CircleShape)
             )
         }

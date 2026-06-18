@@ -1,5 +1,6 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,27 +8,31 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -114,37 +119,60 @@ private fun CustomMealList(
     var renameTarget by remember { mutableStateOf<CustomMeal?>(null) }
     var deleteTarget by remember { mutableStateOf<CustomMeal?>(null) }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-        Text(
-            text = "Custom meals",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(Modifier.size(16.dp))
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.List,
+                contentDescription = null,
+                tint = MiOrange,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(Modifier.size(12.dp))
+            Column {
+                Text(
+                    text = "Custom Meals",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Combine foods into single-tap logs",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MiOrange
+                )
+            }
+        }
+        
+        Spacer(Modifier.height(24.dp))
 
         Button(
             onClick = onNew,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
         ) {
             Icon(Icons.Filled.Add, contentDescription = null)
             Spacer(Modifier.size(8.dp))
-            Text("New custom meal")
+            Text("Create New Meal", style = MaterialTheme.typography.titleMedium)
         }
-        Spacer(Modifier.size(16.dp))
+        
+        Spacer(Modifier.height(24.dp))
 
         if (customMeals.isEmpty()) {
-            Text(
-                text = "No custom meals yet. Build one from foods, or multi-select diary entries to save them as a meal.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MiTextSecondary,
-                modifier = Modifier.padding(vertical = 24.dp)
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No custom meals yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MiTextSecondary
+                )
+            }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(customMeals, key = { it.id }) { meal ->
                     CustomMealRow(
@@ -155,6 +183,7 @@ private fun CustomMealList(
                 }
             }
         }
+        Spacer(Modifier.height(32.dp))
     }
 
     renameTarget?.let { meal ->
@@ -167,7 +196,12 @@ private fun CustomMealList(
                     value = name,
                     onValueChange = { name = it },
                     singleLine = true,
-                    label = { Text("Name") }
+                    label = { Text("Meal Name") },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MiOrange,
+                        focusedLabelColor = MiOrange
+                    )
                 )
             },
             confirmButton = {
@@ -177,9 +211,10 @@ private fun CustomMealList(
                         onRename(meal.id, name)
                         renameTarget = null
                     }
-                ) { Text("Save") }
+                ) { Text("Save", color = MiOrange) }
             },
-            dismissButton = { TextButton(onClick = { renameTarget = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { renameTarget = null }) { Text("Cancel") } },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
@@ -194,7 +229,8 @@ private fun CustomMealList(
                     deleteTarget = null
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 }
@@ -206,32 +242,37 @@ private fun CustomMealRow(
     onDelete: () -> Unit
 ) {
     val totalCalories = meal.items.sumOf { it.calories }.roundToInt()
-    Card(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = meal.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "${meal.items.size} items · $totalCalories kcal",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MiTextSecondary
                 )
             }
-            IconButton(onClick = onRename) {
-                Icon(Icons.Filled.Edit, contentDescription = "Rename", tint = MiTextSecondary)
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MiTextSecondary)
+            Row {
+                IconButton(onClick = onRename, modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Rename", tint = MiTextSecondary, modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.size(8.dp))
+                IconButton(onClick = onDelete, modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+                }
             }
         }
     }
@@ -247,32 +288,46 @@ private fun CustomMealBuilder(
     val items = remember { mutableListOf<CustomMealItem>().toMutableStateList() }
     var searching by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
         Text(
-            text = "New custom meal",
-            style = MaterialTheme.typography.headlineSmall,
+            text = "Build New Meal",
+            style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
-        Spacer(Modifier.size(16.dp))
+        
+        Spacer(Modifier.height(24.dp))
 
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
             singleLine = true,
-            label = { Text("Meal name") },
-            modifier = Modifier.fillMaxWidth()
+            label = { Text("Meal Name") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MiOrange,
+                focusedLabelColor = MiOrange
+            )
         )
-        Spacer(Modifier.size(16.dp))
+        
+        Spacer(Modifier.height(24.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Text(
                 text = "Foods (${items.size})",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            TextButton(onClick = { searching = true }) {
+            TextButton(
+                onClick = { searching = true },
+                shape = RoundedCornerShape(12.dp)
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = null, tint = MiOrange)
                 Spacer(Modifier.size(4.dp))
                 Text("Add food", color = MiOrange)
@@ -280,53 +335,69 @@ private fun CustomMealBuilder(
         }
 
         if (items.isEmpty()) {
-            Text(
-                text = "Add at least one food.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MiTextSecondary,
-                modifier = Modifier.padding(vertical = 12.dp)
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth().height(100.dp).background(MaterialTheme.colorScheme.background, RoundedCornerShape(16.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Add at least one food",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MiTextSecondary.copy(alpha = 0.6f)
+                )
+            }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(items.size) { index ->
                     val item = items[index]
-                    Row(
+                    ElevatedCard(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = item.foodName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "${item.calories.roundToInt()} kcal · ${item.servingSizeG.roundToInt()}g",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MiTextSecondary
-                            )
-                        }
-                        IconButton(onClick = { items.removeAt(index) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Remove", tint = MiTextSecondary)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = item.foodName,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "${item.calories.roundToInt()} kcal · ${item.servingSizeG.roundToInt()}g",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MiTextSecondary
+                                )
+                            }
+                            IconButton(onClick = { items.removeAt(index) }, modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)) {
+                                Icon(Icons.Filled.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                            }
                         }
                     }
                 }
             }
         }
 
-        Spacer(Modifier.size(16.dp))
+        Spacer(Modifier.height(32.dp))
+        
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            TextButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancel") }
+            TextButton(onClick = onCancel, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(16.dp)) { Text("Cancel") }
             Button(
                 onClick = { onSave(name, items.toList()) },
                 enabled = name.isNotBlank() && items.isNotEmpty(),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).height(56.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
-            ) { Text("Save meal") }
+            ) { Text("Save Meal", style = MaterialTheme.typography.titleMedium) }
         }
+        
+        Spacer(Modifier.height(32.dp))
     }
 
     if (searching) {
@@ -341,4 +412,9 @@ private fun CustomMealBuilder(
             }
         )
     }
+}
+
+@Composable
+private fun IconButton(onClick: () -> Unit, modifier: Modifier, content: @Composable () -> Unit) {
+    androidx.compose.material3.IconButton(onClick = onClick, modifier = modifier, content = content)
 }

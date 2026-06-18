@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,8 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -46,11 +44,11 @@ fun MacroSummaryHeader(
     calorieGoal: Double,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    ElevatedCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Row(
@@ -61,14 +59,14 @@ fun MacroSummaryHeader(
                 Column {
                     Text(
                         text = "Energy Intake",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MiOrange
                     )
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
                             text = "${totals.calories.roundToInt()}",
                             style = MaterialTheme.typography.displayMedium.copy(fontSize = 36.sp),
-                            color = MiOrange
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = " / ${calorieGoal.roundToInt()} kcal",
@@ -93,6 +91,7 @@ fun MacroSummaryHeader(
                     .clip(CircleShape),
                 color = MiOrange,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                strokeCap = StrokeCap.Round,
                 gapSize = 0.dp
             )
 

@@ -1,25 +1,30 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,8 +48,8 @@ import com.mettyoung.fitbro.ui.MiTextSecondary
 import kotlin.math.roundToInt
 
 private sealed class ManagerScreen {
-    object List : ManagerScreen()
-    object Create : ManagerScreen()
+    data object List : ManagerScreen()
+    data object Create : ManagerScreen()
     data class Edit(val food: CustomFood) : ManagerScreen()
 }
 
@@ -106,37 +111,60 @@ private fun CustomFoodList(
 ) {
     var deleteTarget by remember { mutableStateOf<CustomFood?>(null) }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-        Text(
-            text = "Custom foods",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(Modifier.size(16.dp))
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Restaurant,
+                contentDescription = null,
+                tint = MiOrange,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(Modifier.size(12.dp))
+            Column {
+                Text(
+                    text = "Custom Foods",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Manage your private library",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MiOrange
+                )
+            }
+        }
+        
+        Spacer(Modifier.height(24.dp))
 
         Button(
             onClick = onNew,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
         ) {
             Icon(Icons.Filled.Add, contentDescription = null)
             Spacer(Modifier.size(8.dp))
-            Text("New custom food")
+            Text("Create New Food", style = MaterialTheme.typography.titleMedium)
         }
-        Spacer(Modifier.size(16.dp))
+        
+        Spacer(Modifier.height(24.dp))
 
         if (customFoods.isEmpty()) {
-            Text(
-                text = "No custom foods yet. Create one here, or via \"Create custom food\" in the Log Food search.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MiTextSecondary,
-                modifier = Modifier.padding(vertical = 24.dp)
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No custom foods yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MiTextSecondary
+                )
+            }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(customFoods, key = { it.id }) { food ->
                     CustomFoodRow(
@@ -147,6 +175,7 @@ private fun CustomFoodList(
                 }
             }
         }
+        Spacer(Modifier.height(32.dp))
     }
 
     deleteTarget?.let { food ->
@@ -160,7 +189,8 @@ private fun CustomFoodList(
                     deleteTarget = null
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 }
@@ -171,34 +201,44 @@ private fun CustomFoodRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = food.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "${food.servingSizeG.roundToInt()}g · ${food.calories.roundToInt()} kcal" +
                         (food.brandName?.let { " · $it" } ?: ""),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MiTextSecondary
                 )
             }
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MiTextSecondary)
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MiTextSecondary)
+            Row {
+                IconButton(onClick = onEdit, modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MiTextSecondary, modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.size(8.dp))
+                IconButton(onClick = onDelete, modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+                }
             }
         }
     }
+}
+
+@Composable
+private fun IconButton(onClick: () -> Unit, modifier: Modifier, content: @Composable () -> Unit) {
+    androidx.compose.material3.IconButton(onClick = onClick, modifier = modifier, content = content)
 }

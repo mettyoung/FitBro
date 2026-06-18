@@ -276,6 +276,7 @@ fun DashboardContent(
                             DashboardHome(
                                 balances = uiState.balances,
                                 weeklyCardioMinutes = weeklyCardioMinutes,
+                                onBalanceClick = { selectedLens = DashboardViewMode.BALANCE },
                                 onIntakeClick = { selectedLens = DashboardViewMode.INTAKE },
                                 onExpenditureClick = { selectedLens = DashboardViewMode.EXPENDITURE }
                             )
@@ -347,29 +348,42 @@ fun DashboardContent(
 private fun DashboardHome(
     balances: List<DailyBalance>,
     weeklyCardioMinutes: Int,
+    onBalanceClick: () -> Unit,
     onIntakeClick: () -> Unit,
     onExpenditureClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        CalorieBalanceBannerCard(
+        SummaryMetricCard(
+            viewMode = DashboardViewMode.BALANCE,
             balances = balances,
-            weeklyCardioMinutes = weeklyCardioMinutes
+            onClick = onBalanceClick,
+            isBig = true,
+            extraContent = {
+                if (weeklyCardioMinutes > 0) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "🏃 $weeklyCardioMinutes min this week",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MiTextSecondary
+                    )
+                }
+            }
         )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            MetricGridCard(
-                title = "Intake",
-                value = balances.sumOf { it.intake }.roundToInt(),
+            SummaryMetricCard(
+                viewMode = DashboardViewMode.INTAKE,
+                balances = balances,
                 onClick = onIntakeClick,
                 modifier = Modifier.weight(1f)
             )
-            MetricGridCard(
-                title = "Expenditure",
-                value = balances.sumOf { it.burn }.roundToInt(),
+            SummaryMetricCard(
+                viewMode = DashboardViewMode.EXPENDITURE,
+                balances = balances,
                 onClick = onExpenditureClick,
                 modifier = Modifier.weight(1f)
             )
@@ -378,73 +392,72 @@ private fun DashboardHome(
 }
 
 @Composable
-private fun CalorieBalanceBannerCard(
+private fun SummaryMetricCard(
+    viewMode: DashboardViewMode,
     balances: List<DailyBalance>,
-    weeklyCardioMinutes: Int,
-    modifier: Modifier = Modifier
-) {
-    val netBalance = balances.sumOf { it.balance }.roundToInt()
-    val balanceColor = if (netBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
-
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Net Balance",
-                style = MaterialTheme.typography.labelSmall,
-                color = MiOrange
-            )
-            Text(
-                text = "${if (netBalance >= 0) "+" else ""}$netBalance kcal",
-                style = MaterialTheme.typography.displayMedium,
-                color = balanceColor
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "🏃 $weeklyCardioMinutes min this week",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MiTextSecondary
-            )
-        }
-    }
-}
-
-@Composable
-private fun MetricGridCard(
-    title: String,
-    value: Int,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isBig: Boolean = false,
+    extraContent: @Composable () -> Unit = {}
 ) {
+    val avgValue = if (balances.isEmpty()) 0.0 else balances.sumOf { viewMode.valueOf(it) } / balances.size
+    val netBalance = balances.sumOf { it.balance }.roundToInt()
+    
+    val valueColor = if (viewMode == DashboardViewMode.BALANCE) {
+        if (netBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
     ElevatedCard(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = if (isBig) 4.dp else 2.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.padding(if (isBig) 24.dp else 16.dp),
+            horizontalAlignment = if (isBig) Alignment.CenterHorizontally else Alignment.Start
         ) {
             Text(
-                text = title,
+                text = viewMode.label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MiOrange
-            )
-            Text(
-                text = "$value kcal",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = MiOrange,
                 fontWeight = FontWeight.Bold
             )
+            
+            Spacer(Modifier.height(4.dp))
+            
+            Text(
+                text = "${formatCalorieValue(avgValue)} kcal",
+                style = if (isBig) MaterialTheme.typography.displayMedium else MaterialTheme.typography.titleLarge,
+                color = valueColor,
+                fontWeight = if (isBig) FontWeight.Normal else FontWeight.Bold
+            )
+
+            extraContent()
+
+            Spacer(Modifier.height(if (isBig) 24.dp else 16.dp))
+
+            CalorieBalanceChart(
+                balances = balances,
+                onBarClick = { _ -> onClick() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (isBig) 120.dp else 60.dp),
+                valueSelector = { viewMode.valueOf(it) },
+                diverging = viewMode.isDiverging
+            )
+            
+            if (!isBig) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Avg daily",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MiTextSecondary
+                )
+            }
         }
     }
 }

@@ -12,12 +12,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +30,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -42,6 +46,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.MacroGoalProfile
 import com.mettyoung.fitbro.ui.MiOrange
@@ -52,8 +57,6 @@ import kotlin.math.roundToInt
 @Composable
 fun MacroProfilesSettings(
     stateHolder: MacroProfilesStateHolder,
-    onAddProfile: () -> Unit = {},
-    onEditProfile: (MacroGoalProfile) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by stateHolder.state.collectAsState()
@@ -68,7 +71,7 @@ fun MacroProfilesSettings(
         modifier = modifier.fillMaxSize(),
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
-                Snackbar(snackbarData = data)
+                Snackbar(snackbarData = data, containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface)
             }
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -105,11 +108,29 @@ fun MacroProfilesSettings(
             ) {
                 Spacer(Modifier.height(24.dp))
 
-                Text(
-                    text = "Macro Profiles",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Macro Profiles",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(
+                        onClick = {
+                            selectedProfile = null
+                            showSheet = true
+                        },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(MiOrange.copy(alpha = 0.1f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Profile", tint = MiOrange, modifier = Modifier.size(20.dp))
+                    }
+                }
 
                 Spacer(Modifier.height(16.dp))
 
@@ -122,78 +143,70 @@ fun MacroProfilesSettings(
                                     selectedProfile = profile
                                     showSheet = true
                                 },
-                            shape = RoundedCornerShape(16.dp)
+                            shape = RoundedCornerShape(24.dp),
+                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
-                            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Column(modifier = Modifier.padding(20.dp)) {
                                 Text(
                                     text = profile.name,
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold
                                 )
                                 Text(
                                     text = "P: ${profile.proteinG.roundToInt()}g · " +
                                         "C: ${profile.carbsG.roundToInt()}g · " +
-                                        "F: ${profile.fatG.roundToInt()}g · " +
-                                        "${profile.caloriesKcal.roundToInt()} kcal",
-                                    style = MaterialTheme.typography.bodySmall,
+                                        "F: ${profile.fatG.roundToInt()}g",
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MiTextSecondary
+                                )
+                                Text(
+                                    text = "${profile.caloriesKcal.roundToInt()} kcal",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MiOrange
                                 )
                             }
                         }
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    TextButton(onClick = {
-                        selectedProfile = null
-                        showSheet = true
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            tint = MiOrange
-                        )
-                        Text(
-                            text = "Add Profile",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MiOrange
-                        )
-                    }
-                }
-
                 if (state.profiles.isNotEmpty()) {
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(32.dp))
 
                     Text(
                         text = "Weekly Schedule",
                         style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
                     )
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                    val dayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-                    val defaultProfile = state.profiles.firstOrNull { it.name == "Default" }
-                        ?: state.profiles.first()
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        val dayLabels = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+                        val defaultProfile = state.profiles.firstOrNull { it.name == "Default" }
+                            ?: state.profiles.first()
 
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        dayLabels.forEachIndexed { weekday, label ->
-                            val mappedProfileId = state.weekdayMappings[weekday]
-                            val currentProfile = state.profiles.firstOrNull { it.id == mappedProfileId }
-                                ?: defaultProfile
-                            WeekdayRow(
-                                dayLabel = label,
-                                selectedProfile = currentProfile,
-                                profiles = state.profiles,
-                                onProfileSelected = { profile ->
-                                    stateHolder.setMapping(weekday, profile.id)
-                                }
-                            )
+                        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            dayLabels.forEachIndexed { weekday, label ->
+                                val mappedProfileId = state.weekdayMappings[weekday]
+                                val currentProfile = state.profiles.firstOrNull { it.id == mappedProfileId }
+                                    ?: defaultProfile
+                                WeekdayRow(
+                                    dayLabel = label,
+                                    selectedProfile = currentProfile,
+                                    profiles = state.profiles,
+                                    onProfileSelected = { profile ->
+                                        stateHolder.setMapping(weekday, profile.id)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -215,6 +228,11 @@ fun MacroProfilesSettings(
             }
         )
     }
+}
+
+@Composable
+private fun IconButton(onClick: () -> Unit, modifier: Modifier, content: @Composable () -> Unit) {
+    androidx.compose.material3.IconButton(onClick = onClick, modifier = modifier, content = content)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -242,7 +260,7 @@ private fun WeekdayRow(
         ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = { expanded = it },
-            modifier = Modifier.weight(2f)
+            modifier = Modifier.weight(1.5f)
         ) {
             OutlinedTextField(
                 value = selectedProfile.name,
@@ -253,11 +271,17 @@ private fun WeekdayRow(
                     .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     .fillMaxWidth(),
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodySmall
+                textStyle = MaterialTheme.typography.bodySmall,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedBorderColor = MiOrange
+                )
             )
             ExposedDropdownMenu(
                 expanded = expanded,
-                onDismissRequest = { expanded = false }
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
             ) {
                 profiles.forEach { profile ->
                     DropdownMenuItem(

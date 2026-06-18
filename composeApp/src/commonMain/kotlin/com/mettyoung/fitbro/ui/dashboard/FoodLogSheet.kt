@@ -27,10 +27,10 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -85,28 +85,26 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private sealed class SearchState {
-    object Idle : SearchState()
-    object Loading : SearchState()
+    data object Idle : SearchState()
+    data object Loading : SearchState()
     data class Results(val items: List<FoodSearchResult>) : SearchState()
-    object Empty : SearchState()
+    data object Empty : SearchState()
     data class Error(val isNetwork: Boolean) : SearchState()
 }
 
-// Unified state for FoodSearchSheet — controls which "screen" is shown
 private sealed class SheetContent {
-    object Search : SheetContent()
-    object CreateCustom : SheetContent()
-    object Loading : SheetContent()
+    data object Search : SheetContent()
+    data object CreateCustom : SheetContent()
+    data object Loading : SheetContent()
     data class Entry(
         val name: String,
         val brand: String?,
         val foodId: String?,
         val detail: FoodDetail
     ) : SheetContent()
-    object Error : SheetContent()
+    data object Error : SheetContent()
 }
 
-// Per-100g data for gram-mode editing of legacy entries (no foodId stored)
 internal data class GramModeData(
     val caloriesPer100g: Double,
     val proteinPer100g: Double,
@@ -268,7 +266,6 @@ fun EditEntrySheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // If entry has a foodId, start in Loading; otherwise go straight to gram mode
     var detailState by remember {
         mutableStateOf<SheetContent>(
             if (entry.foodId != null) SheetContent.Loading else SheetContent.Search
@@ -288,7 +285,7 @@ fun EditEntrySheet(
                 is FoodResult.Failure -> SheetContent.Error
             }
         } else {
-            detailState = SheetContent.Search  // fall through to gram mode
+            detailState = SheetContent.Search
         }
     }
 
@@ -341,7 +338,6 @@ fun EditEntrySheet(
                 }
             }
             else -> {
-                // SheetContent.Search means "gram mode"; SheetContent.Entry means "detail mode"
                 val detail = (s as? SheetContent.Entry)?.detail
                 FoodEntryContent(
                     name = entry.foodName,
@@ -398,6 +394,7 @@ private fun FoodSearchContent(
                 Text(
                     text = "Log Food",
                     style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
@@ -410,9 +407,12 @@ private fun FoodSearchContent(
 
         Spacer(Modifier.height(20.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SegmentChip("Search", selected = !recentTab) { recentTab = false }
-            SegmentChip("Recent", selected = recentTab) { recentTab = true }
+        Row(
+            modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background, RoundedCornerShape(16.dp)).padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            SegmentChip("Search", selected = !recentTab, modifier = Modifier.weight(1f)) { recentTab = false }
+            SegmentChip("Recent", selected = recentTab, modifier = Modifier.weight(1f)) { recentTab = true }
         }
 
         Spacer(Modifier.height(16.dp))
@@ -430,18 +430,12 @@ private fun FoodSearchContent(
                     )
                 }
             } else {
-                LazyColumn(modifier = Modifier.heightIn(max = 500.dp)) {
+                LazyColumn(modifier = Modifier.heightIn(max = 500.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     itemsIndexed(
                         recentFoods,
-                        key = { _, entry -> "${entry.foodName}_${entry.brandName}_${entry.servingSizeG}" }
-                    ) { index, entry ->
+                        key = { _, entry -> "${entry.id}_${entry.foodName}_${entry.brandName}_${entry.servingSizeG}" }
+                    ) { _, entry ->
                         RecentFoodRow(entry = entry, onClick = { onSelectRecent(entry) })
-                        if (index < recentFoods.size - 1) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-                        }
                     }
                 }
             }
@@ -587,15 +581,9 @@ private fun FoodSearchContent(
                 }
             }
             is SearchState.Results -> {
-                LazyColumn(modifier = Modifier.heightIn(max = 500.dp)) {
-                    itemsIndexed(state.items, key = { index, food -> "${index}_${food.name}_${food.brand}" }) { index, food ->
+                LazyColumn(modifier = Modifier.heightIn(max = 500.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    itemsIndexed(state.items, key = { index, food -> "${index}_${food.name}_${food.brand}" }) { _, food ->
                         FoodResultRow(food = food, onClick = { onSelectFood(food) })
-                        if (index < state.items.size - 1) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-                        }
                     }
                 }
             }
@@ -604,112 +592,117 @@ private fun FoodSearchContent(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SegmentChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(label, style = MaterialTheme.typography.labelLarge) },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MiOrange,
-            selectedLabelColor = Color.White,
-            containerColor = MaterialTheme.colorScheme.background,
-            labelColor = MiTextSecondary
-        ),
-        border = FilterChipDefaults.filterChipBorder(
-            enabled = true,
-            selected = selected,
-            borderColor = Color.Transparent,
-            selectedBorderColor = Color.Transparent
-        ),
-        shape = RoundedCornerShape(12.dp)
-    )
-}
-
-@Composable
-private fun RecentFoodRow(entry: FoodDiaryEntry, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
+private fun SegmentChip(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .height(40.dp)
+            .background(if (selected) MiOrange else Color.Transparent, RoundedCornerShape(12.dp))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = entry.foodName,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (entry.brandName != null) {
-                Text(
-                    text = entry.brandName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MiTextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Text(
-                text = "${entry.servingSizeG.roundToInt()}${entry.servingUnit} · ${entry.calories.roundToInt()}kcal",
-                style = MaterialTheme.typography.bodySmall,
-                color = MiTextSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        Spacer(Modifier.width(16.dp))
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MiTextSecondary.copy(alpha = 0.4f),
-            modifier = Modifier.size(20.dp)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) Color.White else MiTextSecondary,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
         )
     }
 }
 
 @Composable
-private fun FoodResultRow(food: FoodSearchResult, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
+private fun RecentFoodRow(entry: FoodDiaryEntry, onClick: () -> Unit) {
+    ElevatedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = food.name,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (food.brand != null) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = food.brand,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MiTextSecondary,
+                    text = entry.foodName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (entry.brandName != null) {
+                    Text(
+                        text = entry.brandName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MiTextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    text = "${entry.servingSizeG.roundToInt()}${entry.servingUnit} · ${entry.calories.roundToInt()}kcal",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MiOrange,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Text(
-                text = food.displayText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MiTextSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MiTextSecondary.copy(alpha = 0.4f),
+                modifier = Modifier.size(24.dp)
             )
         }
-        Spacer(Modifier.width(16.dp))
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MiTextSecondary.copy(alpha = 0.4f),
-            modifier = Modifier.size(20.dp)
-        )
+    }
+}
+
+@Composable
+private fun FoodResultRow(food: FoodSearchResult, onClick: () -> Unit) {
+    ElevatedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = food.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (food.brand != null) {
+                    Text(
+                        text = food.brand,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MiTextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    text = food.displayText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MiOrange,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MiTextSecondary.copy(alpha = 0.4f),
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 
@@ -732,13 +725,11 @@ internal fun FoodEntryContent(
 ) {
     val useServingDropdown = foodDetail != null && foodDetail.servings.isNotEmpty()
 
-    // Reference serving for custom proration — first serving with a valid metric amount
     val referenceServing = remember(foodDetail) {
         foodDetail?.servings?.firstOrNull { (it.metricAmount ?: 0.0) > 0 }
     }
     val customUnit = referenceServing?.metricUnit ?: "g"
 
-    // Serving dropdown mode state
     var selectedServing by remember(foodDetail) {
         mutableStateOf(foodDetail?.servings?.firstOrNull())
     }
@@ -746,7 +737,6 @@ internal fun FoodEntryContent(
     var dropdownExpanded by remember { mutableStateOf(false) }
     var quantityInput by remember { mutableStateOf("1") }
 
-    // Gram input mode state
     var servingInput by remember { mutableStateOf(initialServingAmount.roundToInt().toString()) }
     var servingUnit by remember { mutableStateOf(initialUnit) }
 
@@ -809,6 +799,7 @@ internal fun FoodEntryContent(
                 Text(
                     text = name,
                     style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -824,10 +815,10 @@ internal fun FoodEntryContent(
 
         Spacer(Modifier.height(24.dp))
 
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ElevatedCard(
+            shape = RoundedCornerShape(32.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(24.dp),
@@ -845,7 +836,8 @@ internal fun FoodEntryContent(
         Text(
             text = "SERVING SIZE",
             style = MaterialTheme.typography.labelSmall,
-            color = MiTextSecondary
+            color = MiOrange,
+            fontWeight = FontWeight.Bold
         )
 
         Spacer(Modifier.height(12.dp))
@@ -901,7 +893,7 @@ internal fun FoodEntryContent(
                         expanded = dropdownExpanded,
                         onDismissRequest = { dropdownExpanded = false }
                     ) {
-                        foodDetail.servings.forEach { serving ->
+                        foodDetail!!.servings.forEach { serving ->
                             DropdownMenuItem(
                                 text = { Text(serving.description, style = MaterialTheme.typography.bodyMedium) },
                                 onClick = {
@@ -1019,10 +1011,10 @@ internal fun FoodEntryContent(
             colors = ButtonDefaults.buttonColors(containerColor = MiOrange),
             enabled = addEnabled
         ) {
-            Text(actionLabel, style = MaterialTheme.typography.titleMedium, color = Color.White)
+            Text(actionLabel, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
         }
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(40.dp))
     }
 }
 
@@ -1032,18 +1024,19 @@ private fun MacroPreviewItem(label: String, value: String, unit: String, color: 
         Text(
             text = value,
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
-            color = color
+            color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = unit,
             style = MaterialTheme.typography.labelSmall,
-            color = color,
+            color = MiTextSecondary,
             modifier = Modifier.padding(bottom = 4.dp)
         )
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-            color = MiTextSecondary
+            color = color,
+            fontWeight = FontWeight.Bold
         )
     }
 }

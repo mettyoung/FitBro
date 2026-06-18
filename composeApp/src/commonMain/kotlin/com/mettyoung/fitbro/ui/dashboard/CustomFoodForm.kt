@@ -1,5 +1,7 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,11 +9,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material3.Button
@@ -19,9 +23,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,17 +34,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.CustomFood
 import com.mettyoung.fitbro.ui.MiOrange
+import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.MacroMath
 import kotlin.math.roundToInt
 
-/**
- * Shared create/edit form for a [CustomFood]. [initial] non-null = edit mode (id preserved).
- * Used by the Log Food search sheet (create-and-add) and the custom-food manager (create/edit).
- */
 @Composable
 internal fun CustomFoodFormContent(
     title: String,
@@ -57,8 +59,6 @@ internal fun CustomFoodFormContent(
     var protein by remember { mutableStateOf(initial?.proteinG?.let { it.toString() } ?: "") }
     var fat by remember { mutableStateOf(initial?.fatG?.let { it.toString() } ?: "") }
 
-    // Atwater: 4 kcal/g carb, 4 kcal/g protein, 9 kcal/g fat. Recompute on any macro change,
-    // overwriting calories (auto-fill). A manual calories edit persists until the next macro change.
     fun recalcCalories(c: String, p: String, f: String) {
         val sum = MacroMath.caloriesFromMacros(
             carbG = c.toDoubleOrNull() ?: 0.0,
@@ -87,35 +87,67 @@ internal fun CustomFoodFormContent(
             .imePadding()
             .padding(horizontal = 24.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Back", tint = MiOrange)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(24.dp)
+                )
             }
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Nutrition per serving",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MiOrange
+                )
+            }
         }
 
+        Spacer(Modifier.height(32.dp))
+
+        CustomFoodField(label = "Food Name", value = name, onValueChange = { name = it }, isText = true)
+        Spacer(Modifier.height(16.dp))
+        CustomFoodField(label = "Brand (optional)", value = brand, onValueChange = { brand = it }, isText = true)
+        Spacer(Modifier.height(16.dp))
+        CustomFoodField(label = "Serving Size (g)", value = servingG, onValueChange = { servingG = it })
+        
+        Spacer(Modifier.height(32.dp))
+        Text("Macronutrients", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
 
-        CustomFoodField(label = "Name", value = name, onValueChange = { name = it }, isText = true)
-        Spacer(Modifier.height(12.dp))
-        CustomFoodField(label = "Brand (optional)", value = brand, onValueChange = { brand = it }, isText = true)
-        Spacer(Modifier.height(12.dp))
-        CustomFoodField(label = "Serving size (g)", value = servingG, onValueChange = { servingG = it })
-        Spacer(Modifier.height(12.dp))
-        CustomFoodField(label = "Calories (kcal)", value = calories, onValueChange = { calories = it })
-        Spacer(Modifier.height(12.dp))
         CustomFoodField(label = "Carbs (g)", value = carbs, onValueChange = { carbs = it; recalcCalories(it, protein, fat) })
         Spacer(Modifier.height(12.dp))
         CustomFoodField(label = "Protein (g)", value = protein, onValueChange = { protein = it; recalcCalories(carbs, it, fat) })
         Spacer(Modifier.height(12.dp))
         CustomFoodField(label = "Fat (g)", value = fat, onValueChange = { fat = it; recalcCalories(carbs, protein, it) })
-
+        
         Spacer(Modifier.height(24.dp))
+        
+        Row(
+            modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background, RoundedCornerShape(16.dp)).padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Estimated Calories", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
+            Text("${caloriesVal?.roundToInt() ?: 0} kcal", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = MiOrange)
+        }
+
+        Spacer(Modifier.height(40.dp))
 
         Button(
             onClick = {
@@ -134,14 +166,14 @@ internal fun CustomFoodFormContent(
                 )
             },
             enabled = valid,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(64.dp),
             colors = ButtonDefaults.buttonColors(containerColor = MiOrange),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(20.dp)
         ) {
-            Text(actionLabel, color = Color.White)
+            Text(actionLabel, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(40.dp))
     }
 }
 
@@ -152,7 +184,7 @@ private fun CustomFoodField(
     onValueChange: (String) -> Unit,
     isText: Boolean = false
 ) {
-    TextField(
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
@@ -162,11 +194,10 @@ private fun CustomFoodField(
         keyboardOptions = KeyboardOptions(
             keyboardType = if (isText) KeyboardType.Text else KeyboardType.Decimal
         ),
-        colors = TextFieldDefaults.colors(
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            focusedContainerColor = MaterialTheme.colorScheme.background,
-            unfocusedContainerColor = MaterialTheme.colorScheme.background
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MiOrange,
+            focusedLabelColor = MiOrange,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
         )
     )
 }

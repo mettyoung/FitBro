@@ -16,9 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,27 +45,27 @@ fun MacroSummaryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = RoundedCornerShape(32.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(MiOrange.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("🍏", fontSize = 20.sp)
+                    Text("🍏", fontSize = 24.sp)
                 }
 
                 Spacer(Modifier.width(16.dp))
@@ -75,19 +74,21 @@ fun MacroSummaryCard(
                     Text(
                         text = "Nutrition",
                         style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = activeProfile.name,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MiTextSecondary
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MiOrange
                     )
                 }
 
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
-                    tint = MiTextSecondary.copy(alpha = 0.4f)
+                    tint = MiTextSecondary.copy(alpha = 0.4f),
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -96,7 +97,7 @@ fun MacroSummaryCard(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     MiniMacroStatus(
                         label = "Protein",
@@ -124,8 +125,8 @@ fun MacroSummaryCard(
                 Spacer(Modifier.height(20.dp))
                 Text(
                     text = "No nutrition data logged for today",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MiTextSecondary
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MiTextSecondary.copy(alpha = 0.6f)
                 )
             }
         }
@@ -146,24 +147,25 @@ private fun MiniMacroStatus(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-            color = MiTextSecondary
+            color = MiTextSecondary,
+            fontWeight = FontWeight.SemiBold
         )
         Text(
             text = "${value.roundToInt()}g",
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Black),
             color = MaterialTheme.colorScheme.onSurface
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(4.dp)
+                .height(6.dp)
                 .background(color.copy(alpha = 0.1f), CircleShape)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progress)
-                    .height(4.dp)
+                    .height(6.dp)
                     .background(color, CircleShape)
             )
         }

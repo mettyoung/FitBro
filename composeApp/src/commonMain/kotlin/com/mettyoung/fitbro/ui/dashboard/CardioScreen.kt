@@ -16,8 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.CardioSession
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
@@ -74,45 +75,45 @@ fun CardioScreen(
             )
         }
 
-    Scaffold(
-        modifier = Modifier.weight(1f),
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { sheetSession = null; showSheet = true },
-                containerColor = MiOrange,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Log cardio", modifier = Modifier.size(24.dp))
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = innerPadding.calculateTopPadding() + 16.dp,
-                bottom = innerPadding.calculateBottomPadding() + 16.dp
-            )
-        ) {
-            item {
-                WeeklySummaryCard(weeklyTotalMinutes = state.weeklyTotalMinutes)
-                Spacer(Modifier.height(16.dp))
-            }
-
-            items(sortedDates) { date ->
-                val sessions = grouped[date] ?: return@items
-                SessionDayGroup(
-                    date = date,
-                    sessions = sessions,
-                    onSessionClick = { s -> sheetSession = s; showSheet = true }
+        Scaffold(
+            modifier = Modifier.weight(1f),
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = { sheetSession = null; showSheet = true },
+                    containerColor = MiOrange,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Log cardio", modifier = Modifier.size(24.dp))
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { innerPadding ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 24.dp,
+                    end = 24.dp,
+                    top = innerPadding.calculateTopPadding() + 24.dp,
+                    bottom = innerPadding.calculateBottomPadding() + 80.dp
                 )
-                Spacer(Modifier.height(12.dp))
+            ) {
+                item {
+                    WeeklySummaryCard(weeklyTotalMinutes = state.weeklyTotalMinutes)
+                    Spacer(Modifier.height(24.dp))
+                }
+
+                items(sortedDates) { date ->
+                    val sessions = grouped[date] ?: return@items
+                    SessionDayGroup(
+                        date = date,
+                        sessions = sessions,
+                        onSessionClick = { s -> sheetSession = s; showSheet = true }
+                    )
+                    Spacer(Modifier.height(16.dp))
+                }
             }
         }
     }
-    } // end outer Column
 
     if (showSheet) {
         CardioLogSheet(
@@ -136,21 +137,21 @@ private fun WeeklySummaryCard(
     weeklyTotalMinutes: Int,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    ElevatedCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = RoundedCornerShape(32.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Text(
-                text = "This week",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = "This Week",
+                style = MaterialTheme.typography.labelSmall,
+                color = MiOrange
             )
             Text(
                 text = "$weeklyTotalMinutes min",
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.displayMedium.copy(fontSize = 32.sp),
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
@@ -164,16 +165,16 @@ private fun SessionDayGroup(
     onSessionClick: (CardioSession) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    ElevatedCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = formatDayLabel(date),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(12.dp))
@@ -184,7 +185,7 @@ private fun SessionDayGroup(
                 )
                 if (index < sessions.lastIndex) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp),
+                        modifier = Modifier.padding(vertical = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
                 }
@@ -207,13 +208,13 @@ private fun SessionRow(
     ) {
         Text(
             text = "${session.minutes} min",
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurface
         )
         if (!session.note.isNullOrBlank()) {
             Text(
                 text = session.note,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MiTextSecondary
             )
         }

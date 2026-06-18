@@ -18,8 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +36,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyMacroTotals
@@ -57,13 +56,13 @@ fun WeeklyTrendsCard(
 ) {
     var expanded by remember { mutableStateOf(true) }
 
-    Card(
+    ElevatedCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = RoundedCornerShape(32.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -135,7 +134,7 @@ fun WeeklyTrendsCard(
                             Text(
                                 text = DAY_ABBR[dow],
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (dow == dayOfWeekMonBased(toYMD_dummy().first, toYMD_dummy().second, toYMD_dummy().third)) MiOrange else MiTextSecondary
+                                color = MiTextSecondary
                             )
                         }
                     }
@@ -168,8 +167,4 @@ private fun LegendItem(color: Color, label: String) {
             color = MiTextSecondary
         )
     }
-}
-
-private fun toYMD_dummy(): Triple<Int, Int, Int> {
-    return Triple(2024, 1, 1)
 }
