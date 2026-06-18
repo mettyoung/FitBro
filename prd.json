@@ -1,21 +1,16 @@
 {
   "project": "FitBro",
-  "branchName": "ralph/dashboard-revamp",
-  "description": "Dashboard UX Revamp — replace 3-way toggle with banner + 2-column card grid + detail drill-down",
+  "branchName": "ralph/nav-cardio-daterange",
+  "description": "Nav tab reorder (Balance→Cardio→Macros→Settings) + Cardio tab date range sync + Balance banner cardio total from selected range",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Balance home — banner + 2-column grid",
-      "description": "As a user, I want to see my calorie balance and key metrics at a glance from the main dashboard without switching tabs.",
+      "title": "Reorder bottom nav tabs",
+      "description": "As a user, I want Balance, Cardio, Macros, Settings tab order so that Cardio is one tap from Balance.",
       "acceptanceCriteria": [
-        "DashboardViewMode toggle removed from DashboardContent; 3-way segmented control deleted",
-        "New DashboardHome composable renders: CalorieBalanceBannerCard (full-width ElevatedCard, tonalElevation=4.dp) showing net balance signed ('+320 kcal' green if >=0, red if <0) from balances.sumOf{it.balance}.roundToInt() in displayMedium; below that '🏃 X min' weeklyCardioMinutes in bodyMedium MiTextSecondary",
-        "Row of two equal-width ElevatedCard items (Modifier.weight(1f) each, tonalElevation=2.dp, Modifier.padding(8.dp) gap): left=Intake, right=Expenditure",
-        "Intake card: title 'Intake' (labelSmall, MiOrange), total kcal in (balances.sumOf{it.intake}.roundToInt(), bodyLarge, onSurface)",
-        "Expenditure card: title 'Expenditure' (labelSmall, MiOrange), total kcal out (balances.sumOf{it.burn}.roundToInt(), bodyLarge, onSurface)",
-        "DashboardContent renders DashboardHome when selectedLens==null; DashboardDetail when selectedLens!=null (placeholder onBack/onBarClick lambdas ok for this story)",
-        "CardioSummaryRow removed from DashboardContent",
-        "selectedLens: DashboardViewMode? state hoisted in DashboardContent (initially null)",
+        "Bottom nav order is: 0=Balance, 1=Cardio, 2=Macros, 3=Settings",
+        "Icons and labels unchanged; only order changes",
+        "`when(targetIndex)` block in `DashboardWithTabs.kt` updated to match new indices",
         "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
       ],
       "priority": 1,
@@ -24,18 +19,30 @@
     },
     {
       "id": "US-002",
-      "title": "Detail drill-down — chart + history for selected lens",
-      "description": "As a user, I want to tap an Intake or Expenditure card and see the full chart and daily history for that lens so I can analyze trends.",
+      "title": "CardioStateHolder reactive to dashboard date range",
+      "description": "As a user, I want the Cardio tab to show only sessions within the Balance dashboard's selected date range so the two screens stay in sync.",
       "acceptanceCriteria": [
-        "New DashboardDetail composable: takes balances: List<DailyBalance>, viewMode: DashboardViewMode (INTAKE or EXPENDITURE), onBack: () -> Unit, onBarClick: (DailyBalance) -> Unit",
-        "DashboardDetail renders: back IconButton (Icons.AutoMirrored.Filled.ArrowBack, tint=MiOrange) in the header row alongside date navigator; SlidingWindowInsightCard(balances, viewMode); history rows as CondensedLogItem list (reverse-chronological) scoped to selected viewMode",
-        "Tapping Intake card sets selectedLens = DashboardViewMode.INTAKE; tapping Expenditure sets selectedLens = DashboardViewMode.EXPENDITURE",
-        "Back button sets selectedLens = null, returning to DashboardHome",
-        "BreakdownDialog still opens on bar tap (unchanged behavior)",
-        "BALANCE DashboardViewMode not handled in DashboardDetail (banner handles balance; no detail drill for BALANCE)",
+        "`CardioStateHolder` gains `fun setDateRange(dateRange: DateRange)` that updates an internal `MutableStateFlow<DateRange>`",
+        "`val state: StateFlow<CardioState>` is derived via `flatMapLatest` on that flow, querying `repository.sessionsForRange(range.startDate, range.endDate)` — removes the hardcoded `today.minusDays(6)` default range",
+        "Default initial range = `DateRange(todayString().minusDays(6), todayString())` (same 7-day default as before, so first load is unchanged)",
+        "`DashboardWithTabs` observes `stateHolder.state.map { it.selectedDateRange }` via `LaunchedEffect` and calls `cardioStateHolder.setDateRange(it)` whenever it changes",
+        "`CardioState.weeklyTotalMinutes` renamed to `totalMinutes` (reflects any range, not just a week); all references updated",
         "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
       ],
       "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Balance banner shows cardio total for selected date range",
+      "description": "As a user, I want the Balance banner to show how many cardio minutes I logged within the selected date range, not always 'this week'.",
+      "acceptanceCriteria": [
+        "Value passed from `DashboardWithTabs` to `DashboardScreen` is `cardioState.totalMinutes` (range-scoped, from US-002)",
+        "Banner label changes from `\"🏃 $weeklyCardioMinutes min this week\"` to `\"🏃 $weeklyCardioMinutes min\"` in `DashboardScreen.kt` `extraContent` lambda",
+        "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 3,
       "passes": true,
       "notes": ""
     }
