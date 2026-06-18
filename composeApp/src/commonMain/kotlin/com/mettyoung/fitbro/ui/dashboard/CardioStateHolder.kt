@@ -27,7 +27,8 @@ class CardioStateHolder(
                 .map { sessions ->
                     CardioState(
                         sessions = sessions,
-                        totalMinutes = sessions.sumOf { it.minutes }
+                        totalMinutes = sessions.sumOf { it.minutes },
+                        dateRange = range
                     )
                 }
         }

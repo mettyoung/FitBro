@@ -2,8 +2,10 @@ package com.mettyoung.fitbro.ui.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +41,7 @@ import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.MONTH_ABBR
 import com.mettyoung.fitbro.util.dayOfWeekMonBased
+import com.mettyoung.fitbro.util.toShortDate
 import com.mettyoung.fitbro.util.toYMD
 
 private val DAY_ABBR = arrayOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -51,6 +54,8 @@ fun CardioScreen(
     val state by stateHolder.state.collectAsState()
     val grouped = state.sessions.groupBy { it.date }
     val sortedDates = grouped.keys.sortedDescending()
+    val startDate = state.dateRange.startDate
+    val endDate = state.dateRange.endDate
 
     var sheetSession by remember { mutableStateOf<CardioSession?>(null) }
     var showSheet by remember { mutableStateOf(false) }
@@ -61,18 +66,28 @@ fun CardioScreen(
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
                 .statusBarsPadding()
-                .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 32.dp)
+                .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 20.dp)
         ) {
             Text(
                 text = "Cardio",
                 style = MaterialTheme.typography.displayMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Text(
-                text = "Weekly Training Log",
-                style = MaterialTheme.typography.labelSmall,
-                color = MiOrange
-            )
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${startDate.toShortDate()} – ${endDate.toShortDate()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
 
         Scaffold(
@@ -145,7 +160,7 @@ private fun WeeklySummaryCard(
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text(
-                text = "This Week",
+                text = "Total",
                 style = MaterialTheme.typography.labelSmall,
                 color = MiOrange
             )
