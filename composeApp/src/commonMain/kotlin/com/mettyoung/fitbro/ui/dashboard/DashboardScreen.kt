@@ -377,14 +377,14 @@ private fun SummaryMetricCard(
     val netBalance = balances.sumOf { it.balance }.roundToInt()
 
     val (iconEmoji, iconColor) = when (viewMode) {
-        DashboardViewMode.BALANCE -> "⚖️" to MiOrange
-        DashboardViewMode.INTAKE  -> "🥗" to Color(0xFFE91E63)
-        DashboardViewMode.EXPENDITURE -> "🔥" to Color(0xFFFF9800)
+        DashboardViewMode.BALANCE     -> "⚖️" to MiOrange
+        DashboardViewMode.INTAKE      -> "🥗" to Color(0xFF4CAF50)
+        DashboardViewMode.EXPENDITURE -> "🔥" to Color(0xFFF44336)
     }
-    val valueColor = if (viewMode == DashboardViewMode.BALANCE) {
-        if (netBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
-    } else {
-        MaterialTheme.colorScheme.onSurface
+    val valueColor = when (viewMode) {
+        DashboardViewMode.BALANCE     -> if (netBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+        DashboardViewMode.INTAKE      -> Color(0xFF4CAF50)
+        DashboardViewMode.EXPENDITURE -> Color(0xFFF44336)
     }
 
     Card(
@@ -408,7 +408,7 @@ private fun SummaryMetricCard(
                 }
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    text = if (!isBig && viewMode != DashboardViewMode.BALANCE) "Ave ${viewMode.label}" else viewMode.label,
+                    text = viewMode.label,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MiTextSecondary
                 )
@@ -423,20 +423,28 @@ private fun SummaryMetricCard(
                 fontWeight = FontWeight.Black
             )
 
+            if (!isBig) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Average daily",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MiTextSecondary
+                )
+            }
+
             extraContent()
 
-            Spacer(Modifier.height(if (isBig) 20.dp else 12.dp))
-
-            CalorieBalanceChart(
-                balances = balances,
-                onBarClick = { _ -> onClick() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(if (isBig) 120.dp else 64.dp),
-                valueSelector = { viewMode.valueOf(it) },
-                diverging = viewMode.isDiverging,
-                showDayLabels = isBig
-            )
+            if (isBig) {
+                Spacer(Modifier.height(20.dp))
+                CalorieBalanceChart(
+                    balances = balances,
+                    onBarClick = { _ -> onClick() },
+                    modifier = Modifier.fillMaxWidth().height(120.dp),
+                    valueSelector = { viewMode.valueOf(it) },
+                    diverging = viewMode.isDiverging,
+                    showDayLabels = true
+                )
+            }
         }
     }
 }
