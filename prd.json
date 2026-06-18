@@ -1,19 +1,16 @@
 {
   "project": "FitBro",
-  "branchName": "ralph/macro-goal-profiles",
-  "description": "Replace single global macro goal with named per-day goal profiles. Users create unlimited profiles (Training Day, Rest Day, etc.), assign each weekday to a profile, and the dashboard auto-selects the active profile based on today's day of week. Old MacroGoalsSettings + MacroGoalsDialog retired and replaced.",
+  "branchName": "ralph/cardio-page-polish",
+  "description": "Two UX polish items for the Cardio feature: (1) add a consistent pinned header to CardioScreen matching Settings/FoodDiary style; (2) surface weekly cardio total on the main dashboard Balance view between the insight card and history section.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "MacroGoalProfile schema + repository",
-      "description": "As a developer, I need to persist named macro goal profiles and weekday mappings in the local database so they survive app restarts.",
+      "title": "Cardio screen consistent header",
+      "description": "As a user, I want the Cardio tab to have a header like other screens so the app feels cohesive.",
       "acceptanceCriteria": [
-        "New macro_goal_profile table: id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, protein_g REAL NOT NULL, carbs_g REAL NOT NULL, fat_g REAL NOT NULL, calories_kcal REAL NOT NULL",
-        "New weekday_goal_mapping table: weekday INTEGER PRIMARY KEY (0=Mon…6=Sun), profile_id INTEGER NOT NULL REFERENCES macro_goal_profile(id)",
-        "Migration 6.sqm in db/migrations/ creates both tables",
-        "MacroGoalProfile domain model in data/model/ with fields: id Long, name String, proteinG Double, carbsG Double, fatG Double, caloriesKcal Double",
-        "MacroGoalRepository interface in data/repository/: getAllProfiles(): Flow<List<MacroGoalProfile>>, addProfile(name, protein, carbs, fat, calories): Long, updateProfile(id, name, protein, carbs, fat, calories), deleteProfile(id), getMappingForWeekday(weekday: Int): Long? (returns profileId or null), setMappingForWeekday(weekday: Int, profileId: Long), getActiveProfileForDate(date: String): MacroGoalProfile",
-        "MacroGoalRepositoryImpl backed by SQLDelight, all ops on Dispatchers.Default; getActiveProfileForDate computes weekday via dayOfWeekMonBased(), looks up mapping row, falls back to first profile named 'Default' if no mapping exists",
+        "Header pinned at top of CardioScreen (outside scroll area) with title 'Cardio' (headlineMedium or displayMedium) and subtitle 'Weekly Training Log' (labelSmall, MiOrange color)",
+        "Header uses statusBarsPadding() + background(MaterialTheme.colorScheme.surface) + horizontal padding 24.dp — same pattern as MacroProfilesSettings header",
+        "WeeklySummaryCard and session list scroll beneath the pinned header — header does not scroll away",
         "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
       ],
       "priority": 1,
@@ -22,83 +19,18 @@
     },
     {
       "id": "US-002",
-      "title": "Seed migration — existing goal → Default profile",
-      "description": "As a user upgrading the app, I want my existing macro goal preserved as a profile named Default so I don't lose my current targets.",
+      "title": "Weekly cardio total on main dashboard",
+      "description": "As a user, I want to see my weekly cardio total on the main dashboard so I don't need to switch tabs to check it.",
       "acceptanceCriteria": [
-        "MacroGoalRepositoryImpl.seedDefaultIfEmpty() reads current protein/carbs/fat/calories from UserSettingsDataSource and inserts a profile named 'Default' if the macro_goal_profile table is empty",
-        "seedDefaultIfEmpty() called from App.kt once after MacroGoalRepositoryImpl is instantiated (inside a LaunchedEffect or coroutine scope)",
-        "Idempotent: if profile table already has rows, seed is skipped entirely",
-        "No weekday mapping rows are inserted during seed — getActiveProfileForDate falls back to the Default profile via name lookup when no mapping row exists",
-        "UserSettingsDataSource macro goal getters/setters remain untouched (no deletes, no renames)",
+        "New private CardioSummaryRow composable in DashboardScreen.kt; rendered in DashboardContent between SlidingWindowInsightCard and the History section header",
+        "Row shows: Icons.AutoMirrored.Filled.DirectionsRun icon (MiOrange, 20.dp), label 'Cardio this week' (bodyMedium, MiTextSecondary), value right-aligned e.g. '120 min' (bodyLarge, onSurface); shows '0 min' when no sessions",
+        "DashboardContent gains a new weeklyCardioMinutes: Int = 0 parameter; existing call sites compile unchanged",
+        "App.kt passes cardioStateHolder.state.collectAsState().value.weeklyTotalMinutes into DashboardContent",
+        "CardioSummaryRow only rendered when viewMode == DashboardViewMode.BALANCE (hidden for INTAKE and EXPENDITURE)",
+        "Same horizontal padding (24.dp) as surrounding content",
         "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-003",
-      "title": "MacroProfilesStateHolder + Settings profile list",
-      "description": "As a user, I want to see all my macro goal profiles listed in Settings so I can manage them in one place.",
-      "acceptanceCriteria": [
-        "MacroProfilesState data class: profiles: List<MacroGoalProfile>, weekdayMappings: Map<Int, Long> (weekday → profileId)",
-        "MacroProfilesStateHolder in ui/settings/ receives MacroGoalRepository + CoroutineScope; exposes StateFlow<MacroProfilesState>; combines getAllProfiles() flow with weekday mapping reads reactively",
-        "New 'Macro Profiles' section in the Settings screen replaces the existing MacroGoalsSettings section; renders a list of ElevatedCard items (one per profile): title = profile name (titleMedium), subtitle = 'P: Xg · C: Xg · F: Xg · X kcal' (bodySmall, MiTextSecondary)",
-        "MacroGoalsSettings.kt file deleted",
-        "'+ Add Profile' button at the bottom of the profile list opens the add-profile sheet (wired in US-004 — no-op lambda placeholder for now)",
-        "Tapping a profile card calls an onEditProfile(MacroGoalProfile) lambda (no-op placeholder for now)",
-        "MacroProfilesStateHolder and MacroGoalRepositoryImpl wired in App.kt via remember {}",
-        "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
-      ],
-      "priority": 3,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-004",
-      "title": "Add / edit / delete profile dialog",
-      "description": "As a user, I want to create, rename, and delete macro goal profiles so I can maintain exactly the set I need.",
-      "acceptanceCriteria": [
-        "MacroProfileSheet composable (ModalBottomSheet, RoundedCornerShape topStart/topEnd 32.dp, same style as CardioLogSheet): fields = name OutlinedTextField, protein/carbs/fat OutlinedTextField (KeyboardType.Number), calories displayed as read-only computed Text using MacroMath.caloriesFromMacros()",
-        "Save validates: name non-blank, protein >= 0, carbs >= 0, fat >= 0; shows inline error text per field otherwise",
-        "Edit mode (non-null profile passed in): pre-fills all fields; shows 'Delete' TextButton (colorScheme.error)",
-        "Delete calls stateHolder.deleteProfile(id); if profile is assigned to any weekday mapping, show a Snackbar 'Unassign from all days first' and do NOT delete",
-        "Save calls stateHolder.addProfile() or stateHolder.updateProfile(); StateFlow updates immediately",
-        "onEditProfile and onAddProfile lambdas wired in Settings screen to show/hide the sheet via showSheet + selectedProfile state",
-        "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
-      ],
-      "priority": 4,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-005",
-      "title": "Weekly Schedule — weekday-to-profile assignment",
-      "description": "As a user, I want to assign a macro goal profile to each day of the week so the app knows which targets to apply automatically.",
-      "acceptanceCriteria": [
-        "Below the profile list in the 'Macro Profiles' Settings section, a 'Weekly Schedule' header followed by 7 rows: Mon, Tue, Wed, Thu, Fri, Sat, Sun (0=Mon…6=Sun using dayOfWeekMonBased convention)",
-        "Each row: day label on the left, ExposedDropdownMenuBox on the right listing all profile names from state.profiles",
-        "Currently mapped profile shown as selected; days with no mapping row show the 'Default' profile name selected (visual default only — no DB row written until user explicitly picks)",
-        "Selecting a profile calls stateHolder.setMapping(weekday, profileId) which persists immediately and updates StateFlow",
-        "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
-      ],
-      "priority": 5,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-006",
-      "title": "Dashboard reads active profile",
-      "description": "As a user, I want the dashboard macro counters and summary card to automatically reflect the goal profile assigned to today's weekday.",
-      "acceptanceCriteria": [
-        "MacroSummaryCard and MacroDailyCounterDetail receive active MacroGoalProfile (protein, carbs, fat, calories) instead of reading from UserSettingsDataSource directly",
-        "Active profile resolved via MacroGoalRepository.getActiveProfileForDate(selectedDate) — called in DashboardStateHolder or passed down from App.kt",
-        "MacroSummaryCard shows the active profile name as a subtitle (bodySmall, MiTextSecondary) below the macro progress bars",
-        "Changing the date navigator to a different weekday re-evaluates and shows that day's profile targets",
-        "MacroGoalsDialog in MacroDailyCounterDetail.kt removed (dead code deleted); any 'Edit Goals' button wired to navigate to Settings instead or removed",
-        "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
-      ],
-      "priority": 6,
       "passes": true,
       "notes": ""
     }

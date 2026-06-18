@@ -1,0 +1,79 @@
+# Ralph Progress Log — macro-goal-profiles
+Started: 2026-06-17
+
+## Codebase Patterns
+- **Gradle env**: JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home; run UNSANDBOXED. Typecheck = `:composeApp:compileDebugKotlinAndroid` + `:composeApp:compileKotlinIosSimulatorArm64`. No browser test.
+- **SQLDelight schema version**: current highest migration = 5.sqm (cardio_session). Next = 6.sqm. Place in `composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/migrations/`.
+- **SQLDelight .sq files**: `composeApp/src/commonMain/sqldelight/com/mettyoung/fitbro/data/db/`. Flow = `.asFlow().mapToList(Dispatchers.Default)`. Suspend ops = `withContext(Dispatchers.Default)`.
+- **UserSettingsDataSource**: `data/cache/UserSettingsDataSource.kt` + `UserSettingsDataSourceImpl.kt`. Macro goal keys: `macro_goal_protein_g`, `macro_goal_carbs_g`, `macro_goal_fat_g`, `macro_goal_calorie_kcal` (all Double). READ ONLY in this feature — do NOT delete or rename these keys.
+- **MacroMath**: `util/MacroMath.kt` — `MacroMath.caloriesFromMacros(protein, carbs, fat)` uses 4/4/9 Atwater. Reuse in dialog.
+- **dayOfWeekMonBased**: `util/DateUtil.kt` — `dayOfWeekMonBased(year, month, day): Int` (0=Mon…6=Sun). Parse "YYYY-MM-DD" via `toYMD()` extension also in DateUtil.
+- **StateHolder pattern**: receives repo + CoroutineScope; exposes `StateFlow<State>`; `scope.launch {}` for mutations. Wired in `App.kt` via `remember {}`.
+- **ModalBottomSheet style**: `CardioLogSheet.kt` — `RoundedCornerShape(topStart=32.dp, topEnd=32.dp)`, `containerColor = surface`, `tonalElevation = 0.dp`. Match this exactly.
+- **Settings screen**: `ui/settings/` — `MacroGoalsSettings.kt` exists and must be DELETED as part of US-003. The Settings composable entry point wires sections together.
+- **MacroGoalsDialog**: lives in `ui/dashboard/MacroDailyCounterDetail.kt` — must be DELETED as part of US-006.
+- **MacroSummaryCard**: `ui/dashboard/MacroSummaryCard.kt` — currently reads P/C/F goals directly from `UserSettingsDataSource`; US-006 replaces this with active profile values passed as params.
+- **MacroDailyCounterDetail**: `ui/dashboard/MacroDailyCounterDetail.kt` — reads goals at init via LaunchedEffect; US-006 replaces with repo call.
+- **ElevatedCard + ExposedDropdownMenuBox**: already used elsewhere in the app — search for usages before writing from scratch.
+- **App.kt wiring**: data sources first, then repos, then StateHolders — all `remember {}`. `seedDefaultIfEmpty()` call goes here after `MacroGoalRepositoryImpl` is instantiated, inside `LaunchedEffect(Unit)`.
+- **MacroGoalRepositoryImpl constructor**: takes `(database: FitBroDatabase, userSettingsDataSource: UserSettingsDataSource)`. Has `seedDefaultIfEmpty()` as public suspend fun (not in interface — called from App.kt).
+- **macroGoalProfileQueries**: all queries (both `MacroGoalProfile` and `WeekdayGoalMapping` tables) live in `MacroGoalProfile.sq` → accessible via `database.macroGoalProfileQueries`. weekday/profile_id params are Long.
+- **MacroProfilesStateHolder**: `isMappedToAnyWeekday(profileId)` is non-suspend (reads `state.value` synchronously). `setMapping()` is a fire-and-forget Job.
+- **DashboardWithTabs**: no longer takes `userSettingsDataSource`; takes `macroGoalRepository: MacroGoalRepository` + `macroProfilesStateHolder` instead. All macro goal reads now flow through `MacroGoalRepository`.
+- **MacroDailyCounterDetail**: `LaunchedEffect(selectedDate)` calls `macroGoalRepository.getActiveProfileForDate(selectedDate)` and updates `activeProfile` state. No more `UserSettingsDataSource` in this component.
+- **MacroGoalsDialog** deleted from `MacroDailyCounterDetail.kt`. Settings icon button also removed. Calories/macro goals now read-only, driven by active profile.
+- **MacroSummaryCard**: now takes `activeProfile: MacroGoalProfile` instead of `UserSettingsDataSource`. Shows `activeProfile.name` as subtitle (bodySmall, MiTextSecondary).
+- **App.kt**: `macroGoalRepository` typed as `MacroGoalRepository` interface; cast to impl only for `seedDefaultIfEmpty()` call in `LaunchedEffect(Unit)`.
+
+---
+
+## 2026-06-17 — US-001: MacroGoalProfile schema + repository
+
+Files touched:
+- `composeApp/src/commonMain/sqldelight/.../MacroGoalProfile.sq` (new) — both tables + all queries
+- `composeApp/src/commonMain/sqldelight/.../migrations/6.sqm` (new)
+- `data/model/MacroGoalProfile.kt` (new)
+- `data/repository/MacroGoalRepository.kt` (new)
+- `data/repository/MacroGoalRepositoryImpl.kt` (new)
+
+Learnings:
+- SQLDelight: two tables in one .sq file → all queries under `<fileName>Queries`. `MacroGoalProfile.sq` → `database.macroGoalProfileQueries` covers `WeekdayGoalMapping` queries too.
+- `getActiveProfileForDate` waterfall: mapping row → profile by id → Default profile by name → first profile → in-memory fallback from UserSettingsDataSource.
+- `seedDefaultIfEmpty()` is NOT in the `MacroGoalRepository` interface; it's a concrete method on impl, called from App.kt.
+- SQLite INTEGER PRIMARY KEY without AUTOINCREMENT = rowid alias. WeekdayGoalMapping.weekday is PK so INSERT OR REPLACE handles upsert cleanly.
+
+---
+
+## 2026-06-17 — US-002 through US-006
+
+**US-002**: Seed migration
+- `App.kt`: `LaunchedEffect(Unit)` calls `macroGoalRepositoryImpl.seedDefaultIfEmpty()` before `stateHolder.refresh()`.
+
+**US-003**: MacroProfilesStateHolder + Settings profile list
+- Created `MacroProfilesState`, `MacroProfilesStateHolder` in `ui/settings/`.
+- Created `MacroProfilesSettings.kt` (Scaffold with SnackbarHost).
+- Deleted `MacroGoalsSettings.kt`.
+- `DashboardWithTabs` now takes `macroProfilesStateHolder`.
+
+**US-004**: Add/edit/delete profile sheet
+- Created `MacroProfileSheet.kt` (ModalBottomSheet, RoundedCornerShape 32.dp).
+- Delete blocked if profile is mapped to any weekday → `onDeleteBlocked` → Snackbar.
+- `MacroProfilesSettings` manages `showSheet` + `selectedProfile` state internally.
+
+**US-005**: Weekly Schedule
+- `WeekdayRow` private composable with `ExposedDropdownMenuBox` in `MacroProfilesSettings.kt`.
+- 7 rows (Mon–Sun). Visual default = "Default" profile when no DB mapping row.
+- Selecting calls `stateHolder.setMapping(weekday, profileId)`.
+- Requires `@OptIn(ExperimentalMaterial3Api::class)` on the row composable.
+
+**US-006**: Dashboard reads active profile
+- `MacroSummaryCard`: takes `activeProfile: MacroGoalProfile`; shows profile name as subtitle.
+- `MacroDailyCounterDetail`: takes `macroGoalRepository`; `LaunchedEffect(selectedDate)` resolves active profile.
+- `MacroGoalsDialog` + `GoalField` composables deleted; settings edit button removed.
+- `DashboardWithTabs`: drops `userSettingsDataSource`, takes `macroGoalRepository`.
+
+Learnings:
+- `ExposedDropdownMenuBox` + `menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)` requires `@OptIn(ExperimentalMaterial3Api::class)`.
+- `LaunchedEffect` import must be explicit in files that didn't previously use it.
+- `TextField` still needed even after removing `MacroGoalsDialog` — used in the custom meal naming dialog in same file. Don't mass-remove imports without grep.
+- Casting interface to impl (`macroGoalRepository as MacroGoalRepositoryImpl`) is cleaner than adding `seedDefaultIfEmpty` to the interface.

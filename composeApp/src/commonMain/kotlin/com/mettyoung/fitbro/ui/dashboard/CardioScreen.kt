@@ -1,5 +1,6 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,8 +54,28 @@ fun CardioScreen(
     var sheetSession by remember { mutableStateOf<CardioSession?>(null) }
     var showSheet by remember { mutableStateOf(false) }
 
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .statusBarsPadding()
+                .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 32.dp)
+        ) {
+            Text(
+                text = "Cardio",
+                style = MaterialTheme.typography.displayMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Weekly Training Log",
+                style = MaterialTheme.typography.labelSmall,
+                color = MiOrange
+            )
+        }
+
     Scaffold(
-        modifier = modifier,
+        modifier = Modifier.weight(1f),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { sheetSession = null; showSheet = true },
@@ -90,6 +112,7 @@ fun CardioScreen(
             }
         }
     }
+    } // end outer Column
 
     if (showSheet) {
         CardioLogSheet(
