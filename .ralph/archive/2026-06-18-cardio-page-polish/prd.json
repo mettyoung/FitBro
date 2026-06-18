@@ -1,0 +1,38 @@
+{
+  "project": "FitBro",
+  "branchName": "ralph/cardio-page-polish",
+  "description": "Two UX polish items for the Cardio feature: (1) add a consistent pinned header to CardioScreen matching Settings/FoodDiary style; (2) surface weekly cardio total on the main dashboard Balance view between the insight card and history section.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Cardio screen consistent header",
+      "description": "As a user, I want the Cardio tab to have a header like other screens so the app feels cohesive.",
+      "acceptanceCriteria": [
+        "Header pinned at top of CardioScreen (outside scroll area) with title 'Cardio' (headlineMedium or displayMedium) and subtitle 'Weekly Training Log' (labelSmall, MiOrange color)",
+        "Header uses statusBarsPadding() + background(MaterialTheme.colorScheme.surface) + horizontal padding 24.dp — same pattern as MacroProfilesSettings header",
+        "WeeklySummaryCard and session list scroll beneath the pinned header — header does not scroll away",
+        "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Weekly cardio total on main dashboard",
+      "description": "As a user, I want to see my weekly cardio total on the main dashboard so I don't need to switch tabs to check it.",
+      "acceptanceCriteria": [
+        "New private CardioSummaryRow composable in DashboardScreen.kt; rendered in DashboardContent between SlidingWindowInsightCard and the History section header",
+        "Row shows: Icons.AutoMirrored.Filled.DirectionsRun icon (MiOrange, 20.dp), label 'Cardio this week' (bodyMedium, MiTextSecondary), value right-aligned e.g. '120 min' (bodyLarge, onSurface); shows '0 min' when no sessions",
+        "DashboardContent gains a new weeklyCardioMinutes: Int = 0 parameter; existing call sites compile unchanged",
+        "App.kt passes cardioStateHolder.state.collectAsState().value.weeklyTotalMinutes into DashboardContent",
+        "CardioSummaryRow only rendered when viewMode == DashboardViewMode.BALANCE (hidden for INTAKE and EXPENDITURE)",
+        "Same horizontal padding (24.dp) as surrounding content",
+        "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

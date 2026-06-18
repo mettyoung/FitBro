@@ -21,6 +21,9 @@ interface UserSettingsDataSource {
 
     fun getMacroDataSourceForDate(date: String): MacroDataSource
     fun setMacroDataSourceForDate(date: String, source: MacroDataSource)
+
+    fun getDashboardStartDate(): String
+    fun setDashboardStartDate(date: String)
 }
 
 expect fun createUserSettingsDataSource(): UserSettingsDataSource
