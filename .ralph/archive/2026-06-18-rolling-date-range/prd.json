@@ -1,0 +1,37 @@
+{
+  "project": "FitBro",
+  "branchName": "ralph/rolling-date-range",
+  "description": "Change dashboard date range to rolling: user picks a start date (persisted across sessions), end date always = today. Remove 7-day chart cap. Rename 'Total Week' to 'Total'.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Persist start date + rolling end date",
+      "description": "As a user, I want my chosen start date remembered across sessions with the end date always being today.",
+      "acceptanceCriteria": [
+        "New getDashboardStartDate(): String and setDashboardStartDate(date: String) added to UserSettingsDataSource interface and UserSettingsDataSourceImpl (key: 'dashboard_start_date'; default = todayString() minus 6 days via minusDays util)",
+        "App.kt initialDateRange uses DateRange(startDate = userSettingsDataSource.getDashboardStartDate(), endDate = todayString())",
+        "When user picks a date via DatePickerDialog, only range.startDate is used; endDate always = todayString(); picked end date from dialog ignored",
+        "setDashboardStartDate(range.startDate) persisted on every date selection — either in DashboardStateHolder.setDateRange() or in the onDateRangeSelected lambda in App.kt/DashboardWithTabs",
+        "Cold restart restores persisted start date; end date recalculated as today at runtime",
+        "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Remove 7-day chart cap + rename Total Week",
+      "description": "As a user, I want the chart and history to show all days from my start date to today with no artificial cutoff.",
+      "acceptanceCriteria": [
+        "CalorieBalanceChart.kt: remove balances.takeLast(7) — chart renders all entries in the list passed to it",
+        "DashboardScreen.kt: 'Total Week' text renamed to 'Total' (search entire file for the string — may appear in SlidingWindowInsightCard call or as a hardcoded Text label)",
+        "Verify no other takeLast or size-cap exists in the history row rendering in DashboardScreen.kt; remove if found",
+        "Typecheck passes: compileDebugKotlinAndroid + compileKotlinIosSimulatorArm64"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}
