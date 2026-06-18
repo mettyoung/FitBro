@@ -67,9 +67,7 @@ fun CalorieBalanceChart(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
         ) {
-            val displayBalances = if (balances.size > 7) balances.takeLast(7) else balances
-            
-            displayBalances.forEach { balance ->
+            balances.forEach { balance ->
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     CalorieBarItem(
                         balance = balance,

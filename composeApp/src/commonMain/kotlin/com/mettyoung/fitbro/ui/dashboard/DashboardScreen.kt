@@ -520,7 +520,7 @@ private fun SlidingWindowInsightCard(
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Total Week", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
+                    Text("Total", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
                     Text("${formatCalorieValue(totalValue)} kcal", style = MaterialTheme.typography.titleMedium)
                 }
                 if (isBalance) {
