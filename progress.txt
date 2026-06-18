@@ -11,3 +11,18 @@ Started: 2026-06-17
 - **Colors**: `MiOrange` = 0xFFFF6B00, `MiTextSecondary` = 0xFF6C757D (both in `ui/Theme.kt`).
 - **CardioStateHolder**: already instantiated in `App.kt` via `remember {}`. `state: StateFlow<CardioState>`. `CardioState.weeklyTotalMinutes: Int`.
 - **App.kt pattern**: collect StateFlow with `cardioStateHolder.state.collectAsState().value` inside the composable scope.
+- **DashboardWithTabs collect pattern**: collect child StateHolder state inside `AnimatedContent` block — `val x by stateHolder.state.collectAsState()` — then pass value down to `DashboardScreen`. Works because `AnimatedContent` lambda is `@Composable`.
+
+---
+
+## 2026-06-18 — US-002: Weekly cardio total on main dashboard
+
+**What changed:**
+- `DashboardScreen.kt`: added `weeklyCardioMinutes: Int = 0` to both `DashboardScreen` and `DashboardContent`; new private `CardioSummaryRow` composable (run icon + label + right-aligned minutes); rendered between `SlidingWindowInsightCard` and History header, guarded by `viewMode == BALANCE`; added `Icons.AutoMirrored.Filled.DirectionsRun` import.
+- `DashboardWithTabs.kt`: collect `cardioStateHolder.state.collectAsState()` inside `AnimatedContent` lambda; pass `weeklyTotalMinutes` to `DashboardScreen`.
+
+**Files touched:** `DashboardScreen.kt`, `DashboardWithTabs.kt`
+
+**Learnings:**
+- `AnimatedContent` lambda is `@Composable` — safe to call `collectAsState()` inside it.
+- Adding a default-value param (`= 0`) to `DashboardContent` keeps all existing call sites compile-clean with no changes.
