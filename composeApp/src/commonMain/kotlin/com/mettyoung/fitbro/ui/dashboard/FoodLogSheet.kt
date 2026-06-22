@@ -733,9 +733,10 @@ internal fun FoodEntryContent(
     var selectedServing by remember(foodDetail) {
         mutableStateOf(foodDetail?.servings?.firstOrNull())
     }
-    var customMode by remember { mutableStateOf(false) }
+    val editingGrams = useServingDropdown && initialServingAmount > 0
+    var customMode by remember { mutableStateOf(editingGrams) }
     var dropdownExpanded by remember { mutableStateOf(false) }
-    var quantityInput by remember { mutableStateOf("1") }
+    var quantityInput by remember { mutableStateOf(if (editingGrams) initialServingAmount.roundToInt().toString() else "1") }
 
     var servingInput by remember { mutableStateOf(initialServingAmount.roundToInt().toString()) }
     var servingUnit by remember { mutableStateOf(initialUnit) }
