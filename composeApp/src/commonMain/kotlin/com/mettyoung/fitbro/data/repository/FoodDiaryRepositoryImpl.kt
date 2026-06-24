@@ -36,7 +36,9 @@ class FoodDiaryRepositoryImpl(private val database: FitBroDatabase) : FoodDiaryR
                 servingSizeG = entry.servingSizeG,
                 servingUnit = entry.servingUnit,
                 food_id = entry.foodId,
-                sortOrder = nextSortOrder
+                sortOrder = nextSortOrder,
+                serving_id = entry.servingId,
+                serving_quantity = entry.servingQuantity
             )
             database.foodDiaryQueries.lastInsertRowId().executeAsOne()
         }
@@ -53,6 +55,8 @@ class FoodDiaryRepositoryImpl(private val database: FitBroDatabase) : FoodDiaryR
             servingSizeG = entry.servingSizeG,
             servingUnit = entry.servingUnit,
             food_id = entry.foodId,
+            serving_id = entry.servingId,
+            serving_quantity = entry.servingQuantity,
             id = entry.id
         )
     }
@@ -131,7 +135,9 @@ class FoodDiaryRepositoryImpl(private val database: FitBroDatabase) : FoodDiaryR
                     servingSizeG = row.servingSizeG,
                     servingUnit = row.servingUnit,
                     food_id = row.food_id,
-                    sortOrder = nextSortOrder
+                    sortOrder = nextSortOrder,
+                    serving_id = row.serving_id,
+                    serving_quantity = row.serving_quantity
                 )
                 nextSortOrder++
             }
@@ -182,5 +188,7 @@ private fun com.mettyoung.fitbro.data.db.FoodDiaryEntry.toDomain() = FoodDiaryEn
     servingSizeG = servingSizeG,
     servingUnit = servingUnit,
     foodId = food_id,
-    sortOrder = sortOrder
+    sortOrder = sortOrder,
+    servingId = serving_id,
+    servingQuantity = serving_quantity
 )

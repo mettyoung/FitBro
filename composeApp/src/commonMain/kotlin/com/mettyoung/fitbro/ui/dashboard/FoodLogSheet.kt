@@ -349,6 +349,8 @@ fun EditEntrySheet(
                     date = entry.date,
                     initialServingAmount = entry.servingSizeG,
                     initialUnit = ServingUnit.GRAMS,
+                    initialServingId = entry.servingId,
+                    initialServingQty = entry.servingQuantity,
                     actionLabel = "Update Entry",
                     onBack = onDismiss,
                     onAdd = { updated -> onSave(updated.copy(id = entry.id)) }
@@ -718,6 +720,8 @@ internal fun FoodEntryContent(
     date: String,
     initialServingAmount: Double = 100.0,
     initialUnit: String = ServingUnit.GRAMS,
+    initialServingId: String? = null,
+    initialServingQty: Double? = null,
     actionLabel: String,
     onBack: () -> Unit,
     onAdd: (FoodDiaryEntry) -> Unit,
@@ -730,19 +734,30 @@ internal fun FoodEntryContent(
     }
     val customUnit = referenceServing?.metricUnit ?: "g"
 
-    val matchedServing = remember(foodDetail, initialServingAmount) {
-        if (!useServingDropdown || initialServingAmount <= 0) return@remember null
-        foodDetail!!.servings.firstOrNull { serving ->
-            val metric = serving.metricAmount ?: return@firstOrNull false
-            if (metric <= 0 || serving.metricUnit != "g") return@firstOrNull false
-            val ratio = initialServingAmount / metric
-            val rounded = ratio.roundToInt()
-            rounded > 0 && kotlin.math.abs(ratio - rounded) < 0.05
-        }
+    // Exact restore by stored serving_id; fall back to gram reverse-match for old entries
+    val matchedServing = remember(foodDetail, initialServingId, initialServingAmount) {
+        if (!useServingDropdown) return@remember null
+        if (initialServingId != null) {
+            foodDetail!!.servings.firstOrNull { it.servingId == initialServingId }
+        } else if (initialServingAmount > 0) {
+            foodDetail!!.servings.firstOrNull { serving ->
+                val metric = serving.metricAmount ?: return@firstOrNull false
+                if (metric <= 0 || serving.metricUnit != "g") return@firstOrNull false
+                val ratio = initialServingAmount / metric
+                val rounded = ratio.roundToInt()
+                rounded > 0 && kotlin.math.abs(ratio - rounded) < 0.05
+            }
+        } else null
     }
-    val matchedQty = remember(matchedServing, initialServingAmount) {
-        val metric = matchedServing?.metricAmount ?: return@remember null
-        if (metric <= 0) null else (initialServingAmount / metric).roundToInt().toString()
+    val matchedQty = remember(matchedServing, initialServingQty, initialServingAmount) {
+        when {
+            initialServingQty != null && matchedServing != null -> initialServingQty.roundToInt().toString()
+            matchedServing != null -> {
+                val metric = matchedServing.metricAmount ?: return@remember null
+                if (metric <= 0) null else (initialServingAmount / metric).roundToInt().toString()
+            }
+            else -> null
+        }
     }
     var selectedServing by remember(foodDetail) {
         mutableStateOf(matchedServing ?: foodDetail?.servings?.firstOrNull())
@@ -1011,6 +1026,7 @@ internal fun FoodEntryContent(
         Button(
             onClick = {
                 if (addEnabled) {
+                    val inputAmount = quantityInput.toDoubleOrNull() ?: 0.0
                     onAdd(
                         FoodDiaryEntry(
                             date = date,
@@ -1025,7 +1041,9 @@ internal fun FoodEntryContent(
                             servingUnit = if (useServingDropdown && actualG > 0) ServingUnit.GRAMS
                                          else if (useServingDropdown) ServingUnit.SERVING
                                          else servingUnit,
-                            foodId = foodId
+                            foodId = foodId,
+                            servingId = if (useServingDropdown && !customMode) selectedServing?.servingId else null,
+                            servingQuantity = if (useServingDropdown && !customMode && inputAmount > 0) inputAmount else null
                         )
                     )
                 }

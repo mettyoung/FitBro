@@ -13,7 +13,9 @@ data class FoodDiaryEntry(
     val servingSizeG: Double,
     val servingUnit: String,
     val foodId: String? = null,
-    val sortOrder: Long = 0
+    val sortOrder: Long = 0,
+    val servingId: String? = null,
+    val servingQuantity: Double? = null
 )
 
 object MealType {

@@ -11,14 +11,16 @@ CREATE TABLE FoodDiaryEntry (
     servingSizeG REAL NOT NULL,
     servingUnit TEXT NOT NULL,
     food_id TEXT,
-    sortOrder INTEGER NOT NULL DEFAULT 0
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    serving_id TEXT,
+    serving_quantity REAL
 );
 
 CREATE INDEX food_diary_date_idx ON FoodDiaryEntry(date);
 
 insertEntry:
-INSERT INTO FoodDiaryEntry (date, mealType, foodName, brandName, calories, proteinG, carbG, fatG, servingSizeG, servingUnit, food_id, sortOrder)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO FoodDiaryEntry (date, mealType, foodName, brandName, calories, proteinG, carbG, fatG, servingSizeG, servingUnit, food_id, sortOrder, serving_id, serving_quantity)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertRowId:
 SELECT last_insert_rowid();
@@ -40,7 +42,7 @@ UPDATE FoodDiaryEntry SET mealType = ?, sortOrder = ? WHERE id = ?;
 
 updateEntry:
 UPDATE FoodDiaryEntry
-SET foodName = ?, brandName = ?, calories = ?, proteinG = ?, carbG = ?, fatG = ?, servingSizeG = ?, servingUnit = ?, food_id = ?
+SET foodName = ?, brandName = ?, calories = ?, proteinG = ?, carbG = ?, fatG = ?, servingSizeG = ?, servingUnit = ?, food_id = ?, serving_id = ?, serving_quantity = ?
 WHERE id = ?;
 
 deleteEntry:

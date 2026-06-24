@@ -1,0 +1,3 @@
+-- v7: store serving_id and serving_quantity for FatSecret dropdown restore on edit
+ALTER TABLE FoodDiaryEntry ADD COLUMN serving_id TEXT;
+ALTER TABLE FoodDiaryEntry ADD COLUMN serving_quantity REAL;
