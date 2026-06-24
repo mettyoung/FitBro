@@ -730,13 +730,36 @@ internal fun FoodEntryContent(
     }
     val customUnit = referenceServing?.metricUnit ?: "g"
 
-    var selectedServing by remember(foodDetail) {
-        mutableStateOf(foodDetail?.servings?.firstOrNull())
+    val matchedServing = remember(foodDetail, initialServingAmount) {
+        if (!useServingDropdown || initialServingAmount <= 0) return@remember null
+        foodDetail!!.servings.firstOrNull { serving ->
+            val metric = serving.metricAmount ?: return@firstOrNull false
+            if (metric <= 0 || serving.metricUnit != "g") return@firstOrNull false
+            val ratio = initialServingAmount / metric
+            val rounded = ratio.roundToInt()
+            rounded > 0 && kotlin.math.abs(ratio - rounded) < 0.05
+        }
     }
-    val editingGrams = useServingDropdown && initialServingAmount > 0
-    var customMode by remember { mutableStateOf(editingGrams) }
+    val matchedQty = remember(matchedServing, initialServingAmount) {
+        val metric = matchedServing?.metricAmount ?: return@remember null
+        if (metric <= 0) null else (initialServingAmount / metric).roundToInt().toString()
+    }
+    var selectedServing by remember(foodDetail) {
+        mutableStateOf(matchedServing ?: foodDetail?.servings?.firstOrNull())
+    }
+    var customMode by remember {
+        mutableStateOf(useServingDropdown && initialServingAmount > 0 && matchedServing == null)
+    }
     var dropdownExpanded by remember { mutableStateOf(false) }
-    var quantityInput by remember { mutableStateOf(if (editingGrams) initialServingAmount.roundToInt().toString() else "1") }
+    var quantityInput by remember {
+        mutableStateOf(
+            when {
+                matchedQty != null -> matchedQty
+                useServingDropdown && initialServingAmount > 0 -> initialServingAmount.roundToInt().toString()
+                else -> "1"
+            }
+        )
+    }
 
     var servingInput by remember { mutableStateOf(initialServingAmount.roundToInt().toString()) }
     var servingUnit by remember { mutableStateOf(initialUnit) }
