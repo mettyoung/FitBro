@@ -351,6 +351,7 @@ fun EditEntrySheet(
                     initialUnit = ServingUnit.GRAMS,
                     initialServingId = entry.servingId,
                     initialServingQty = entry.servingQuantity,
+                    isEditing = true,
                     actionLabel = "Update Entry",
                     onBack = onDismiss,
                     onAdd = { updated -> onSave(updated.copy(id = entry.id)) }
@@ -722,6 +723,7 @@ internal fun FoodEntryContent(
     initialUnit: String = ServingUnit.GRAMS,
     initialServingId: String? = null,
     initialServingQty: Double? = null,
+    isEditing: Boolean = false,
     actionLabel: String,
     onBack: () -> Unit,
     onAdd: (FoodDiaryEntry) -> Unit,
@@ -763,16 +765,15 @@ internal fun FoodEntryContent(
         mutableStateOf(matchedServing ?: foodDetail?.servings?.firstOrNull())
     }
     var customMode by remember {
-        mutableStateOf(useServingDropdown && initialServingAmount > 0 && matchedServing == null)
+        mutableStateOf(useServingDropdown && isEditing && matchedServing == null && initialServingAmount > 0)
     }
     var dropdownExpanded by remember { mutableStateOf(false) }
     var quantityInput by remember {
         mutableStateOf(
-            when {
-                matchedQty != null -> matchedQty
-                useServingDropdown && initialServingAmount > 0 -> initialServingAmount.roundToInt().toString()
-                else -> "1"
-            }
+            matchedQty
+                ?: if (isEditing && matchedServing == null && initialServingAmount > 0)
+                    initialServingAmount.roundToInt().toString()
+                else "1"
         )
     }
 
