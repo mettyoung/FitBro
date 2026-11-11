@@ -13,14 +13,23 @@ CREATE TABLE FoodDiaryEntry (
     food_id TEXT,
     sortOrder INTEGER NOT NULL DEFAULT 0,
     serving_id TEXT,
-    serving_quantity REAL
+    serving_quantity REAL,
+    uuid TEXT NOT NULL,
+    updated_at INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX food_diary_date_idx ON FoodDiaryEntry(date);
+CREATE UNIQUE INDEX food_diary_uuid_idx ON FoodDiaryEntry(uuid);
+
+CREATE TABLE SyncOutbox (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    deleted INTEGER NOT NULL,
+    queued_at INTEGER NOT NULL
+);
 
 insertEntry:
-INSERT INTO FoodDiaryEntry (date, mealType, foodName, brandName, calories, proteinG, carbG, fatG, servingSizeG, servingUnit, food_id, sortOrder, serving_id, serving_quantity)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO FoodDiaryEntry (date, mealType, foodName, brandName, calories, proteinG, carbG, fatG, servingSizeG, servingUnit, food_id, sortOrder, serving_id, serving_quantity, uuid, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertRowId:
 SELECT last_insert_rowid();
@@ -35,14 +44,14 @@ maxSortOrderForDateMeal:
 SELECT COALESCE(MAX(sortOrder), -1) FROM FoodDiaryEntry WHERE date = ? AND mealType = ?;
 
 updateSortOrder:
-UPDATE FoodDiaryEntry SET sortOrder = ? WHERE id = ?;
+UPDATE FoodDiaryEntry SET sortOrder = ?, updated_at = ? WHERE id = ?;
 
 moveEntryToMeal:
-UPDATE FoodDiaryEntry SET mealType = ?, sortOrder = ? WHERE id = ?;
+UPDATE FoodDiaryEntry SET mealType = ?, sortOrder = ?, updated_at = ? WHERE id = ?;
 
 updateEntry:
 UPDATE FoodDiaryEntry
-SET foodName = ?, brandName = ?, calories = ?, proteinG = ?, carbG = ?, fatG = ?, servingSizeG = ?, servingUnit = ?, food_id = ?, serving_id = ?, serving_quantity = ?
+SET foodName = ?, brandName = ?, calories = ?, proteinG = ?, carbG = ?, fatG = ?, servingSizeG = ?, servingUnit = ?, food_id = ?, serving_id = ?, serving_quantity = ?, updated_at = ?
 WHERE id = ?;
 
 deleteEntry:
@@ -77,3 +86,33 @@ FROM FoodDiaryEntry
 WHERE date >= ? AND date <= ?
 GROUP BY date
 ORDER BY date ASC;
+
+uuidForId:
+SELECT uuid FROM FoodDiaryEntry WHERE id = ?;
+
+getByUuid:
+SELECT * FROM FoodDiaryEntry WHERE uuid = ?;
+
+getAllEntries:
+SELECT * FROM FoodDiaryEntry;
+
+updateFromRemote:
+UPDATE FoodDiaryEntry
+SET date = ?, mealType = ?, foodName = ?, brandName = ?, calories = ?, proteinG = ?, carbG = ?, fatG = ?,
+    servingSizeG = ?, servingUnit = ?, food_id = ?, sortOrder = ?, serving_id = ?, serving_quantity = ?, updated_at = ?
+WHERE uuid = ?;
+
+deleteByUuid:
+DELETE FROM FoodDiaryEntry WHERE uuid = ?;
+
+enqueueOutbox:
+INSERT OR REPLACE INTO SyncOutbox (uuid, deleted, queued_at) VALUES (?, ?, ?);
+
+listOutbox:
+SELECT * FROM SyncOutbox ORDER BY queued_at ASC;
+
+deleteOutboxIfUnchanged:
+DELETE FROM SyncOutbox WHERE uuid = ? AND queued_at = ?;
+
+outboxEntryFor:
+SELECT * FROM SyncOutbox WHERE uuid = ?;

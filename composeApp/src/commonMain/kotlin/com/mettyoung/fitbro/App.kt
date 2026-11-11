@@ -8,6 +8,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.mettyoung.fitbro.data.cache.createCacheDataSource
 import com.mettyoung.fitbro.data.cache.createUserSettingsDataSource
 import com.mettyoung.fitbro.data.db.FitBroDatabase
@@ -24,6 +26,9 @@ import com.mettyoung.fitbro.data.repository.CustomMealRepositoryImpl
 import com.mettyoung.fitbro.data.repository.FoodDiaryRepositoryImpl
 import com.mettyoung.fitbro.data.repository.MacroGoalRepository
 import com.mettyoung.fitbro.data.repository.MacroGoalRepositoryImpl
+import com.mettyoung.fitbro.data.sync.SyncApi
+import com.mettyoung.fitbro.data.sync.SyncRepository
+import com.mettyoung.fitbro.data.sync.SyncSettings
 import com.mettyoung.fitbro.ui.FitBroTheme
 import com.mettyoung.fitbro.ui.settings.MacroProfilesStateHolder
 import com.mettyoung.fitbro.ui.dashboard.CardioStateHolder
@@ -67,12 +72,27 @@ fun App() {
             )
         }
 
+        val syncSettings = userSettingsDataSource as SyncSettings
+        val syncRepository = remember(foodDiaryRepository, healthDataSource, macroGoalRepository, scope) {
+            SyncRepository(
+                api = SyncApi(syncSettings),
+                store = foodDiaryRepository,
+                settings = syncSettings,
+                healthDataSource = healthDataSource,
+                macroGoalRepository = macroGoalRepository,
+                scope = scope
+            )
+        }
+        // FR-15: covers app start and every return to the foreground.
+        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { syncRepository.requestSync() }
+
         val foodDiaryStateHolder = remember(foodDiaryRepository, healthDataSource, userSettingsDataSource, scope) {
             FoodDiaryStateHolder(
                 repository = foodDiaryRepository,
                 healthDataSource = healthDataSource,
                 userSettingsDataSource = userSettingsDataSource,
-                scope = scope
+                scope = scope,
+                onDiaryChanged = syncRepository::requestSync
             )
         }
 
@@ -126,6 +146,8 @@ fun App() {
             cardioStateHolder = cardioStateHolder,
             macroProfilesStateHolder = macroProfilesStateHolder,
             macroGoalRepository = macroGoalRepository,
+            syncRepository = syncRepository,
+            syncSettings = syncSettings,
             foodDataSource = foodDataSource,
             customFoodRepository = customFoodRepository,
             balances = balances,

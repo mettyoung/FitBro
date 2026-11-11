@@ -11,6 +11,7 @@ import com.mettyoung.fitbro.data.model.MacroDataSource
 import com.mettyoung.fitbro.data.model.MealType
 import com.mettyoung.fitbro.data.repository.FoodDiaryRepository
 import com.mettyoung.fitbro.util.minusDays
+import com.mettyoung.fitbro.util.newUuid
 import com.mettyoung.fitbro.util.plusDays
 import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.CoroutineScope
@@ -31,7 +32,9 @@ class FoodDiaryStateHolder(
     private val repository: FoodDiaryRepository,
     private val healthDataSource: HealthDataSource,
     private val userSettingsDataSource: UserSettingsDataSource,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    /** Called after every local diary mutation so it can be pushed to the cloud. */
+    private val onDiaryChanged: () -> Unit = {}
 ) {
     private val _selectedDate = MutableStateFlow(todayString())
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
@@ -111,6 +114,7 @@ class FoodDiaryStateHolder(
     fun copyMeal(sourceDate: String, mealType: String, targetDate: String): Job {
         return scope.launch {
             repository.copyMealToDate(sourceDate, mealType, targetDate)
+            onDiaryChanged()
         }
     }
 
@@ -122,8 +126,10 @@ class FoodDiaryStateHolder(
 
     fun addEntry(entry: FoodDiaryEntry): Job {
         return scope.launch {
-            val id = repository.addEntry(entry)
-            syncToHealthConnect(entry.copy(id = id))
+            val withUuid = if (entry.uuid.isBlank()) entry.copy(uuid = newUuid()) else entry
+            val id = repository.addEntry(withUuid)
+            syncToHealthConnect(withUuid.copy(id = id))
+            onDiaryChanged()
         }
     }
 
@@ -131,18 +137,21 @@ class FoodDiaryStateHolder(
         return scope.launch {
             repository.updateEntry(entry)
             syncToHealthConnect(entry)
+            onDiaryChanged()
         }
     }
 
     fun deleteEntry(id: Long): Job {
         return scope.launch {
             repository.deleteEntry(id)
+            onDiaryChanged()
         }
     }
 
     fun reorderMeal(date: String, mealType: String, orderedIds: List<Long>): Job {
         return scope.launch {
             repository.reorderMeal(date, mealType, orderedIds)
+            onDiaryChanged()
         }
     }
 
@@ -158,6 +167,7 @@ class FoodDiaryStateHolder(
             repository.moveEntryToPosition(
                 date, movedId, targetMeal, targetOrderedIds, sourceMeal, sourceOrderedIds
             )
+            onDiaryChanged()
         }
     }
 

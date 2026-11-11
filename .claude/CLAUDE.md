@@ -22,6 +22,7 @@ FitBro is a Kotlin Multiplatform (KMP) calorie-tracking app targeting Android an
 - **Data Sources** (`data/{health,cache,food,db}/`): Concrete implementations (Health Connect/HealthKit, local cache, FatSecret, SQLDelight). Cross-platform ones use top-level `expect/actual createXxx()` factories (e.g. `createHealthDataSource()`, `createCacheDataSource()`, `createSqlDriver()`).
 - **Models** (`data/model/`): Domain objects (DailyBalance, FoodDiaryEntry, Metabolism).
 - **Database**: SQLDelight (SQLite). Queries live in `src/commonMain/sqldelight/`. Generated code in `data/db/`.
+- **Cloud sync** (`data/sync/`): `SyncRepository` mirrors the food diary to the `mcp-server/` Cloudflare Worker (push `SyncOutbox` → pull since cursor → last-write-wins on `updated_at`). Every `FoodDiaryEntry` has a global `uuid`; `FoodDiaryRepositoryImpl` also implements `FoodDiarySyncStore` and enqueues an outbox row in the same transaction as each mutation. Sync runs after diary mutations and on `ON_RESUME`; configured in Settings → Cloud Sync. See `tasks/prd-grok-mcp-integration.md`.
 
 ### UI Layer
 - **StateHolder pattern** (`ui/dashboard/DashboardStateHolder.kt`): Compose ViewModel equivalent. Manages state, side effects, coordination.
@@ -139,8 +140,12 @@ exposes adbd on `0.0.0.0:5555` to the whole tailnet (restrict via a Tailscale AC
 - **Coroutines**: Async/concurrency (default dispatcher: `Dispatchers.Default` for background work)
 - **Health Connect API** (Android): `androidx.health.connect`; iOS uses **HealthKit** (`platform.HealthKit`, real `HKHealthStore` integration in `iosMain`)
 - **Barcode Scanning** (Android): GMS Code Scanner
-- **Multiplatform Settings**: Encrypted key-value storage (android: `androidx.security.crypto`)
+- **Multiplatform Settings**: Key-value storage (`SharedPreferences` / `NSUserDefaults`, not encrypted). `UserSettingsDataSourceImpl` also implements `SyncSettings`.
 - **FatSecret Platform API**: Food database integration. OAuth 1.0 signing (HMAC-SHA1) via `util/HmacSha1` (expect/actual). Endpoint `https://platform.fatsecret.com/rest/server.api`.
+
+## MCP Server (`mcp-server/`)
+
+TypeScript Cloudflare Worker + D1 (free tier) exposing the diary to Grok over MCP (`/mcp`) and a sync API for the app (`/sync/*`). Bearer tokens `MCP_TOKEN` / `SYNC_TOKEN` via `wrangler secret`. `npm test` (vitest on `node:sqlite`), `npm run typecheck`, `npm run dev`. Deploy steps in `mcp-server/README.md`. The wire format in `src/sync.ts` must match `data/sync/SyncApi.kt`.
 
 ## Code Organization
 
@@ -224,5 +229,7 @@ fun myCalculation() {
 2. **Health permissions**: Android = Health Connect (permission gate in `PermissionGateApp.kt`); iOS = HealthKit (authorization in `HealthDataSource.ios.kt`). Both integrated.
 3. **Coroutine cancellation**: StateHolder scope cancellation cleans up flows & jobs.
 4. **Date format**: `todayString()` & `DateRange` use "YYYY-MM-DD" strings for consistency.
+4a. **`servingSizeG` is grams eaten**, not grams per serving; `servingUnit` is only the display unit. The edit sheet derives per-100 g macros from it.
+4b. **Preserve `uuid` when editing**: entries rebuilt from a form must `copy(uuid = original.uuid)`, or Health Connect dedupe (`clientRecordId`) is lost.
 5. **TEF calculation**: Falls back to flat 10% if macros missing (see `CalorieMathRepository`).
 6. **Serving sizes**: Default from FatSecret; user can override per entry.

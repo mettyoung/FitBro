@@ -354,7 +354,7 @@ fun EditEntrySheet(
                     isEditing = true,
                     actionLabel = "Update Entry",
                     onBack = onDismiss,
-                    onAdd = { updated -> onSave(updated.copy(id = entry.id)) }
+                    onAdd = { updated -> onSave(updated.copy(id = entry.id, uuid = entry.uuid)) }
                 )
             }
         }

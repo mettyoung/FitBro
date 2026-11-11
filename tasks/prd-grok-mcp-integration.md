@@ -18,28 +18,28 @@ Let Grok read and write the FitBro food diary ("how was my protein this week?", 
 **Description:** As a developer, I need a deployable Worker with a D1 database holding diary entries, tombstones, and goals.
 
 **Acceptance Criteria:**
-- [ ] `mcp-server/` package with `wrangler.toml` (D1 binding `DB`), `tsconfig.json`, typecheck script
-- [ ] `migrations/0001_init.sql` creates `entries` and `settings` tables (FR-1, FR-2)
-- [ ] Bearer auth: `/mcp` requires `MCP_TOKEN`, `/sync/*` requires `SYNC_TOKEN`, constant-time compare, 401 otherwise (FR-3)
-- [ ] `npm run typecheck` passes
+- [x] `mcp-server/` package with `wrangler.toml` (D1 binding `DB`), `tsconfig.json`, typecheck script
+- [x] `migrations/0001_init.sql` creates `entries` and `settings` tables (FR-1, FR-2)
+- [x] Bearer auth: `/mcp` requires `MCP_TOKEN`, `/sync/*` requires `SYNC_TOKEN`, constant-time compare, 401 otherwise (FR-3)
+- [x] `npm run typecheck` passes
 
 ### US-002: Sync API
 **Description:** As the app, I need push/pull endpoints so local and cloud diaries converge.
 
 **Acceptance Criteria:**
-- [ ] `POST /sync/push` applies changes with last-write-wins (FR-4)
-- [ ] `GET /sync/pull?since=N` returns changes after cursor incl. tombstones (FR-5)
-- [ ] `PUT /sync/settings` stores goals (FR-6)
-- [ ] Unit tests cover LWW and tombstones
+- [x] `POST /sync/push` applies changes with last-write-wins (FR-4)
+- [x] `GET /sync/pull?since=N` returns changes after cursor incl. tombstones (FR-5)
+- [x] `PUT /sync/settings` stores goals (FR-6)
+- [x] Unit tests cover LWW and tombstones
 
 ### US-003: MCP tools
 **Description:** As a Grok user, I want tools to read and edit my diary.
 
 **Acceptance Criteria:**
-- [ ] Read tools: `get_daily_summary`, `get_entries`, `get_trends`, `get_goals` (FR-7)
-- [ ] Write tools: `log_food`, `update_entry`, `delete_entry` (FR-8)
-- [ ] Inputs validated with zod (FR-9)
-- [ ] MCP Inspector can list and call every tool
+- [x] Read tools: `get_daily_summary`, `get_entries`, `get_trends`, `get_goals` (FR-7)
+- [x] Write tools: `log_food`, `update_entry`, `delete_entry` (FR-8)
+- [x] Inputs validated with zod (FR-9)
+- [x] MCP Inspector can list and call every tool
 
 ### US-004: Local sync schema
 **Description:** As a developer, I need global ids, change timestamps, and an outbox on-device.
@@ -56,7 +56,7 @@ Let Grok read and write the FitBro food diary ("how was my protein this week?", 
 **Acceptance Criteria:**
 - [ ] `SyncApi` (Ktor) + `SyncRepository` push outbox → pull → apply → save cursor, serialized by a mutex (FR-13)
 - [ ] First sync (no cursor) pushes all local rows (FR-14)
-- [ ] Sync triggered after local mutations, on app start, and on Android resume (FR-15)
+- [ ] Sync triggered after local mutations and on every app resume, which includes start (FR-15)
 - [ ] Remotely-created/edited entries are written to Health Connect (FR-16)
 
 ### US-006: Cloud sync settings
@@ -81,17 +81,17 @@ Let Grok read and write the FitBro food diary ("how was my protein this week?", 
 - FR-5: Pull returns rows with `server_seq > since` ordered ascending, plus the new cursor
 - FR-6: Settings PUT replaces goal values
 - FR-7: Read tools — daily summary (totals, goals, remaining), entries by date range, per-day trends with averages, goals
-- FR-8: Write tools — log/update/delete set `updated_at = now`, delete writes a tombstone; all bump `server_seq`
+- FR-8: Write tools — log/update/delete set `updated_at = now`, delete writes a tombstone; all bump `server_seq`. Amounts are grams eaten (`amount_g`, stored as `servingSizeG`); changing only `amount_g` scales macros proportionally
 - FR-9: Validation — `date` is `YYYY-MM-DD`, `meal_type` ∈ BREAKFAST/LUNCH/DINNER/SNACKS, macros ≥ 0
 - FR-10: Local migration 8: `uuid TEXT` (unique, backfilled), `updated_at INTEGER NOT NULL DEFAULT 0`, `SyncOutbox(uuid PK, deleted, queued_at)`
 - FR-11: add/update/delete/reorder/move/copy enqueue outbox rows transactionally
 - FR-12: Remote apply uses LWW on `updated_at`; tombstones hard-delete locally; never enqueues (no echo)
 - FR-13: Sync = push outbox → clear acked → pull since cursor → apply → persist cursor; one run at a time
 - FR-14: Unset cursor ⇒ full push of all local entries
-- FR-15: Triggers — after local mutations, app start, Android `onResume`
+- FR-15: Triggers — after local mutations, and on `Lifecycle.Event.ON_RESUME` in `App.kt` (covers app start and returning to foreground on Android and iOS)
 - FR-16: Pulled non-deleted entries are written to Health Connect / HealthKit
-- FR-17: Sync URL/token stored in encrypted settings; cursor + last-synced persisted
-- FR-18: Health Connect records keyed by `clientRecordId = uuid` so edits upsert
+- FR-17: Sync URL/token stored in app-private settings (SharedPreferences / NSUserDefaults — not encrypted); cursor + last-synced persisted; changing the URL resets the cursor
+- FR-18: Health Connect records keyed by `clientRecordId = uuid` (version = write time) so edits upsert. HealthKit (iOS) dedupe is out of scope
 
 ## Non-Goals
 

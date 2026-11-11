@@ -69,6 +69,7 @@ kotlin {
         androidUnitTest.dependencies {
             implementation(libs.robolectric)
             implementation(libs.androidx.test.core)
+            implementation(libs.sqldelight.sqlite.driver)
         }
     }
 }

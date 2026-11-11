@@ -57,7 +57,8 @@ import kotlin.math.roundToInt
 @Composable
 fun MacroProfilesSettings(
     stateHolder: MacroProfilesStateHolder,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    footer: @Composable () -> Unit = {}
 ) {
     val state by stateHolder.state.collectAsState()
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -210,6 +211,8 @@ fun MacroProfilesSettings(
                         }
                     }
                 }
+
+                footer()
 
                 Spacer(Modifier.height(48.dp))
             }

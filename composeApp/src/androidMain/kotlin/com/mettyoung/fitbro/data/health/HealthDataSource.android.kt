@@ -220,7 +220,15 @@ private class HealthConnectDataSource : HealthDataSource {
                 totalCarbohydrate = Mass.grams(entry.carbG),
                 totalFat = Mass.grams(entry.fatG),
                 name = entry.foodName,
-                metadata = HCMetadata.manualEntry()
+                // FR-18: keyed by uuid so a re-write (edit or cloud update) replaces the record instead of duplicating it.
+                metadata = if (entry.uuid.isBlank()) {
+                    HCMetadata.manualEntry()
+                } else {
+                    HCMetadata.manualEntry(
+                        clientRecordId = entry.uuid,
+                        clientRecordVersion = System.currentTimeMillis()
+                    )
+                }
             )
             healthClient.insertRecords(listOf(record))
             Log.d("HealthConnect", "writeNutritionRecord: wrote ${entry.foodName} (${entry.calories.toInt()} kcal)")

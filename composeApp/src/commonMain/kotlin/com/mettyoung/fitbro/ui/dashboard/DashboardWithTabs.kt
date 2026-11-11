@@ -37,6 +37,9 @@ import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.repository.CustomFoodRepository
 import com.mettyoung.fitbro.data.repository.MacroGoalRepository
 import com.mettyoung.fitbro.ui.MiOrange
+import com.mettyoung.fitbro.data.sync.SyncRepository
+import com.mettyoung.fitbro.data.sync.SyncSettings
+import com.mettyoung.fitbro.ui.settings.CloudSyncSettings
 import com.mettyoung.fitbro.ui.settings.MacroProfilesSettings
 import com.mettyoung.fitbro.ui.settings.MacroProfilesStateHolder
 
@@ -49,6 +52,8 @@ fun DashboardWithTabs(
     cardioStateHolder: CardioStateHolder,
     macroProfilesStateHolder: MacroProfilesStateHolder,
     macroGoalRepository: MacroGoalRepository,
+    syncRepository: SyncRepository,
+    syncSettings: SyncSettings,
     foodDataSource: FoodDataSource,
     customFoodRepository: CustomFoodRepository,
     balances: List<DailyBalance>,
@@ -128,7 +133,8 @@ fun DashboardWithTabs(
                         onBalanceRefreshNeeded = stateHolder::refresh
                     )
                     3 -> MacroProfilesSettings(
-                        stateHolder = macroProfilesStateHolder
+                        stateHolder = macroProfilesStateHolder,
+                        footer = { CloudSyncSettings(syncRepository, syncSettings) }
                     )
                 }
             }

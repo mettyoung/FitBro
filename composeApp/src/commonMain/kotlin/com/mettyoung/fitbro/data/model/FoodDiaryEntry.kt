@@ -15,7 +15,10 @@ data class FoodDiaryEntry(
     val foodId: String? = null,
     val sortOrder: Long = 0,
     val servingId: String? = null,
-    val servingQuantity: Double? = null
+    val servingQuantity: Double? = null,
+    /** Stable id shared with the cloud copy; assigned by the repository when blank. */
+    val uuid: String = "",
+    val updatedAt: Long = 0
 )
 
 object MealType {

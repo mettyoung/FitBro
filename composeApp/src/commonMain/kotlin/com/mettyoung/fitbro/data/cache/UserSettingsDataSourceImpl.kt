@@ -2,11 +2,12 @@ package com.mettyoung.fitbro.data.cache
 
 import com.mettyoung.fitbro.data.food.FoodDatabase
 import com.mettyoung.fitbro.data.model.MacroDataSource
+import com.mettyoung.fitbro.data.sync.SyncSettings
 import com.mettyoung.fitbro.util.minusDays
 import com.mettyoung.fitbro.util.todayString
 import com.russhwolf.settings.Settings
 
-class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsDataSource {
+class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsDataSource, SyncSettings {
     companion object {
         private const val PROTEIN_GOAL_KEY = "macro_goal_protein_g"
         private const val CARBS_GOAL_KEY = "macro_goal_carbs_g"
@@ -16,6 +17,10 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         private const val MACRO_DATA_SOURCE_PREFIX = "macro_data_source_"
         private const val DASHBOARD_START_DATE_KEY = "dashboard_start_date"
         private const val DASHBOARD_END_DATE_KEY = "dashboard_end_date"
+        private const val SYNC_URL_KEY = "sync_url"
+        private const val SYNC_TOKEN_KEY = "sync_token"
+        private const val SYNC_CURSOR_KEY = "sync_cursor"
+        private const val LAST_SYNCED_AT_KEY = "sync_last_synced_at"
         private const val DEFAULT_PROTEIN_GOAL = 150.0
         private const val DEFAULT_CARBS_GOAL = 200.0
         private const val DEFAULT_FAT_GOAL = 65.0
@@ -80,5 +85,29 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
 
     override fun setDashboardEndDate(date: String) {
         settings.putString(DASHBOARD_END_DATE_KEY, date)
+    }
+
+    override fun getSyncUrl(): String = settings.getString(SYNC_URL_KEY, "")
+
+    override fun setSyncUrl(url: String) {
+        settings.putString(SYNC_URL_KEY, url.trim().trimEnd('/'))
+    }
+
+    override fun getSyncToken(): String = settings.getString(SYNC_TOKEN_KEY, "")
+
+    override fun setSyncToken(token: String) {
+        settings.putString(SYNC_TOKEN_KEY, token.trim())
+    }
+
+    override fun getSyncCursor(): Long? = settings.getLongOrNull(SYNC_CURSOR_KEY)
+
+    override fun setSyncCursor(cursor: Long?) {
+        if (cursor == null) settings.remove(SYNC_CURSOR_KEY) else settings.putLong(SYNC_CURSOR_KEY, cursor)
+    }
+
+    override fun getLastSyncedAt(): Long? = settings.getLongOrNull(LAST_SYNCED_AT_KEY)
+
+    override fun setLastSyncedAt(epochMs: Long) {
+        settings.putLong(LAST_SYNCED_AT_KEY, epochMs)
     }
 }

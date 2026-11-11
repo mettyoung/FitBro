@@ -1,0 +1,11 @@
+-- v8: cloud sync — global uuid, change timestamp, and outbox (FR-10)
+ALTER TABLE FoodDiaryEntry ADD COLUMN uuid TEXT;
+ALTER TABLE FoodDiaryEntry ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
+UPDATE FoodDiaryEntry SET uuid = lower(hex(randomblob(16))) WHERE uuid IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS food_diary_uuid_idx ON FoodDiaryEntry(uuid);
+
+CREATE TABLE IF NOT EXISTS SyncOutbox (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    deleted INTEGER NOT NULL,
+    queued_at INTEGER NOT NULL
+);
