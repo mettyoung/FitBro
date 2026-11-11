@@ -145,7 +145,7 @@ exposes adbd on `0.0.0.0:5555` to the whole tailnet (restrict via a Tailscale AC
 
 ## MCP Server (`mcp-server/`)
 
-TypeScript Cloudflare Worker + D1 (free tier) exposing the diary to Grok over MCP (`/mcp`) and a sync API for the app (`/sync/*`). Bearer tokens `MCP_TOKEN` / `SYNC_TOKEN` via `wrangler secret`. `npm test` (vitest on `node:sqlite`), `npm run typecheck`, `npm run dev`. Deploy steps in `mcp-server/README.md`. The wire format in `src/sync.ts` must match `data/sync/SyncApi.kt`.
+TypeScript Cloudflare Worker + D1 + KV (free tier) exposing the diary to Grok over MCP (`/mcp`) and a sync API for the app (`/sync/*`). `/mcp` accepts OAuth tokens (Grok app connector; single-owner sign-in at `/authorize` gated by `MCP_TOKEN`) or `MCP_TOKEN` directly; `/sync/*` uses `SYNC_TOKEN`. Secrets via `wrangler secret`. `src/index.ts` must have only a default export (workerd treats named exports as entrypoints) — shared code lives in `src/worker.ts`. `npm test` (vitest on `node:sqlite`), `npm run typecheck`, `npm run dev`. Deploy steps in `mcp-server/README.md`. The wire format in `src/sync.ts` must match `data/sync/SyncApi.kt`.
 
 ## Code Organization
 

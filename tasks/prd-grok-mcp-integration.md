@@ -72,6 +72,17 @@ Let Grok read and write the FitBro food diary ("how was my protein this week?", 
 **Acceptance Criteria:**
 - [ ] `writeNutritionRecord` sets `clientRecordId = uuid`, `clientRecordVersion = updatedAt` (FR-18)
 
+### US-008: Grok app connector (OAuth)
+**Description:** As a user, I want to add FitBro as a custom connector in the Grok app / grok.com, which signs in with OAuth.
+
+**Acceptance Criteria:**
+- [x] OAuth discovery, dynamic client registration / CIMD, PKCE, token + refresh (FR-19)
+- [x] Static `MCP_TOKEN` still works on `/mcp` (FR-20)
+- [x] Sign-in page accepts `MCP_TOKEN`, rate-limited (FR-21)
+- [x] Stale `Mcp-Session-Id` tolerated (FR-22)
+- [x] Deployed with `OAUTH_KV` (FR-23); docs updated (FR-24)
+- [ ] Grok app connects and can call `get_daily_summary` / `log_food`
+
 ## Functional Requirements
 
 - FR-1: D1 `entries` table — `uuid` PK, all `FoodDiaryEntry` fields (snake_case), `updated_at`, `deleted`, `server_seq`; indexes on `date`, `server_seq`
@@ -93,12 +104,19 @@ Let Grok read and write the FitBro food diary ("how was my protein this week?", 
 - FR-17: Sync URL/token stored in app-private settings (SharedPreferences / NSUserDefaults — not encrypted); cursor + last-synced persisted; changing the URL resets the cursor
 - FR-18: Health Connect records keyed by `clientRecordId = uuid` (version = write time) so edits upsert. HealthKit (iOS) dedupe is out of scope
 
+- FR-19: `@cloudflare/workers-oauth-provider` in front of `/mcp`: RFC 8414 + RFC 9728 metadata, DCR at `/register`, CIMD enabled, `/token` (S256 PKCE only), scope `diary`, resource `${PUBLIC_ORIGIN}/mcp`
+- FR-20: `resolveExternalToken` accepts the static `MCP_TOKEN` with the same resource audience; `SYNC_TOKEN` is never accepted on `/mcp`
+- FR-21: `/authorize` shows client name, verified domain (CIMD) and redirect host; owner proves identity by entering `MCP_TOKEN`; consent handle is single-use and browser-bound; 5 failures per IP → 15-minute lockout (KV); deny returns `access_denied`
+- FR-22: `/mcp` drops any incoming `Mcp-Session-Id` (stateless server, nothing to resume)
+- FR-23: KV namespace `OAUTH_KV` stores grants/tokens (hashed by the library)
+- FR-24: README "Connect" section, CLAUDE.md MCP section
+
 ## Non-Goals
 
 - No background/periodic sync (WorkManager / BGTask) — Grok entries appear when the app opens
 - No FatSecret search tool for Grok (Grok estimates macros)
 - No syncing of cardio, custom foods, custom meals, or macro profiles
-- No multi-user / OAuth in v1 (swap in `@cloudflare/workers-oauth-provider` later if the Grok app requires it)
+- No multi-user accounts (OAuth sign-in is single-owner, gated by `MCP_TOKEN`)
 
 ## Technical Considerations
 
@@ -109,4 +127,4 @@ Let Grok read and write the FitBro food diary ("how was my protein this week?", 
 
 ## Open Questions
 
-- Does the Grok consumer app accept custom MCP connectors with bearer auth, or only OAuth?
+- Grok connector OAuth expectations are undocumented by xAI; first live connection will confirm redirect URI / scope handling.

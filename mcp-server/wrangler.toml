@@ -9,4 +9,9 @@ database_name = "fitbro"
 database_id = "ccbfb9f0-7fe7-443f-98a7-44cf101adadd"
 migrations_dir = "migrations"
 
+# OAuth grants/tokens for the Grok app connector (FR-23)
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "ec3d01db40ea459c9e47ab94e092a559"
+
 # Secrets (not stored here): `npx wrangler secret put MCP_TOKEN` and `npx wrangler secret put SYNC_TOKEN`

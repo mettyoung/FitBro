@@ -1,16 +1,20 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import worker, { type Env } from "../src/index";
+import worker from "../src/index";
+import { PUBLIC_ORIGIN, type Env } from "../src/worker";
 import { changesSince, putGoals } from "../src/db";
 import { createTestDb } from "./d1";
+import { createTestKv } from "./kv";
 
 const MCP_TOKEN = "mcp-token-0123456789abcdef";
 const SYNC_TOKEN = "sync-token-0123456789abcdef";
 let env: Env;
 let id = 0;
 
+const ctx = { waitUntil() {}, passThroughOnException() {}, props: {} } as unknown as ExecutionContext;
+
 async function rpc(method: string, params: unknown, token = MCP_TOKEN) {
   const res = await worker.fetch(
-    new Request("https://fitbro.test/mcp", {
+    new Request(`${PUBLIC_ORIGIN}/mcp`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -20,6 +24,7 @@ async function rpc(method: string, params: unknown, token = MCP_TOKEN) {
       body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params }),
     }),
     env,
+    ctx,
   );
   return res;
 }
@@ -32,7 +37,7 @@ async function callTool(name: string, args: Record<string, unknown>) {
 }
 
 beforeEach(async () => {
-  env = { DB: createTestDb(), MCP_TOKEN, SYNC_TOKEN };
+  env = { DB: createTestDb(), OAUTH_KV: createTestKv(), MCP_TOKEN, SYNC_TOKEN } as Env;
   await putGoals(env.DB, { "1": { calories: 2000, proteinG: 150, carbG: 200, fatG: 60 } }, 0);
 });
 
@@ -41,8 +46,9 @@ describe("auth (FR-3)", () => {
     expect((await rpc("tools/list", {}, "wrong")).status).toBe(401);
     expect((await rpc("tools/list", {}, SYNC_TOKEN)).status).toBe(401);
     const sync = await worker.fetch(
-      new Request("https://fitbro.test/sync/pull?since=0", { headers: { Authorization: `Bearer ${MCP_TOKEN}` } }),
+      new Request(`${PUBLIC_ORIGIN}/sync/pull?since=0`, { headers: { Authorization: `Bearer ${MCP_TOKEN}` } }),
       env,
+      ctx,
     );
     expect(sync.status).toBe(401);
   });
