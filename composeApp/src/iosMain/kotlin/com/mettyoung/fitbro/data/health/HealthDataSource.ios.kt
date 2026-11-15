@@ -1,7 +1,6 @@
 package com.mettyoung.fitbro.data.health
 
 import com.mettyoung.fitbro.data.model.ActivityBurn
-import com.mettyoung.fitbro.data.model.DailyIntake
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.Metabolism
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -138,68 +137,6 @@ private class HealthKitDataSource : HealthDataSource {
     }
 
     @Suppress("UNCHECKED_CAST")
-    override suspend fun readDailyIntake(
-        startDate: String,
-        endDate: String
-    ): HealthResult<List<DailyIntake>> {
-        if (!HKHealthStore.isHealthDataAvailable()) {
-            return HealthResult.Failure(HealthDataError.NotAvailable)
-        }
-
-        val energyType = HKQuantityType.quantityTypeForIdentifier(
-            HKQuantityTypeIdentifierDietaryEnergyConsumed
-        ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
-        val proteinType = HKQuantityType.quantityTypeForIdentifier(
-            HKQuantityTypeIdentifierDietaryProtein
-        ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
-        val carbsType = HKQuantityType.quantityTypeForIdentifier(
-            HKQuantityTypeIdentifierDietaryCarbohydrates
-        ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
-        val fatType = HKQuantityType.quantityTypeForIdentifier(
-            HKQuantityTypeIdentifierDietaryFatTotal
-        ) ?: return HealthResult.Failure(HealthDataError.NotAvailable)
-
-        val authorized = requestAuthorization(setOf(energyType, proteinType, carbsType, fatType))
-        if (!authorized) return HealthResult.Failure(HealthDataError.PermissionDenied)
-
-        val formatter = NSDateFormatter().apply {
-            dateFormat = "yyyy-MM-dd"
-            timeZone = NSTimeZone.localTimeZone
-        }
-
-        val (startNSDate, endNSDate) = buildDateRange(startDate, endDate, formatter)
-            ?: return HealthResult.Failure(HealthDataError.QueryError(Exception("Invalid date range")))
-
-        val predicate = HKQuery.predicateForSamplesWithStartDate(
-            startDate = startNSDate,
-            endDate = endNSDate,
-            options = HKQueryOptionNone
-        )
-
-        return try {
-            val dailyEnergy = queryDailyQuantity(energyType, predicate, HKUnit.kilocalorieUnit(), formatter)
-            val dailyProtein = queryDailyQuantity(proteinType, predicate, HKUnit.gramUnit(), formatter)
-            val dailyCarbs = queryDailyQuantity(carbsType, predicate, HKUnit.gramUnit(), formatter)
-            val dailyFat = queryDailyQuantity(fatType, predicate, HKUnit.gramUnit(), formatter)
-
-            val intakes = (dailyEnergy.keys + dailyProtein.keys + dailyCarbs.keys + dailyFat.keys)
-                .distinct()
-                .sorted()
-                .map { date ->
-                    DailyIntake(
-                        date = date,
-                        totalCalories = dailyEnergy[date] ?: 0.0,
-                        proteinG = dailyProtein[date] ?: 0.0,
-                        carbG = dailyCarbs[date] ?: 0.0,
-                        fatG = dailyFat[date] ?: 0.0
-                    )
-                }
-            HealthResult.Success(intakes)
-        } catch (e: Exception) {
-            HealthResult.Failure(HealthDataError.QueryError(e))
-        }
-    }
-
     private suspend fun queryDailyQuantity(
         quantityType: HKQuantityType,
         predicate: NSPredicate,

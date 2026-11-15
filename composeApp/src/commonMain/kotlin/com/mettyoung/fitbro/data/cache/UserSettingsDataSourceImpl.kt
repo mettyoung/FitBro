@@ -1,7 +1,6 @@
 package com.mettyoung.fitbro.data.cache
 
 import com.mettyoung.fitbro.data.food.FoodDatabase
-import com.mettyoung.fitbro.data.model.MacroDataSource
 import com.mettyoung.fitbro.data.sync.SyncSettings
 import com.mettyoung.fitbro.util.minusDays
 import com.mettyoung.fitbro.util.todayString
@@ -14,7 +13,6 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         private const val FAT_GOAL_KEY = "macro_goal_fat_g"
         private const val CALORIE_GOAL_KEY = "macro_goal_calorie_kcal"
         private const val FOOD_DATABASE_KEY = "food_database"
-        private const val MACRO_DATA_SOURCE_PREFIX = "macro_data_source_"
         private const val DASHBOARD_START_DATE_KEY = "dashboard_start_date"
         private const val DASHBOARD_END_DATE_KEY = "dashboard_end_date"
         private const val SYNC_URL_KEY = "sync_url"
@@ -62,15 +60,6 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
 
     override fun setFoodDatabase(db: FoodDatabase) {
         settings.putString(FOOD_DATABASE_KEY, db.name)
-    }
-
-    override fun getMacroDataSourceForDate(date: String): MacroDataSource {
-        val stored = settings.getStringOrNull("$MACRO_DATA_SOURCE_PREFIX$date")
-        return MacroDataSource.entries.firstOrNull { it.name == stored } ?: MacroDataSource.FOOD_DIARY
-    }
-
-    override fun setMacroDataSourceForDate(date: String, source: MacroDataSource) {
-        settings.putString("$MACRO_DATA_SOURCE_PREFIX$date", source.name)
     }
 
     override fun getDashboardStartDate(): String =

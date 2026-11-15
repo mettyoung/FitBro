@@ -1,15 +1,11 @@
 package com.mettyoung.fitbro.data.cache
 
 import com.mettyoung.fitbro.data.model.ActivityBurn
-import com.mettyoung.fitbro.data.model.DailyIntake
 import com.mettyoung.fitbro.data.model.Metabolism
 
-enum class CacheSource { HEALTH_INTAKE, HEALTH_METABOLISM, HEALTH_ACTIVITY }
+enum class CacheSource { HEALTH_METABOLISM, HEALTH_ACTIVITY }
 
 interface CacheDataSource {
-    suspend fun saveDailyIntake(startDate: String, endDate: String, data: List<DailyIntake>)
-    suspend fun getDailyIntake(startDate: String, endDate: String): List<DailyIntake>?
-
     suspend fun saveMetabolism(startDate: String, endDate: String, data: List<Metabolism>)
     suspend fun getMetabolism(startDate: String, endDate: String): List<Metabolism>?
 

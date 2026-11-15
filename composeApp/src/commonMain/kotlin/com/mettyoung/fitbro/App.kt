@@ -86,11 +86,10 @@ fun App() {
         // FR-15: covers app start and every return to the foreground.
         LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { syncRepository.requestSync() }
 
-        val foodDiaryStateHolder = remember(foodDiaryRepository, healthDataSource, userSettingsDataSource, scope) {
+        val foodDiaryStateHolder = remember(foodDiaryRepository, healthDataSource, scope) {
             FoodDiaryStateHolder(
                 repository = foodDiaryRepository,
                 healthDataSource = healthDataSource,
-                userSettingsDataSource = userSettingsDataSource,
                 scope = scope,
                 onDiaryChanged = syncRepository::requestSync
             )

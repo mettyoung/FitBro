@@ -5,9 +5,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
@@ -99,12 +96,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
-import com.mettyoung.fitbro.data.model.MacroDataSource
 import com.mettyoung.fitbro.data.model.MacroGoalProfile
 import com.mettyoung.fitbro.data.model.MealType
 import com.mettyoung.fitbro.data.repository.CustomFoodRepository
 import com.mettyoung.fitbro.data.repository.MacroGoalRepository
-import com.mettyoung.fitbro.getPlatform
 import com.mettyoung.fitbro.ui.FitroBroIcon
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
@@ -193,7 +188,6 @@ fun MacroDailyCounterDetail(
     var pendingDelete by remember { mutableStateOf<FoodDiaryEntry?>(null) }
 
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val healthNutritionSourceName = remember { getPlatform().healthNutritionSourceName }
 
     Box(
         modifier = modifier
@@ -247,77 +241,58 @@ fun MacroDailyCounterDetail(
                         fatGoal = activeProfile.fatG,
                         calorieGoal = activeProfile.caloriesKcal
                     )
-                    Spacer(Modifier.height(12.dp))
-                    MacroDataSourceToggle(
-                        selectedSource = foodState.macroDataSource,
-                        healthSourceLabel = healthNutritionSourceName,
-                        onSourceSelected = { source ->
-                            foodDiaryStateHolder.setMacroDataSourceForSelectedDate(source)
-                            onBalanceRefreshNeeded()
-                        }
-                    )
-                    if (foodState.error != null) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = foodState.error ?: "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
                 }
             }
 
             item { Spacer(Modifier.height(20.dp)) }
 
-            if (foodState.macroDataSource == MacroDataSource.FOOD_DIARY) {
-                MealType.ordered.forEach { mealType ->
-                    item(key = mealType) {
-                        val entries = (foodState.entriesByMeal[mealType] ?: emptyList())
-                            .filter { it.id != pendingDelete?.id }
-                        FoodDiarySection(
-                            mealType = mealType,
-                            entries = entries,
-                            dragState = dragState,
-                            onAddFood = { addingToMeal = mealType },
-                            onAddCustomMeal = { customMealTarget = mealType },
-                            onCopyToDay = { copyingMeal = mealType },
-                            onEditClick = { editingEntry = it },
-                            onDeleteClick = { entry ->
-                                pendingDelete?.let { prev ->
-                                    scope.launch {
-                                        foodDiaryStateHolder.deleteEntry(prev.id).join()
-                                        onBalanceRefreshNeeded()
-                                    }
-                                }
-                                pendingDelete = entry
+            MealType.ordered.forEach { mealType ->
+                item(key = mealType) {
+                    val entries = (foodState.entriesByMeal[mealType] ?: emptyList())
+                        .filter { it.id != pendingDelete?.id }
+                    FoodDiarySection(
+                        mealType = mealType,
+                        entries = entries,
+                        dragState = dragState,
+                        onAddFood = { addingToMeal = mealType },
+                        onAddCustomMeal = { customMealTarget = mealType },
+                        onCopyToDay = { copyingMeal = mealType },
+                        onEditClick = { editingEntry = it },
+                        onDeleteClick = { entry ->
+                            pendingDelete?.let { prev ->
                                 scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = "Removed ${entry.foodName}",
-                                        actionLabel = "Undo",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                    when (result) {
-                                        SnackbarResult.ActionPerformed -> pendingDelete = null
-                                        SnackbarResult.Dismissed -> {
-                                            foodDiaryStateHolder.deleteEntry(entry.id).join()
-                                            onBalanceRefreshNeeded()
-                                            pendingDelete = null
-                                        }
+                                    foodDiaryStateHolder.deleteEntry(prev.id).join()
+                                    onBalanceRefreshNeeded()
+                                }
+                            }
+                            pendingDelete = entry
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "Removed ${entry.foodName}",
+                                    actionLabel = "Undo",
+                                    duration = SnackbarDuration.Short
+                                )
+                                when (result) {
+                                    SnackbarResult.ActionPerformed -> pendingDelete = null
+                                    SnackbarResult.Dismissed -> {
+                                        foodDiaryStateHolder.deleteEntry(entry.id).join()
+                                        onBalanceRefreshNeeded()
+                                        pendingDelete = null
                                     }
                                 }
-                            },
-                            selectionMode = selectionMode,
-                            selectedIds = selectedIds.toSet(),
-                            onToggleSelect = { entry ->
-                                if (selectedIds.contains(entry.id)) selectedIds.remove(entry.id)
-                                else selectedIds.add(entry.id)
-                                // Checkbox drives selection mode: any tick enters, last untick exits.
-                                selectionMode = selectedIds.isNotEmpty()
-                            },
-                            modifier = Modifier.padding(horizontal = ScreenGutter)
-                        )
-                        Spacer(Modifier.height(12.dp))
-                    }
+                            }
+                        },
+                        selectionMode = selectionMode,
+                        selectedIds = selectedIds.toSet(),
+                        onToggleSelect = { entry ->
+                            if (selectedIds.contains(entry.id)) selectedIds.remove(entry.id)
+                            else selectedIds.add(entry.id)
+                            // Checkbox drives selection mode: any tick enters, last untick exits.
+                            selectionMode = selectedIds.isNotEmpty()
+                        },
+                        modifier = Modifier.padding(horizontal = ScreenGutter)
+                    )
+                    Spacer(Modifier.height(12.dp))
                 }
             }
 
@@ -334,7 +309,7 @@ fun MacroDailyCounterDetail(
             item { Spacer(Modifier.height(96.dp)) }
         }
 
-        if (!selectionMode && foodState.macroDataSource == MacroDataSource.FOOD_DIARY) {
+        if (!selectionMode) {
             ExtendedFloatingActionButton(
                 onClick = { addingToMeal = mealForHour(localHourOfDay()) },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
@@ -616,31 +591,6 @@ fun MacroDailyCounterDetail(
         )
     }
 
-}
-
-@Composable
-private fun MacroDataSourceToggle(
-    selectedSource: MacroDataSource,
-    healthSourceLabel: String,
-    onSourceSelected: (MacroDataSource) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val options = listOf(MacroDataSource.FOOD_DIARY to "Food diary", MacroDataSource.HEALTH_CONNECT to healthSourceLabel)
-    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
-        options.forEachIndexed { index, (source, label) ->
-            SegmentedButton(
-                selected = selectedSource == source,
-                onClick = { onSourceSelected(source) },
-                shape = SegmentedButtonDefaults.itemShape(index, options.size),
-                colors = SegmentedButtonDefaults.colors(
-                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    inactiveContainerColor = MaterialTheme.colorScheme.surface
-                ),
-                label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-            )
-        }
-    }
 }
 
 @Composable

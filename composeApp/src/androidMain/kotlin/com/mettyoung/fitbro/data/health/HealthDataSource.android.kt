@@ -13,7 +13,6 @@ import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Mass
 import com.mettyoung.fitbro.AndroidAppContext
 import com.mettyoung.fitbro.data.model.ActivityBurn
-import com.mettyoung.fitbro.data.model.DailyIntake
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.Metabolism
 import java.time.LocalDate
@@ -74,71 +73,6 @@ private class HealthConnectDataSource : HealthDataSource {
             HealthResult.Success(activities)
         } catch (e: Exception) {
             Log.e("HealthConnect", "Activity query failed: ${e.message}", e)
-            HealthResult.Failure(HealthDataError.QueryError(e))
-        }
-    }
-
-    override suspend fun readDailyIntake(
-        startDate: String,
-        endDate: String
-    ): HealthResult<List<DailyIntake>> {
-        val healthClient = client ?: return HealthResult.Failure(HealthDataError.NotAvailable)
-
-        val required = setOf(HealthPermission.getReadPermission(NutritionRecord::class))
-        val granted = try {
-            healthClient.permissionController.getGrantedPermissions()
-        } catch (e: Exception) {
-            Log.e("HealthConnect", "Failed to get granted permissions: ${e.message}")
-            return HealthResult.Failure(HealthDataError.QueryError(e))
-        }
-        if (!granted.containsAll(required)) {
-            Log.w("HealthConnect", "NutritionRecord permission not granted")
-            return HealthResult.Failure(HealthDataError.PermissionDenied)
-        }
-
-        return try {
-            val zone = ZoneId.systemDefault()
-            val startDt = LocalDate.parse(startDate).atStartOfDay()
-            val endDt = LocalDate.parse(endDate).plusDays(1).atStartOfDay()
-
-            Log.d("HealthConnect", "Nutrition query: $startDate to $endDate (LocalDateTime: $startDt to $endDt)")
-
-            val records = healthClient.readRecords(
-                ReadRecordsRequest(
-                    recordType = NutritionRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(startDt, endDt)
-                )
-            ).records
-
-            val appPackageName = AndroidAppContext.context.packageName
-            val externalRecords = records.filter { record ->
-                record.metadata.dataOrigin.packageName != appPackageName
-            }
-
-            Log.d(
-                "HealthConnect",
-                "Nutrition query returned ${records.size} records (${externalRecords.size} external)"
-            )
-            if (externalRecords.isEmpty()) {
-                Log.w("HealthConnect", "EMPTY: No nutrition data in HC. User must log food in connected app (Google Fit, Samsung Health, etc)")
-            }
-
-            val byDate = externalRecords.groupBy { record ->
-                record.startTime.atZone(zone).toLocalDate().toString()
-            }
-            val intakes = byDate.entries.sortedBy { it.key }.map { (date, dayRecords) ->
-                val kcal = dayRecords.sumOf { it.energy?.inKilocalories ?: 0.0 }
-                val protein = dayRecords.sumOf { it.protein?.inGrams ?: 0.0 }
-                val carbs = dayRecords.sumOf { it.totalCarbohydrate?.inGrams ?: 0.0 }
-                val fat = dayRecords.sumOf { it.totalFat?.inGrams ?: 0.0 }
-                Log.d("HealthConnect", "Nutrition on $date: ${kcal}kcal, protein=${protein}g, carbs=${carbs}g, fat=${fat}g")
-                DailyIntake(date = date, totalCalories = kcal, proteinG = protein, carbG = carbs, fatG = fat)
-            }
-
-            Log.d("HealthConnect", "Nutrition intakes: ${intakes.size} days with data")
-            HealthResult.Success(intakes)
-        } catch (e: Exception) {
-            Log.e("HealthConnect", "Nutrition query failed: ${e.message}", e)
             HealthResult.Failure(HealthDataError.QueryError(e))
         }
     }

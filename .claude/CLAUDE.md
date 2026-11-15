@@ -222,7 +222,7 @@ fun myCalculation() {
 ## Recent Changes & Context
 
 - **Food Diary**: Macro tracking, serving-size defaults, FatSecret integration (replaced earlier OpenFoodFacts).
-- **Health**: Primary data source for intake, BMR, activity. Android = Health Connect (write capability for workouts); iOS = HealthKit.
+- **Health**: Source for BMR + activity (Android = Health Connect, iOS = HealthKit). Intake comes only from the food diary (the per-day "Food diary vs Health Connect" toggle was removed); diary entries are still written to HC/HealthKit as nutrition records.
 - **Cleanup**: Removed unused Cronometer OAuth integration. Note: OAuth 1.0 / HMAC-SHA1 infra now powers FatSecret (`util/HmacSha1`), not Cronometer.
 - **UI Redesign**: Recent Gemini-based redesign; Compose patterns align with Material 3.
 

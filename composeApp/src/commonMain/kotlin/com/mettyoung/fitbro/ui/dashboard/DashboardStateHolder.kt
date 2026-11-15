@@ -9,7 +9,6 @@ import com.mettyoung.fitbro.data.model.ActivityBurn
 import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.model.DailyIntake
 import com.mettyoung.fitbro.data.model.DailyMacroTotals
-import com.mettyoung.fitbro.data.model.MacroDataSource
 import com.mettyoung.fitbro.data.model.Metabolism
 import com.mettyoung.fitbro.data.repository.CalorieMathRepository
 import com.mettyoung.fitbro.data.repository.CalorieResult
@@ -59,36 +58,21 @@ class DashboardStateHolder(
             val range = _state.value.selectedDateRange
             _state.update { it.copy(uiState = DashboardUiState.Loading, errorMessage = null) }
 
-            val intakeDeferred = async { healthDataSource.readDailyIntake(range.startDate, range.endDate) }
             val metabolismDeferred = async { healthDataSource.readBasalMetabolicRate(range.startDate, range.endDate) }
             val activityDeferred = async { healthDataSource.readActivityData(range.startDate, range.endDate) }
             val foodDiaryTotalsDeferred = async {
                 foodDiaryRepository.getDailyTotalsForRange(range.startDate, range.endDate).first()
             }
 
-            val intakeResult = intakeDeferred.await()
             val metabolismResult = metabolismDeferred.await()
             val activityResult = activityDeferred.await()
             val foodDiaryTotals = foodDiaryTotalsDeferred.await()
 
-            val healthIntakeFailed = intakeResult is HealthResult.Failure
             val healthMetabolismFailed = metabolismResult is HealthResult.Failure
             val healthFailed = activityResult is HealthResult.Failure
 
             val now = currentEpochMs()
             val errors = mutableListOf<String>()
-
-            val intakes: List<DailyIntake> = when (intakeResult) {
-                is HealthResult.Success -> {
-                    cacheDataSource.saveDailyIntake(range.startDate, range.endDate, intakeResult.value)
-                    cacheDataSource.saveSyncTimestamp(CacheSource.HEALTH_INTAKE, now)
-                    intakeResult.value
-                }
-                is HealthResult.Failure -> {
-                    errors.add("Health intake: ${intakeResult.error.describe()}")
-                    cacheDataSource.getDailyIntake(range.startDate, range.endDate) ?: emptyList()
-                }
-            }
 
             val metabolisms: List<Metabolism> = when (metabolismResult) {
                 is HealthResult.Success -> {
@@ -116,16 +100,14 @@ class DashboardStateHolder(
                 }
             }
 
-            val effectiveIntakes = selectIntakesForPersistedSources(intakes, foodDiaryTotals)
-            val balances = computeBalances(effectiveIntakes, metabolisms, activities)
+            val balances = computeBalances(foodDiaryTotals.map { it.toDailyIntake() }, metabolisms, activities)
 
             val updatedSyncTime = mapOf(
-                CacheSource.HEALTH_INTAKE to cacheDataSource.getSyncTimestamp(CacheSource.HEALTH_INTAKE),
                 CacheSource.HEALTH_METABOLISM to cacheDataSource.getSyncTimestamp(CacheSource.HEALTH_METABOLISM),
                 CacheSource.HEALTH_ACTIVITY to cacheDataSource.getSyncTimestamp(CacheSource.HEALTH_ACTIVITY),
             )
 
-            val warnings = buildWarnings(healthIntakeFailed, healthMetabolismFailed, healthFailed)
+            val warnings = buildWarnings(healthMetabolismFailed, healthFailed)
             val totalFailure = balances.isEmpty() && errors.isNotEmpty() &&
                 updatedSyncTime.values.all { it == null }
             val newUiState = if (totalFailure) {
@@ -181,22 +163,6 @@ class DashboardStateHolder(
             when (val result = calorieMathRepository.computeDailyBalance(intake, metabolismWithTef, activity)) {
                 is CalorieResult.Success -> result.value
                 is CalorieResult.Failure -> null
-            }
-        }
-    }
-
-    private fun selectIntakesForPersistedSources(
-        healthIntakes: List<DailyIntake>,
-        foodDiaryTotals: List<DailyMacroTotals>
-    ): List<DailyIntake> {
-        val healthByDate = healthIntakes.associateBy { it.date }
-        val diaryByDate = foodDiaryTotals.associateBy { it.date }
-        val allDates = (healthByDate.keys + diaryByDate.keys).distinct().sorted()
-
-        return allDates.map { date ->
-            when (userSettingsDataSource.getMacroDataSourceForDate(date)) {
-                MacroDataSource.FOOD_DIARY -> diaryByDate[date]?.toDailyIntake() ?: DailyIntake(date, 0.0)
-                MacroDataSource.HEALTH_CONNECT -> healthByDate[date] ?: DailyIntake(date, 0.0)
             }
         }
     }
