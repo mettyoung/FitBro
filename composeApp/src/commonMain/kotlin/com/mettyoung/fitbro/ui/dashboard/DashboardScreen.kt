@@ -1,5 +1,9 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import com.mettyoung.fitbro.ui.components.ScreenGutter
+import com.mettyoung.fitbro.ui.components.ScreenHeader
+import com.mettyoung.fitbro.ui.PositiveColor
+import com.mettyoung.fitbro.ui.NegativeColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -141,53 +145,31 @@ fun DashboardContent(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Header — Samsung Health style: flat, large title, compact date nav
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = statusBarPadding + 20.dp, bottom = 16.dp, start = 24.dp, end = 24.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (selectedLens != null) {
-                            IconButton(
-                                onClick = { selectedLens = null },
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                            Spacer(Modifier.width(4.dp))
+            ScreenHeader(
+                title = selectedLens?.label ?: "Trends",
+                overline = if (selectedLens == null) "Energy balance" else "Trends",
+                navigation = if (selectedLens != null) {
+                    {
+                        IconButton(onClick = { selectedLens = null }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
-                        Text(
-                            text = selectedLens?.label ?: "FitBro",
-                            style = MaterialTheme.typography.displayMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
                     }
+                } else null,
+                actions = {
                     if (isLoading && wasRefreshing) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MiOrange)
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
                         IconButton(onClick = { wasRefreshing = true; onRefresh() }, enabled = !isLoading) {
                             Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MiTextSecondary)
                         }
                     }
-                }
-
-                Spacer(Modifier.height(16.dp))
-
+                },
+                bottom = {
                 // Compact date navigator
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
                         .padding(horizontal = 4.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -204,14 +186,14 @@ fun DashboardContent(
                     ) {
                         Text(
                             text = startDate.toShortDate(),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { showStartPicker = true }.padding(horizontal = 4.dp, vertical = 2.dp)
                         )
                         Text("–", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
                         Text(
                             text = endDate.toShortDate(),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { showEndPicker = true }.padding(horizontal = 4.dp, vertical = 2.dp)
                         )
@@ -229,14 +211,15 @@ fun DashboardContent(
                         )
                     }
                 }
-            }
+                }
+            )
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = ScreenGutter)
             ) {
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(8.dp))
 
                 when (val uiState = state.uiState) {
                     is DashboardUiState.Loading -> {
@@ -329,7 +312,7 @@ private fun DashboardHome(
     onExpenditureClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SlidingWindowInsightCard(
             balances = balances,
             viewMode = DashboardViewMode.BALANCE,
@@ -339,7 +322,7 @@ private fun DashboardHome(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             SummaryMetricCard(
                 viewMode = DashboardViewMode.INTAKE,
@@ -370,17 +353,16 @@ private fun SummaryMetricCard(
     val netBalance = balances.sumOf { it.balance }.roundToInt()
 
     val valueColor = when (viewMode) {
-        DashboardViewMode.BALANCE     -> if (netBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
-        DashboardViewMode.INTAKE      -> Color(0xFF4CAF50)
-        DashboardViewMode.EXPENDITURE -> Color(0xFFF44336)
+        DashboardViewMode.BALANCE     -> if (netBalance >= 0) PositiveColor else NegativeColor
+        DashboardViewMode.INTAKE      -> PositiveColor
+        DashboardViewMode.EXPENDITURE -> NegativeColor
     }
 
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(if (isBig) 20.dp else 16.dp)) {
             Text(
@@ -456,9 +438,8 @@ private fun DashboardDetail(
         }
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column {
                 balances.reversed().forEachIndexed { index, balance ->
@@ -573,8 +554,8 @@ private fun SlidingWindowInsightCard(
 ) {
     val metrics = remember(balances) { com.mettyoung.fitbro.data.model.calculateWindowMetrics(balances) }
     val trendColor = when (metrics.trend) {
-        com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING -> Color(0xFF4CAF50)
-        com.mettyoung.fitbro.data.model.TrendDirection.DECLINING -> Color(0xFFF44336)
+        com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING -> PositiveColor
+        com.mettyoung.fitbro.data.model.TrendDirection.DECLINING -> NegativeColor
         com.mettyoung.fitbro.data.model.TrendDirection.STABLE -> MiOrange
     }
 
@@ -588,11 +569,10 @@ private fun SlidingWindowInsightCard(
         else if (balances.isEmpty()) 0.0 else balances.sumOf { viewMode.valueOf(it) } / balances.size
     val totalValue = if (isBalance) metrics.totalBalance else balances.sumOf { viewMode.valueOf(it) }
 
-    ElevatedCard(
+    Card(
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Row(
@@ -744,7 +724,7 @@ private fun CondensedLogItem(
                 )
             }
             else -> {
-                val balanceColor = if (balance.balance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                val balanceColor = if (balance.balance >= 0) PositiveColor else NegativeColor
                 Text(
                     text = "${if (balance.balance >= 0) "+" else ""}${balance.balance.roundToInt()}",
                     style = MaterialTheme.typography.titleLarge,

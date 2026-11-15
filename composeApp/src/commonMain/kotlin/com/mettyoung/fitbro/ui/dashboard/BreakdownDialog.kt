@@ -1,5 +1,7 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import com.mettyoung.fitbro.ui.PositiveColor
+import com.mettyoung.fitbro.ui.NegativeColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,7 +68,7 @@ fun BreakdownDialog(
                 
                 Spacer(Modifier.height(24.dp))
                 
-                val balanceColor = if (balance.balance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                val balanceColor = if (balance.balance >= 0) PositiveColor else NegativeColor
                 
                 Column(
                     modifier = Modifier

@@ -1,5 +1,7 @@
 package com.mettyoung.fitbro.ui.settings
 
+import androidx.compose.material3.Card
+import com.mettyoung.fitbro.ui.components.SectionLabel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,27 +47,20 @@ fun CloudSyncSettings(syncRepository: SyncRepository, settings: SyncSettings) {
     var url by remember { mutableStateOf(settings.getSyncUrl()) }
     var token by remember { mutableStateOf(settings.getSyncToken()) }
 
-    Spacer(Modifier.height(32.dp))
-    Text(
-        text = "Cloud Sync",
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.Bold
-    )
-    Text(
-        text = "Sync your food diary with your FitBro MCP server so Grok can read and log meals.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MiTextSecondary
-    )
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(20.dp))
+    SectionLabel("Cloud sync")
 
-    ElevatedCard(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = "Sync your food diary with your FitBro MCP server so Grok can read and log meals.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MiTextSecondary
+            )
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
@@ -109,8 +104,7 @@ fun CloudSyncSettings(syncRepository: SyncRepository, settings: SyncSettings) {
                         settings.setSyncToken(newToken)
                         syncRepository.requestSync()
                     },
-                    enabled = url.isNotBlank() && token.isNotBlank() && status !is SyncStatus.Syncing,
-                    colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                    enabled = url.isNotBlank() && token.isNotBlank() && status !is SyncStatus.Syncing
                 ) {
                     Text("Save & sync")
                 }

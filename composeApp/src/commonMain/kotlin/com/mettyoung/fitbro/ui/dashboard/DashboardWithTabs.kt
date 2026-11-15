@@ -7,14 +7,18 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
+import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Restaurant
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -30,13 +34,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.repository.CustomFoodRepository
 import com.mettyoung.fitbro.data.repository.MacroGoalRepository
-import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.data.sync.SyncRepository
 import com.mettyoung.fitbro.data.sync.SyncSettings
 import com.mettyoung.fitbro.ui.settings.CloudSyncSettings
@@ -59,7 +61,7 @@ fun DashboardWithTabs(
     balances: List<DailyBalance>,
     modifier: Modifier = Modifier
 ) {
-    var selectedTabIndex by remember { mutableStateOf(0) }
+    var selectedTabIndex by rememberSaveable { mutableStateOf(AppTab.TODAY.ordinal) }
 
     val dashboardDate by stateHolder.selectedDate.collectAsState()
     LaunchedEffect(dashboardDate) {
@@ -73,31 +75,30 @@ fun DashboardWithTabs(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 0.dp,
-                modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)
             ) {
-                val items = listOf(
-                    Triple(0, Icons.Default.Info, "Balance"),
-                    Triple(1, Icons.AutoMirrored.Filled.DirectionsRun, "Cardio"),
-                    Triple(2, Icons.AutoMirrored.Filled.List, "Macros"),
-                    Triple(3, Icons.Default.Settings, "Settings")
-                )
-
-                items.forEach { (index, icon, label) ->
+                AppTab.entries.forEachIndexed { index, tab ->
+                    val selected = selectedTabIndex == index
                     NavigationBarItem(
-                        selected = selectedTabIndex == index,
+                        selected = selected,
                         onClick = { selectedTabIndex = index },
-                        icon = { Icon(icon, contentDescription = null) },
-                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                        icon = {
+                            Icon(
+                                if (selected) tab.selectedIcon else tab.icon,
+                                contentDescription = null
+                            )
+                        },
+                        label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MiOrange,
-                            selectedTextColor = MiOrange,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            indicatorColor = Color.Transparent
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
                 }
@@ -110,19 +111,14 @@ fun DashboardWithTabs(
             .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
             AnimatedContent(
-                targetState = selectedTabIndex,
+                targetState = AppTab.entries[selectedTabIndex],
                 transitionSpec = {
                     fadeIn() togetherWith fadeOut()
                 }
-            ) { targetIndex ->
+            ) { tab ->
                 val cardioState by cardioStateHolder.state.collectAsState()
-                when (targetIndex) {
-                    0 -> DashboardScreen(
-                        stateHolder = stateHolder,
-                        weeklyCardioMinutes = cardioState.totalMinutes
-                    )
-                    1 -> CardioScreen(stateHolder = cardioStateHolder)
-                    2 -> MacroDailyCounterDetail(
+                when (tab) {
+                    AppTab.TODAY -> MacroDailyCounterDetail(
                         macroGoalRepository = macroGoalRepository,
                         foodDiaryStateHolder = foodDiaryStateHolder,
                         customMealStateHolder = customMealStateHolder,
@@ -132,7 +128,12 @@ fun DashboardWithTabs(
                         onDateSelected = stateHolder::setSelectedDate,
                         onBalanceRefreshNeeded = stateHolder::refresh
                     )
-                    3 -> MacroProfilesSettings(
+                    AppTab.TRENDS -> DashboardScreen(
+                        stateHolder = stateHolder,
+                        weeklyCardioMinutes = cardioState.totalMinutes
+                    )
+                    AppTab.CARDIO -> CardioScreen(stateHolder = cardioStateHolder)
+                    AppTab.SETTINGS -> MacroProfilesSettings(
                         stateHolder = macroProfilesStateHolder,
                         footer = { CloudSyncSettings(syncRepository, syncSettings) }
                     )
@@ -140,4 +141,11 @@ fun DashboardWithTabs(
             }
         }
     }
+}
+
+private enum class AppTab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
+    TODAY("Today", Icons.Outlined.Restaurant, Icons.Filled.Restaurant),
+    TRENDS("Trends", Icons.Outlined.Insights, Icons.Filled.Insights),
+    CARDIO("Cardio", Icons.AutoMirrored.Outlined.DirectionsRun, Icons.AutoMirrored.Filled.DirectionsRun),
+    SETTINGS("Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
 }

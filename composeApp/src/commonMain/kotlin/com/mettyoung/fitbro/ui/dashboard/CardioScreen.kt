@@ -1,5 +1,11 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.foundation.layout.Row
+import com.mettyoung.fitbro.ui.components.ScreenGutter
+import com.mettyoung.fitbro.ui.components.ScreenHeader
+import com.mettyoung.fitbro.ui.components.SectionLabel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,61 +66,38 @@ fun CardioScreen(
     var sheetSession by remember { mutableStateOf<CardioSession?>(null) }
     var showSheet by remember { mutableStateOf(false) }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .statusBarsPadding()
-                .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 20.dp)
-        ) {
-            Text(
-                text = "Cardio",
-                style = MaterialTheme.typography.displayMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${startDate.toShortDate()} – ${endDate.toShortDate()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
+    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        ScreenHeader(
+            title = "Cardio",
+            overline = "${startDate.toShortDate()} – ${endDate.toShortDate()}"
+        )
 
         Scaffold(
             modifier = Modifier.weight(1f),
             floatingActionButton = {
-                FloatingActionButton(
+                ExtendedFloatingActionButton(
                     onClick = { sheetSession = null; showSheet = true },
-                    containerColor = MiOrange,
+                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text("Log cardio") },
+                    containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Log cardio", modifier = Modifier.size(24.dp))
-                }
+                )
             },
             containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    start = 24.dp,
-                    end = 24.dp,
-                    top = innerPadding.calculateTopPadding() + 24.dp,
+                    start = ScreenGutter,
+                    end = ScreenGutter,
+                    top = innerPadding.calculateTopPadding() + 4.dp,
                     bottom = innerPadding.calculateBottomPadding() + 80.dp
                 )
             ) {
                 item {
-                    WeeklySummaryCard(totalMinutes = state.totalMinutes)
-                    Spacer(Modifier.height(24.dp))
+                    WeeklySummaryCard(totalMinutes = state.totalMinutes, sessionCount = state.sessions.size)
+                    Spacer(Modifier.height(20.dp))
+                    if (sortedDates.isNotEmpty()) SectionLabel("Sessions")
                 }
 
                 items(sortedDates) { date ->
@@ -124,7 +107,17 @@ fun CardioScreen(
                         sessions = sessions,
                         onSessionClick = { s -> sheetSession = s; showSheet = true }
                     )
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
+                }
+                if (sortedDates.isEmpty()) {
+                    item {
+                        Text(
+                            text = "No sessions in this range yet.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MiTextSecondary,
+                            modifier = Modifier.padding(vertical = 24.dp)
+                        )
+                    }
                 }
             }
         }
@@ -150,25 +143,32 @@ fun CardioScreen(
 @Composable
 private fun WeeklySummaryCard(
     totalMinutes: Int,
+    sessionCount: Int,
     modifier: Modifier = Modifier
 ) {
-    ElevatedCard(
+    Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            Text(
-                text = "Total",
-                style = MaterialTheme.typography.labelSmall,
-                color = MiOrange
-            )
-            Text(
-                text = "$totalMinutes min",
-                style = MaterialTheme.typography.displayMedium.copy(fontSize = 32.sp),
-                color = MaterialTheme.colorScheme.onSurface
-            )
+        Row(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("ACTIVE MINUTES", style = MaterialTheme.typography.labelSmall)
+                Text(
+                    text = "$totalMinutes",
+                    style = MaterialTheme.typography.displayLarge
+                )
+            }
+            Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                Text("SESSIONS", style = MaterialTheme.typography.labelSmall)
+                Text(
+                    text = "$sessionCount",
+                    style = MaterialTheme.typography.displayLarge
+                )
+            }
         }
     }
 }
@@ -180,11 +180,10 @@ private fun SessionDayGroup(
     onSessionClick: (CardioSession) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    ElevatedCard(
+    Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(

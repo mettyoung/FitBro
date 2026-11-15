@@ -1,5 +1,23 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.Card
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import com.mettyoung.fitbro.ui.ColorCarbs
+import com.mettyoung.fitbro.ui.ColorFat
+import com.mettyoung.fitbro.ui.ColorProtein
+import androidx.compose.material.icons.outlined.Fastfood
+import androidx.compose.material.icons.outlined.RestaurantMenu
+import androidx.compose.material3.ExtendedFloatingActionButton
+import com.mettyoung.fitbro.ui.components.DateStepper
+import com.mettyoung.fitbro.ui.components.ScreenGutter
+import com.mettyoung.fitbro.ui.components.ScreenHeader
+import com.mettyoung.fitbro.util.localHourOfDay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -135,6 +153,7 @@ fun MacroDailyCounterDetail(
     var customMealTarget by remember { mutableStateOf<String?>(null) }
     var copyingMeal by remember { mutableStateOf<String?>(null) }
     var editingEntry by remember { mutableStateOf<FoodDiaryEntry?>(null) }
+    var showDayPicker by remember { mutableStateOf(false) }
 
     val dragState = remember { MealDragState() }
     var rootTopY by remember { mutableStateOf(0f) }
@@ -188,102 +207,47 @@ fun MacroDailyCounterDetail(
     ) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(
-                            top = statusBarPadding + 16.dp,
-                            start = 24.dp,
-                            end = 24.dp,
-                            bottom = 24.dp
-                        )
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = FitroBroIcon,
-                                contentDescription = null,
-                                tint = MiOrange,
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "Nutrition",
-                                    style = MaterialTheme.typography.displayMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Daily Nutrient Breakdown",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MiOrange
-                                )
-                            }
+                ScreenHeader(
+                    title = selectedDate.relativeDayLabel(today),
+                    overline = selectedDate.let { d ->
+                        val (y, m, day) = d.toYMD()
+                        "${MONTH_ABBR[m]} $day, $y"
+                    },
+                    actions = {
+                        if (selectedDate != today) {
+                            TextButton(onClick = { onDateSelected(today) }) { Text("Today") }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(
-                                onClick = { showCustomFoods = true },
-                                modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Restaurant,
-                                    contentDescription = "Custom foods",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            IconButton(
-                                onClick = { showCustomMeals = true },
-                                modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.List,
-                                    contentDescription = "Custom meals",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
+                        IconButton(onClick = { showCustomFoods = true }) {
+                            Icon(Icons.Outlined.Fastfood, contentDescription = "Custom foods")
                         }
-                    }
-
-                    Spacer(Modifier.height(24.dp))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.background, RoundedCornerShape(16.dp))
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = {
-                            onDateSelected(selectedDate.minusDays(1))
-                        }) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
+                        IconButton(onClick = { showCustomMeals = true }) {
+                            Icon(Icons.Outlined.RestaurantMenu, contentDescription = "Custom meals")
                         }
-                        Text(
-                            text = selectedDate.let { d ->
+                    },
+                    bottom = {
+                        DateStepper(
+                            label = selectedDate.let { d ->
                                 val (y, m, day) = d.toYMD()
-                                "${MONTH_ABBR[m]} $day, $y"
+                                "${dayOfWeekName(y, m, day)}, ${MONTH_ABBR[m]} $day"
                             },
-                            style = MaterialTheme.typography.titleMedium,
+                            onPrevious = { onDateSelected(selectedDate.minusDays(1)) },
+                            onNext = { onDateSelected(selectedDate.plusDays(1)) },
+                            onLabelClick = { showDayPicker = true }
                         )
-                        IconButton(
-                            onClick = { onDateSelected(selectedDate.plusDays(1)) }
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = "Next"
-                            )
-                        }
                     }
+                )
+            }
 
-                    Spacer(Modifier.height(24.dp))
-
+            item {
+                Column(modifier = Modifier.padding(horizontal = ScreenGutter)) {
+                    MacroSummaryHeader(
+                        totals = foodState.dailyTotals,
+                        proteinGoal = activeProfile.proteinG,
+                        carbGoal = activeProfile.carbsG,
+                        fatGoal = activeProfile.fatG,
+                        calorieGoal = activeProfile.caloriesKcal
+                    )
+                    Spacer(Modifier.height(12.dp))
                     MacroDataSourceToggle(
                         selectedSource = foodState.macroDataSource,
                         healthSourceLabel = healthNutritionSourceName,
@@ -292,7 +256,6 @@ fun MacroDailyCounterDetail(
                             onBalanceRefreshNeeded()
                         }
                     )
-
                     if (foodState.error != null) {
                         Spacer(Modifier.height(8.dp))
                         Text(
@@ -301,20 +264,10 @@ fun MacroDailyCounterDetail(
                             color = MaterialTheme.colorScheme.error
                         )
                     }
-
-                    Spacer(Modifier.height(24.dp))
-
-                    MacroSummaryHeader(
-                        totals = foodState.dailyTotals,
-                        proteinGoal = activeProfile.proteinG,
-                        carbGoal = activeProfile.carbsG,
-                        fatGoal = activeProfile.fatG,
-                        calorieGoal = activeProfile.caloriesKcal
-                    )
                 }
             }
 
-            item { Spacer(Modifier.height(24.dp)) }
+            item { Spacer(Modifier.height(20.dp)) }
 
             if (foodState.macroDataSource == MacroDataSource.FOOD_DIARY) {
                 MealType.ordered.forEach { mealType ->
@@ -361,9 +314,9 @@ fun MacroDailyCounterDetail(
                                 // Checkbox drives selection mode: any tick enters, last untick exits.
                                 selectionMode = selectedIds.isNotEmpty()
                             },
-                            modifier = Modifier.padding(horizontal = 24.dp)
+                            modifier = Modifier.padding(horizontal = ScreenGutter)
                         )
-                        Spacer(Modifier.height(16.dp))
+                        Spacer(Modifier.height(12.dp))
                     }
                 }
             }
@@ -372,13 +325,24 @@ fun MacroDailyCounterDetail(
                 item {
                     WeeklyTrendsCard(
                         weeklyTotals = weeklyTotals,
-                        modifier = Modifier.padding(horizontal = 24.dp)
+                        modifier = Modifier.padding(horizontal = ScreenGutter)
                     )
                     Spacer(Modifier.height(16.dp))
                 }
             }
 
-            item { Spacer(Modifier.height(48.dp)) }
+            item { Spacer(Modifier.height(96.dp)) }
+        }
+
+        if (!selectionMode && foodState.macroDataSource == MacroDataSource.FOOD_DIARY) {
+            ExtendedFloatingActionButton(
+                onClick = { addingToMeal = mealForHour(localHourOfDay()) },
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Log food") },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(ScreenGutter)
+            )
         }
 
         if (selectionMode) {
@@ -418,7 +382,7 @@ fun MacroDailyCounterDetail(
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 88.dp)
         )
 
         // Floating overlay of the row being dragged across meals.
@@ -600,6 +564,19 @@ fun MacroDailyCounterDetail(
         }
     }
 
+    if (showDayPicker) {
+        DatePickerDialog(
+            initialStartDate = selectedDate,
+            allowFuture = true,
+            singleDay = true,
+            onDismiss = { showDayPicker = false },
+            onDateRangeSelected = { range ->
+                onDateSelected(range.startDate)
+                showDayPicker = false
+            }
+        )
+    }
+
     copyingMeal?.let { mealType ->
         DatePickerDialog(
             initialStartDate = selectedDate,
@@ -648,50 +625,21 @@ private fun MacroDataSourceToggle(
     onSourceSelected: (MacroDataSource) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background, RoundedCornerShape(16.dp))
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        MacroDataSourceButton(
-            text = healthSourceLabel,
-            selected = selectedSource == MacroDataSource.HEALTH_CONNECT,
-            onClick = { onSourceSelected(MacroDataSource.HEALTH_CONNECT) },
-            modifier = Modifier.weight(1f)
-        )
-        MacroDataSourceButton(
-            text = "Food Diary",
-            selected = selectedSource == MacroDataSource.FOOD_DIARY,
-            onClick = { onSourceSelected(MacroDataSource.FOOD_DIARY) },
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun MacroDataSourceButton(
-    text: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    TextButton(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.textButtonColors(
-            containerColor = if (selected) MiOrange else Color.Transparent,
-            contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+    val options = listOf(MacroDataSource.FOOD_DIARY to "Food diary", MacroDataSource.HEALTH_CONNECT to healthSourceLabel)
+    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, (source, label) ->
+            SegmentedButton(
+                selected = selectedSource == source,
+                onClick = { onSourceSelected(source) },
+                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    inactiveContainerColor = MaterialTheme.colorScheme.surface
+                ),
+                label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            )
+        }
     }
 }
 
@@ -715,7 +663,7 @@ private fun FoodDiarySection(
         dragState.targetMeal == mealType &&
         dragState.sourceMeal != mealType
 
-    ElevatedCard(
+    Card(
         modifier = modifier
             .fillMaxWidth()
             .onGloballyPositioned {
@@ -723,47 +671,47 @@ private fun FoodDiarySection(
                 dragState.reportMeal(mealType, top, top + it.size.height)
             }
             .then(
-                if (isDropTarget) Modifier.border(2.dp, MiOrange, RoundedCornerShape(32.dp))
+                if (isDropTarget) Modifier.border(2.dp, MiOrange, MaterialTheme.shapes.large)
                 else Modifier
             ),
-        shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(modifier = Modifier.padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    val title = mealType.lowercase().replaceFirstChar { it.uppercase() }
+                val title = mealType.lowercase().replaceFirstChar { it.uppercase() }
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (mealCalories > 0) {
                     Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold
+                        text = "${mealCalories.roundToInt()} kcal",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (mealCalories > 0) {
-                        Text(
-                            text = "${mealCalories.roundToInt()} kcal total",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MiOrange
-                        )
-                    }
+                    Spacer(Modifier.width(8.dp))
                 }
                 Box {
                     var menuOpen by remember { mutableStateOf(false) }
-                    IconButton(
+                    FilledTonalIconButton(
                         onClick = { menuOpen = true },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(MiOrange.copy(alpha = 0.1f), CircleShape)
+                        modifier = Modifier.size(36.dp),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "Add",
-                            tint = MiOrange,
+                            contentDescription = "Add to $title",
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -787,7 +735,7 @@ private fun FoodDiarySection(
             }
 
             if (entries.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(4.dp))
                 ReorderableEntries(
                     mealType = mealType,
                     entries = entries,
@@ -799,16 +747,15 @@ private fun FoodDiarySection(
                     onToggleSelect = onToggleSelect
                 )
             } else {
-                Spacer(Modifier.height(12.dp))
                 // Empty meal still a valid drop target for cross-meal drags.
                 if (dragState.activeId != null && dragState.targetMeal == mealType) {
                     DropIndicator()
                     Spacer(Modifier.height(8.dp))
                 }
                 Text(
-                    text = "No items logged for $mealType",
+                    text = "Nothing logged yet",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary.copy(alpha = 0.6f)
+                    color = MiTextSecondary.copy(alpha = 0.7f)
                 )
             }
         }
@@ -886,8 +833,8 @@ private fun ReorderableEntries(
                 if (!isActive) emitted++
                 if (index < entries.size - 1) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        modifier = Modifier.padding(start = 48.dp, end = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
                     )
                 }
             }
@@ -923,77 +870,77 @@ private fun FoodEntryRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
             .then(dragModifier)
             .pointerInput(entry.id, selectionMode) {
-                detectTapGestures(
-                    onTap = { if (selectionMode) onToggleSelect() }
-                )
-            },
+                // Tap edits; in selection mode it toggles instead.
+                detectTapGestures(onTap = { if (selectionMode) onToggleSelect() else onEdit() })
+            }
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Checkbox is always present; ticking it enters multi-select mode.
-        Box(modifier = Modifier.padding(end = 12.dp)) {
-            Checkbox(checked = isSelected, onCheckedChange = { onToggleSelect() })
-        }
-        Column(modifier = Modifier.weight(1f)) {
+        Checkbox(checked = isSelected, onCheckedChange = { onToggleSelect() })
+        Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
             Text(
                 text = entry.foodName,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontWeight = FontWeight.SemiBold
+                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = buildString {
                     entry.brandName?.let { append(it); append(" · ") }
-                    append("${entry.servingSizeG.roundToInt()}g")
+                    append("${entry.servingSizeG.roundToInt()} g")
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = MiTextSecondary
+                color = MiTextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MacroTag("P ${entry.proteinG.roundToInt()}g")
-                MacroTag("C ${entry.carbG.roundToInt()}g")
-                MacroTag("F ${entry.fatG.roundToInt()}g")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MacroTag("P", entry.proteinG, ColorProtein)
+                MacroTag("C", entry.carbG, ColorCarbs)
+                MacroTag("F", entry.fatG, ColorFat)
             }
         }
-        
-        Column(horizontalAlignment = Alignment.End) {
+        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 8.dp)) {
             Text(
                 text = "${entry.calories.roundToInt()}",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
-                color = MiOrange
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = "kcal",
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodySmall,
                 color = MiTextSecondary
             )
-            if (!selectionMode) {
-                Row(modifier = Modifier.padding(top = 4.dp)) {
-                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MiTextSecondary, modifier = Modifier.size(16.dp))
-                    }
-                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
-                    }
-                }
+        }
+        if (!selectionMode) {
+            IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    Icons.Outlined.Delete,
+                    contentDescription = "Delete",
+                    tint = MiTextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
             }
+        } else {
+            Spacer(Modifier.width(40.dp))
         }
     }
 }
 
 @Composable
-private fun MacroTag(text: String) {
-    Box(
-        modifier = Modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp)
-    ) {
+private fun MacroTag(label: String, grams: Double, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(6.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(4.dp))
         Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            text = "$label ${grams.roundToInt()}g",
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -1082,3 +1029,26 @@ private class MealDragState {
         targetMeal = null
     }
 }
+
+/** Default meal slot for the "Log food" FAB, from the local hour. */
+private fun mealForHour(hour: Int): String = when (hour) {
+    in 4..10 -> MealType.BREAKFAST
+    in 11..14 -> MealType.LUNCH
+    in 17..21 -> MealType.DINNER
+    else -> MealType.SNACKS
+}
+
+private fun String.relativeDayLabel(today: String): String = when (this) {
+    today -> "Today"
+    today.minusDays(1) -> "Yesterday"
+    today.plusDays(1) -> "Tomorrow"
+    else -> {
+        val (y, m, d) = toYMD()
+        dayOfWeekName(y, m, d)
+    }
+}
+
+private val DAY_NAMES = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+private fun dayOfWeekName(y: Int, m: Int, d: Int): String =
+    DAY_NAMES[com.mettyoung.fitbro.util.dayOfWeekMonBased(y, m, d)]

@@ -1,5 +1,12 @@
 package com.mettyoung.fitbro.ui.settings
 
+import androidx.compose.material3.Card
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import com.mettyoung.fitbro.ui.components.ScreenGutter
+import com.mettyoung.fitbro.ui.components.ScreenHeader
+import com.mettyoung.fitbro.ui.components.SectionLabel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -84,88 +91,68 @@ fun MacroProfilesSettings(
                 .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState())
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(top = statusBarPadding + 16.dp, bottom = 32.dp, start = 24.dp, end = 24.dp)
-            ) {
-                Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.displayMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Customize your metabolic targets",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MiOrange
-                )
-            }
+            ScreenHeader(title = "Settings", overline = "Targets & sync")
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = ScreenGutter)
             ) {
-                Spacer(Modifier.height(24.dp))
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Macro Profiles",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold
-                    )
-                    IconButton(
-                        onClick = {
-                            selectedProfile = null
-                            showSheet = true
-                        },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(MiOrange.copy(alpha = 0.1f), CircleShape)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Profile", tint = MiOrange, modifier = Modifier.size(20.dp))
+                    SectionLabel("Macro profiles", modifier = Modifier.weight(1f))
+                    TextButton(onClick = {
+                        selectedProfile = null
+                        showSheet = true
+                    }) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("New")
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
-
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     state.profiles.forEach { profile ->
-                        ElevatedCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedProfile = profile
-                                    showSheet = true
-                                },
-                            shape = RoundedCornerShape(24.dp),
-                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-                            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        Card(
+                            onClick = {
+                                selectedProfile = profile
+                                showSheet = true
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
-                            Column(modifier = Modifier.padding(20.dp)) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = profile.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "P ${profile.proteinG.roundToInt()}g · " +
+                                            "C ${profile.carbsG.roundToInt()}g · " +
+                                            "F ${profile.fatG.roundToInt()}g",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MiTextSecondary
+                                    )
+                                }
                                 Text(
-                                    text = profile.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Bold
+                                    text = "${profile.caloriesKcal.roundToInt()}",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                                 Text(
-                                    text = "P: ${profile.proteinG.roundToInt()}g · " +
-                                        "C: ${profile.carbsG.roundToInt()}g · " +
-                                        "F: ${profile.fatG.roundToInt()}g",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    text = " kcal",
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MiTextSecondary
-                                )
-                                Text(
-                                    text = "${profile.caloriesKcal.roundToInt()} kcal",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MiOrange
                                 )
                             }
                         }
@@ -173,22 +160,12 @@ fun MacroProfilesSettings(
                 }
 
                 if (state.profiles.isNotEmpty()) {
-                    Spacer(Modifier.height(32.dp))
-
-                    Text(
-                        text = "Weekly Schedule",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(Modifier.height(16.dp))
-
-                    ElevatedCard(
+                    Spacer(Modifier.height(20.dp))
+                    SectionLabel("Weekly schedule")
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(24.dp),
-                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
-                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        shape = MaterialTheme.shapes.large,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         val dayLabels = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
                         val defaultProfile = state.profiles.firstOrNull { it.name == "Default" }

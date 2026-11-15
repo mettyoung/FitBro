@@ -2,6 +2,7 @@ package com.mettyoung.fitbro.util
 
 import platform.Foundation.NSCalendar
 import platform.Foundation.NSCalendarUnitDay
+import platform.Foundation.NSCalendarUnitHour
 import platform.Foundation.NSCalendarUnitMonth
 import platform.Foundation.NSCalendarUnitYear
 import platform.Foundation.NSDate
@@ -20,3 +21,6 @@ actual fun localDateString(): String {
     val d = comps.day.toString().padStart(2, '0')
     return "$y-$m-$d"
 }
+
+actual fun localHourOfDay(): Int =
+    NSCalendar.currentCalendar.component(NSCalendarUnitHour, fromDate = NSDate()).toInt()
