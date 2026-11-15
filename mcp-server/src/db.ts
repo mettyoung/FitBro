@@ -108,12 +108,16 @@ function upsertStatement(db: D1Database, e: Entry): D1PreparedStatement {
     );
 }
 
-/** FR-4: applies changes with last-write-wins on updatedAt. Statements run sequentially so each gets its own seq. */
+/**
+ * FR-4: applies changes with last-write-wins on updatedAt. One `batch` = one D1 round trip; D1 runs the
+ * statements sequentially in a transaction, so each still gets its own seq. (A per-row `await run()` loop
+ * made a 200-row backfill push exceed the app's socket timeout.)
+ */
 export async function applyChanges(db: D1Database, changes: Change[]): Promise<void> {
-  for (const c of changes) {
-    const stmt = c.deleted ? db.prepare(TOMBSTONE_SQL).bind(c.uuid, c.updatedAt) : upsertStatement(db, c);
-    await stmt.run();
-  }
+  if (changes.length === 0) return;
+  await db.batch(
+    changes.map((c) => (c.deleted ? db.prepare(TOMBSTONE_SQL).bind(c.uuid, c.updatedAt) : upsertStatement(db, c))),
+  );
 }
 
 /** FR-5 */
@@ -149,6 +153,69 @@ export async function nextSortOrder(db: D1Database, date: string, mealType: stri
     .bind(date, mealType)
     .first<{ next: number }>();
   return row?.next ?? 0;
+}
+
+/** One day of energy expenditure as computed by the app. burn = bmr + tef + neat + eat; balance = intake - burn. */
+export interface Expenditure {
+  date: string;
+  intake: number;
+  bmr: number;
+  tef: number;
+  neat: number;
+  eat: number;
+  burn: number;
+  balance: number;
+  updatedAt: number;
+}
+
+interface ExpenditureRow {
+  date: string;
+  intake: number;
+  bmr: number;
+  tef: number;
+  neat: number;
+  eat: number;
+  burn: number;
+  balance: number;
+  updated_at: number;
+}
+
+// `>=` (not `>`): no server_seq here to protect, so an identical re-send simply re-applies; only older data is ignored.
+const EXPENDITURE_UPSERT_SQL = `
+INSERT INTO expenditure (date, intake, bmr, tef, neat, eat, burn, balance, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(date) DO UPDATE SET
+  intake = excluded.intake, bmr = excluded.bmr, tef = excluded.tef, neat = excluded.neat, eat = excluded.eat,
+  burn = excluded.burn, balance = excluded.balance, updated_at = excluded.updated_at
+WHERE excluded.updated_at >= expenditure.updated_at`;
+
+export async function putExpenditure(db: D1Database, days: Expenditure[]): Promise<void> {
+  if (days.length === 0) return;
+  await db.batch(
+    days.map((d) =>
+      db
+        .prepare(EXPENDITURE_UPSERT_SQL)
+        .bind(d.date, d.intake, d.bmr, d.tef, d.neat, d.eat, d.burn, d.balance, d.updatedAt),
+    ),
+  );
+}
+
+export async function expenditureInRange(db: D1Database, start: string, end: string): Promise<Expenditure[]> {
+  const { results } = await db
+    .prepare("SELECT * FROM expenditure WHERE date >= ? AND date <= ? ORDER BY date ASC")
+    .bind(start, end)
+    .all<ExpenditureRow>();
+  return results.map((r) => ({
+    date: r.date,
+    intake: r.intake,
+    bmr: r.bmr,
+    tef: r.tef,
+    neat: r.neat,
+    eat: r.eat,
+    burn: r.burn,
+    balance: r.balance,
+    updatedAt: r.updated_at,
+  }));
 }
 
 const GOALS_KEY = "goals_by_weekday";

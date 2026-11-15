@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.data.sync
 
 import com.mettyoung.fitbro.data.health.HealthDataSource
+import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.repository.FoodDiarySyncStore
 import com.mettyoung.fitbro.data.repository.MacroGoalRepository
 import com.mettyoung.fitbro.util.currentEpochMs
@@ -38,6 +39,32 @@ class SyncRepository(
         settings.getLastSyncedAt()?.let { SyncStatus.Synced(it) } ?: SyncStatus.Idle
     )
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
+
+    private val expenditureOutbox = ExpenditureOutbox() // guarded by mutex
+
+    /**
+     * Queues the dashboard's computed expenditure and pushes it on its own (no full diary sync), so Grok sees
+     * calories burned. Unchanged days are skipped; a failed push stays queued for the next sync.
+     */
+    fun publishExpenditure(balances: List<DailyBalance>) {
+        if (balances.isEmpty() || settings.getSyncUrl().isBlank() || settings.getSyncToken().isBlank()) return
+        val at = now()
+        scope.launch {
+            mutex.withLock {
+                expenditureOutbox.offer(balances, at)
+                flushExpenditure()
+            }
+        }
+    }
+
+    /** Caller holds [mutex]. */
+    private suspend fun flushExpenditure(): SyncResult<Unit> {
+        val batch = expenditureOutbox.pending()
+        if (batch.isEmpty()) return SyncResult.Success(Unit)
+        return api.putExpenditure(batch).also {
+            if (it is SyncResult.Success) expenditureOutbox.markSent(batch)
+        }
+    }
 
     /** Fire-and-forget; runs are serialized so overlapping requests queue up (FR-15). */
     fun requestSync() {
@@ -102,6 +129,8 @@ class SyncRepository(
 
         // Goals are best-effort context for Grok; a failure here shouldn't fail the diary sync.
         api.putGoals(goalsByWeekday())
+        // Same for expenditure: retry anything a standalone publish couldn't push.
+        flushExpenditure()
         return SyncResult.Success(Unit)
     }
 

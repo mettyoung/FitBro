@@ -117,6 +117,7 @@ fun App() {
             foodDiaryRepository,
             userSettingsDataSource,
             calorieMathRepository,
+            syncRepository,
             scope
         ) {
             DashboardStateHolder(
@@ -126,7 +127,8 @@ fun App() {
                 userSettingsDataSource = userSettingsDataSource,
                 calorieMathRepository = calorieMathRepository,
                 scope = scope,
-                initialDateRange = initialDateRange
+                initialDateRange = initialDateRange,
+                onBalancesComputed = syncRepository::publishExpenditure
             )
         }
 

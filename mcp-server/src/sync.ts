@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { applyChanges, changesSince, putGoals, type Change } from "./db";
+import { applyChanges, changesSince, putExpenditure, putGoals, type Change } from "./db";
 
 const entryChange = z.object({
   uuid: z.string().min(1),
@@ -37,6 +37,20 @@ const goals = z.object({
 });
 const settingsBody = z.object({ goalsByWeekday: z.record(z.enum(["0", "1", "2", "3", "4", "5", "6"]), goals) });
 
+const kcal = z.number().finite();
+const expenditureDay = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  intake: kcal.nonnegative(),
+  bmr: kcal.nonnegative(),
+  tef: kcal.nonnegative(),
+  neat: kcal.nonnegative(),
+  eat: kcal.nonnegative(),
+  burn: kcal.nonnegative(),
+  balance: kcal,
+  updatedAt: z.number().int().nonnegative(),
+});
+const expenditureBody = z.object({ days: z.array(expenditureDay).max(400) });
+
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status });
 }
@@ -59,6 +73,13 @@ export async function handleSync(request: Request, db: D1Database, path: string)
     const parsed = settingsBody.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return json({ error: "invalid body", issues: parsed.error.issues }, 400);
     await putGoals(db, parsed.data.goalsByWeekday, Date.now());
+    return json({ ok: true });
+  }
+
+  if (path === "/sync/expenditure" && request.method === "PUT") {
+    const parsed = expenditureBody.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return json({ error: "invalid body", issues: parsed.error.issues }, 400);
+    await putExpenditure(db, parsed.data.days);
     return json({ ok: true });
   }
 

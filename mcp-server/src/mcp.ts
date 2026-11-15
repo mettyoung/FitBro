@@ -5,12 +5,14 @@ import {
   addDays,
   applyChanges,
   entriesInRange,
+  expenditureInRange,
   getEntry,
   getGoals,
   nextSortOrder,
   totalsByDay,
   weekdayMonBased,
   type Entry,
+  type Expenditure,
 } from "./db";
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
@@ -49,6 +51,22 @@ function publicEntry(e: Entry) {
   };
 }
 
+function publicExpenditure(e: Expenditure) {
+  return {
+    date: e.date,
+    intake: round(e.intake),
+    burn: round(e.burn),
+    balance: round(e.balance),
+    breakdown: { bmr: round(e.bmr), tef: round(e.tef), neat: round(e.neat), eat: round(e.eat) },
+    synced_at: new Date(e.updatedAt).toISOString(),
+  };
+}
+
+const EXPENDITURE_NOTE =
+  "Computed by the FitBro app from Health Connect: burn = bmr (basal) + tef (digesting food) + neat (everyday movement) + eat (exercise); " +
+  "balance = intake - burn (negative = deficit). intake is the app's figure for that day and can differ from diary totals when the day's " +
+  "source is Health Connect. Values are as of synced_at, so today's burn grows as the day goes on; days the app never computed are absent.";
+
 export function createServer(db: D1Database, now: () => number = Date.now): McpServer {
   const server = new McpServer({ name: "fitbro", version: "1.0.0" });
 
@@ -57,7 +75,8 @@ export function createServer(db: D1Database, now: () => number = Date.now): McpS
     "get_daily_summary",
     {
       description:
-        "Calorie and macro totals for one day of the user's FitBro food diary, with that day's goals and what remains. Dates are the user's local date.",
+        "Calorie and macro totals for one day of the user's FitBro food diary, with that day's goals, what remains, and calories burned " +
+        "(expenditure; null if the app hasn't synced it). Dates are the user's local date.",
       inputSchema: { date },
       annotations: { readOnlyHint: true },
     },
@@ -65,6 +84,7 @@ export function createServer(db: D1Database, now: () => number = Date.now): McpS
       const entries = await entriesInRange(db, date, date);
       const [totals] = totalsByDay(entries, date, date);
       const goals = (await getGoals(db))?.[String(weekdayMonBased(date))] ?? null;
+      const [expenditure] = await expenditureInRange(db, date, date);
       return result({
         date,
         totals: {
@@ -85,6 +105,7 @@ export function createServer(db: D1Database, now: () => number = Date.now): McpS
           carb_g: round(goals.carbG - totals.carbG),
           fat_g: round(goals.fatG - totals.fatG),
         },
+        expenditure: expenditure ? publicExpenditure(expenditure) : null,
         entries: entries.map(publicEntry),
       });
     },
@@ -133,6 +154,38 @@ export function createServer(db: D1Database, now: () => number = Date.now): McpS
           carb_g: avg((d) => d.carbG),
           fat_g: avg((d) => d.fatG),
         },
+      });
+    },
+  );
+
+  server.registerTool(
+    "get_expenditure",
+    {
+      description:
+        `Calories burned per day and net energy balance between start_date and end_date inclusive (max ${MAX_RANGE_DAYS} days; ` +
+        `end_date defaults to start_date), plus averages and the total balance over days that have data. ${EXPENDITURE_NOTE}`,
+      inputSchema: { start_date: date, end_date: date.optional() },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ start_date, end_date }) => {
+      const end = end_date ?? start_date;
+      if (rangeTooLong(start_date, end)) return error(`end_date must be within ${MAX_RANGE_DAYS} days after start_date`);
+      const days = await expenditureInRange(db, start_date, end);
+      const sum = (pick: (d: Expenditure) => number) => days.reduce((s, d) => s + pick(d), 0);
+      const avg = (pick: (d: Expenditure) => number) => (days.length ? round(sum(pick) / days.length) : 0);
+      return result({
+        days: days.map(publicExpenditure),
+        days_with_data: days.length,
+        average_per_day: {
+          intake: avg((d) => d.intake),
+          burn: avg((d) => d.burn),
+          balance: avg((d) => d.balance),
+          bmr: avg((d) => d.bmr),
+          tef: avg((d) => d.tef),
+          neat: avg((d) => d.neat),
+          eat: avg((d) => d.eat),
+        },
+        total_balance: round(sum((d) => d.balance)),
       });
     },
   );

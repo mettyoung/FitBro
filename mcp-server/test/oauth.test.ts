@@ -134,7 +134,7 @@ describe("sign-in flow (FR-21)", () => {
 
     const tools = await listTools(token.body.access_token!);
     expect(tools.status).toBe(200);
-    expect(((await tools.json()) as { result: { tools: unknown[] } }).result.tools).toHaveLength(7);
+    expect(((await tools.json()) as { result: { tools: unknown[] } }).result.tools).toHaveLength(8);
 
     // Handles are single use.
     expect((await submit(cookie, { handle, decision: "approve", secret: MCP_TOKEN })).status).toBe(400);

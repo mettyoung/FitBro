@@ -32,6 +32,8 @@ import com.mettyoung.fitbro.data.sync.SyncRepository
 import com.mettyoung.fitbro.data.sync.SyncResult
 import com.mettyoung.fitbro.data.sync.SyncSettings
 import com.mettyoung.fitbro.data.sync.SyncStatus
+import com.mettyoung.fitbro.data.sync.normalizeSyncToken
+import com.mettyoung.fitbro.data.sync.normalizeSyncUrl
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.formatTimeAgo
@@ -95,13 +97,16 @@ fun CloudSyncSettings(syncRepository: SyncRepository, settings: SyncSettings) {
                 )
                 Button(
                     onClick = {
-                        val newUrl = url.trim().trimEnd('/')
+                        val newUrl = normalizeSyncUrl(url)
+                        val newToken = normalizeSyncToken(token)
+                        url = newUrl
+                        token = newToken
                         if (newUrl != settings.getSyncUrl()) {
                             // A different server starts from scratch: full push, pull from the beginning.
                             settings.setSyncCursor(null)
                         }
                         settings.setSyncUrl(newUrl)
-                        settings.setSyncToken(token)
+                        settings.setSyncToken(newToken)
                         syncRepository.requestSync()
                     },
                     enabled = url.isNotBlank() && token.isNotBlank() && status !is SyncStatus.Syncing,
@@ -122,7 +127,7 @@ private fun SyncStatus.label(): String = when (this) {
         SyncResult.Failure.NotConfigured -> "Enter a server URL and token"
         SyncResult.Failure.Unauthorized -> "Token rejected by server"
         is SyncResult.Failure.Http -> "Server error (${r.status})"
-        is SyncResult.Failure.Network -> "Couldn't reach server"
+        is SyncResult.Failure.Network -> "Couldn't reach server" + (r.cause.message?.let { ": $it" } ?: "")
         is SyncResult.Failure.Unexpected -> "Sync failed: ${r.cause.message ?: "unknown error"}"
     }
 }

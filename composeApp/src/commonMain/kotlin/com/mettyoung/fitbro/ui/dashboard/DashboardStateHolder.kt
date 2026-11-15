@@ -33,7 +33,9 @@ class DashboardStateHolder(
     private val userSettingsDataSource: UserSettingsDataSource,
     private val calorieMathRepository: CalorieMathRepository,
     private val scope: CoroutineScope,
-    initialDateRange: DateRange
+    initialDateRange: DateRange,
+    /** Receives each refresh's computed balances (wired to cloud sync so expenditure reaches the MCP server). */
+    private val onBalancesComputed: (List<DailyBalance>) -> Unit = {}
 ) {
     private val _state = MutableStateFlow(
         DashboardState(
@@ -131,6 +133,7 @@ class DashboardStateHolder(
             } else {
                 DashboardUiState.Success(balances, warnings)
             }
+            if (!totalFailure) onBalancesComputed(balances)
 
             _state.update {
                 it.copy(

@@ -1,5 +1,6 @@
 package com.mettyoung.fitbro.data.sync
 
+import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.repository.PendingChange
 import com.mettyoung.fitbro.data.repository.RemoteChange
@@ -71,6 +72,35 @@ internal data class GoalsDto(val calories: Double, val proteinG: Double, val car
 @Serializable
 internal data class SettingsBody(val goalsByWeekday: Map<String, GoalsDto>)
 
+/** Wire format shared with mcp-server/src/sync.ts (`PUT /sync/expenditure`). */
+@Serializable
+internal data class ExpenditureDto(
+    val date: String,
+    val intake: Double,
+    val bmr: Double,
+    val tef: Double,
+    val neat: Double,
+    val eat: Double,
+    val burn: Double,
+    val balance: Double,
+    val updatedAt: Long
+)
+
+@Serializable
+internal data class ExpenditureBody(val days: List<ExpenditureDto>)
+
+internal fun DailyBalance.toExpenditureDto(updatedAt: Long) = ExpenditureDto(
+    date = date,
+    intake = intake,
+    bmr = bmr,
+    tef = tef,
+    neat = neat,
+    eat = eat,
+    burn = burn,
+    balance = balance,
+    updatedAt = updatedAt
+)
+
 internal fun PendingChange.toDto(): ChangeDto {
     val e = entry ?: return ChangeDto(uuid = uuid, updatedAt = queuedAt, deleted = true)
     return ChangeDto(
@@ -130,12 +160,15 @@ class SyncApi(private val settings: SyncSettings) {
         }
         install(HttpTimeout) {
             requestTimeoutMillis = 30_000
+            // Engine default read timeout (~10 s) otherwise fires first while the Worker is still writing a batch.
+            socketTimeoutMillis = 30_000
         }
     }
 
     private fun configured(): Pair<String, String>? {
-        val url = settings.getSyncUrl()
-        val token = settings.getSyncToken()
+        // Normalize on read too, so values saved by older builds (no scheme, trailing newline) still work.
+        val url = normalizeSyncUrl(settings.getSyncUrl())
+        val token = normalizeSyncToken(settings.getSyncToken())
         return if (url.isBlank() || token.isBlank()) null else url to token
     }
 
@@ -144,17 +177,24 @@ class SyncApi(private val settings: SyncSettings) {
         parse: suspend (HttpResponse) -> T
     ): SyncResult<T> {
         val (baseUrl, token) = configured() ?: return SyncResult.Failure.NotConfigured
-        return try {
-            val response = block(baseUrl, token)
-            when {
-                response.status.value == 401 -> SyncResult.Failure.Unauthorized
-                !response.status.isSuccess() -> SyncResult.Failure.Http(response.status.value)
-                else -> SyncResult.Success(parse(response))
-            }
+        val response = try {
+            block(baseUrl, token)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            SyncResult.Failure.Network(e)
+            return SyncResult.Failure.Network(e)
+        }
+        return when {
+            response.status.value == 401 -> SyncResult.Failure.Unauthorized
+            !response.status.isSuccess() -> SyncResult.Failure.Http(response.status.value)
+            // Parse failures are a client/server contract problem, not connectivity.
+            else -> try {
+                SyncResult.Success(parse(response))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                SyncResult.Failure.Unexpected(e)
+            }
         }
     }
 
@@ -180,6 +220,18 @@ class SyncApi(private val settings: SyncSettings) {
             val body = response.body<PullResponse>()
             PullPage(body.changes.mapNotNull { it.toRemoteChange() }, body.cursor)
         }
+    )
+
+    /** Days are (balance, updatedAt) pairs; the server keeps the newest per date. */
+    suspend fun putExpenditure(days: List<Pair<DailyBalance, Long>>): SyncResult<Unit> = call(
+        block = { baseUrl, token ->
+            client.put("$baseUrl/sync/expenditure") {
+                bearerAuth(token)
+                contentType(ContentType.Application.Json)
+                setBody(ExpenditureBody(days.map { (balance, at) -> balance.toExpenditureDto(at) }))
+            }
+        },
+        parse = { }
     )
 
     /** Keys are weekdays 0 = Monday … 6 = Sunday. */

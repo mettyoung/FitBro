@@ -63,7 +63,16 @@ describe("MCP tools (FR-7, FR-8, FR-9)", () => {
   it("lists all tools", async () => {
     const body = (await (await rpc("tools/list", {})).json()) as { result: { tools: { name: string }[] } };
     expect(body.result.tools.map((t) => t.name).sort()).toEqual(
-      ["delete_entry", "get_daily_summary", "get_entries", "get_goals", "get_trends", "log_food", "update_entry"].sort(),
+      [
+        "delete_entry",
+        "get_daily_summary",
+        "get_entries",
+        "get_expenditure",
+        "get_goals",
+        "get_trends",
+        "log_food",
+        "update_entry",
+      ].sort(),
     );
   });
 
@@ -122,5 +131,72 @@ describe("MCP tools (FR-7, FR-8, FR-9)", () => {
     expect(trends.data.days).toHaveLength(3);
     expect(trends.data.logged_days).toBe(2);
     expect(trends.data.average_per_logged_day.calories).toBe(1500);
+  });
+});
+
+describe("expenditure", () => {
+  const day = (date: string, overrides: Record<string, number> = {}) => ({
+    date,
+    intake: 1800,
+    bmr: 1600,
+    tef: 180,
+    neat: 400,
+    eat: 300,
+    burn: 2480,
+    balance: -680,
+    updatedAt: 1000,
+    ...overrides,
+  });
+
+  async function putExpenditure(days: unknown[], token = SYNC_TOKEN) {
+    return worker.fetch(
+      new Request(`${PUBLIC_ORIGIN}/sync/expenditure`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ days }),
+      }),
+      env,
+      ctx,
+    );
+  }
+
+  it("PUT /sync/expenditure requires the sync token and a valid body", async () => {
+    expect((await putExpenditure([day("2026-11-10")], MCP_TOKEN)).status).toBe(401);
+    expect((await putExpenditure([{ ...day("2026-11-10"), date: "11/10/2026" }])).status).toBe(400);
+    expect((await putExpenditure([{ ...day("2026-11-10"), burn: -1 }])).status).toBe(400);
+    expect((await putExpenditure([day("2026-11-10")])).status).toBe(200);
+  });
+
+  it("upserts per date with last-write-wins on updatedAt", async () => {
+    await putExpenditure([day("2026-11-10", { burn: 2400, updatedAt: 2000 })]);
+    await putExpenditure([day("2026-11-10", { burn: 2100, updatedAt: 1000 })]); // older → ignored
+    let got = await callTool("get_expenditure", { start_date: "2026-11-10" });
+    expect(got.data.days[0].burn).toBe(2400);
+
+    await putExpenditure([day("2026-11-10", { burn: 2600, updatedAt: 3000 })]); // newer → applied
+    got = await callTool("get_expenditure", { start_date: "2026-11-10" });
+    expect(got.data.days).toHaveLength(1);
+    expect(got.data.days[0].burn).toBe(2600);
+  });
+
+  it("get_expenditure returns days with data, averages and total balance", async () => {
+    await putExpenditure([
+      day("2026-11-09", { burn: 2400, balance: -600, intake: 1800 }),
+      day("2026-11-11", { burn: 2600, balance: -400, intake: 2200 }),
+    ]);
+    const got = await callTool("get_expenditure", { start_date: "2026-11-09", end_date: "2026-11-11" });
+    expect(got.data.days.map((d: { date: string }) => d.date)).toEqual(["2026-11-09", "2026-11-11"]);
+    expect(got.data.days[0].breakdown).toEqual({ bmr: 1600, tef: 180, neat: 400, eat: 300 });
+    expect(got.data.days_with_data).toBe(2);
+    expect(got.data.average_per_day).toMatchObject({ burn: 2500, balance: -500, intake: 2000 });
+    expect(got.data.total_balance).toBe(-1000);
+    expect((await callTool("get_expenditure", { start_date: "2026-01-01", end_date: "2026-12-31" })).isError).toBe(true);
+  });
+
+  it("get_daily_summary includes that day's expenditure, or null", async () => {
+    expect((await callTool("get_daily_summary", { date: "2026-11-10" })).data.expenditure).toBeNull();
+    await putExpenditure([day("2026-11-10")]);
+    const summary = await callTool("get_daily_summary", { date: "2026-11-10" });
+    expect(summary.data.expenditure).toMatchObject({ burn: 2480, balance: -680, intake: 1800 });
   });
 });
