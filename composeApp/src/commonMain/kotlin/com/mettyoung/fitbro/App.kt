@@ -20,7 +20,6 @@ import com.mettyoung.fitbro.data.food.FoodDataSource
 import com.mettyoung.fitbro.data.food.FatSecretFoodDataSource
 import com.mettyoung.fitbro.data.health.createHealthDataSource
 import com.mettyoung.fitbro.data.repository.CalorieMathRepositoryImpl
-import com.mettyoung.fitbro.data.repository.CardioRepositoryImpl
 import com.mettyoung.fitbro.data.repository.CustomFoodRepositoryImpl
 import com.mettyoung.fitbro.data.repository.CustomMealRepositoryImpl
 import com.mettyoung.fitbro.data.repository.FoodDiaryRepositoryImpl
@@ -56,7 +55,6 @@ fun App() {
         val foodDiaryRepository = remember(database) { FoodDiaryRepositoryImpl(database) }
         val customMealRepository = remember(database) { CustomMealRepositoryImpl(database) }
         val customFoodRepository = remember(database) { CustomFoodRepositoryImpl(database) }
-        val cardioRepository = remember(database) { CardioRepositoryImpl(database) }
         val macroGoalRepository: MacroGoalRepository = remember(database, userSettingsDataSource) {
             MacroGoalRepositoryImpl(database, userSettingsDataSource)
         }
@@ -103,9 +101,11 @@ fun App() {
             CustomFoodStateHolder(repository = customFoodRepository, scope = scope)
         }
 
-        val cardioStateHolder = remember(cardioRepository, scope) {
-            CardioStateHolder(repository = cardioRepository, scope = scope)
+        val cardioStateHolder = remember(healthDataSource, scope) {
+            CardioStateHolder(healthDataSource = healthDataSource, scope = scope)
         }
+        // Pick up sessions Mi Fitness (etc.) synced to Health Connect while we were in the background.
+        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { cardioStateHolder.refresh() }
 
         val initialDateRange = remember {
             DateRange(userSettingsDataSource.getDashboardStartDate(), userSettingsDataSource.getDashboardEndDate())

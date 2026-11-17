@@ -7,5 +7,7 @@ import com.mettyoung.fitbro.util.todayString
 data class CardioState(
     val sessions: List<CardioSession> = emptyList(),
     val totalMinutes: Int = 0,
-    val dateRange: DateRange = DateRange(todayString().minusDays(6), todayString())
+    val dateRange: DateRange = DateRange(todayString().minusDays(6), todayString()),
+    val isLoading: Boolean = false,
+    val error: String? = null
 )

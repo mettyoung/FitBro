@@ -43,13 +43,15 @@ import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BasalMetabolicRateRecord
+import androidx.health.connect.client.records.ExerciseSessionRecord
 import com.mettyoung.fitbro.ui.FitBroTheme
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 
 private val REQUIRED_READ_PERMISSIONS = setOf(
     HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
-    HealthPermission.getReadPermission(BasalMetabolicRateRecord::class)
+    HealthPermission.getReadPermission(BasalMetabolicRateRecord::class),
+    HealthPermission.getReadPermission(ExerciseSessionRecord::class)
 )
 
 @Composable

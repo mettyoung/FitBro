@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.data.health
 
 import com.mettyoung.fitbro.data.model.ActivityBurn
+import com.mettyoung.fitbro.data.model.CardioSession
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.Metabolism
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -27,6 +28,22 @@ import platform.HealthKit.HKQuantityTypeIdentifierDietaryCarbohydrates
 import platform.HealthKit.HKQuantityTypeIdentifierDietaryFatTotal
 import platform.HealthKit.HKSampleQuery
 import platform.HealthKit.HKUnit
+import platform.HealthKit.HKWorkout
+import platform.HealthKit.HKWorkoutActivityType
+import platform.HealthKit.HKWorkoutActivityTypeCycling
+import platform.HealthKit.HKWorkoutActivityTypeElliptical
+import platform.HealthKit.HKWorkoutActivityTypeFunctionalStrengthTraining
+import platform.HealthKit.HKWorkoutActivityTypeHighIntensityIntervalTraining
+import platform.HealthKit.HKWorkoutActivityTypeHiking
+import platform.HealthKit.HKWorkoutActivityTypeJumpRope
+import platform.HealthKit.HKWorkoutActivityTypeRowing
+import platform.HealthKit.HKWorkoutActivityTypeRunning
+import platform.HealthKit.HKWorkoutActivityTypeStairClimbing
+import platform.HealthKit.HKWorkoutActivityTypeSwimming
+import platform.HealthKit.HKWorkoutActivityTypeTraditionalStrengthTraining
+import platform.HealthKit.HKWorkoutActivityTypeWalking
+import platform.HealthKit.HKWorkoutActivityTypeYoga
+import platform.Foundation.timeIntervalSince1970
 import platform.HealthKit.kilocalorieUnit
 import platform.HealthKit.gramUnit
 import platform.HealthKit.predicateForSamplesWithStartDate
@@ -233,6 +250,62 @@ private class HealthKitDataSource : HealthDataSource {
     }
 
     @Suppress("UNCHECKED_CAST")
+    override suspend fun readExerciseSessions(
+        startDate: String,
+        endDate: String
+    ): HealthResult<List<CardioSession>> {
+        if (!HKHealthStore.isHealthDataAvailable()) {
+            return HealthResult.Failure(HealthDataError.NotAvailable)
+        }
+        val workoutType = HKObjectType.workoutType()
+        val authorized = suspendCancellableCoroutine { cont ->
+            healthStore.requestAuthorizationToShareTypes(
+                typesToShare = null,
+                readTypes = setOf(workoutType)
+            ) { success, _ -> cont.resume(success) }
+        }
+        if (!authorized) return HealthResult.Failure(HealthDataError.PermissionDenied)
+
+        val formatter = NSDateFormatter().apply {
+            dateFormat = "yyyy-MM-dd"
+            timeZone = NSTimeZone.localTimeZone
+        }
+        val (startNSDate, endNSDate) = buildDateRange(startDate, endDate, formatter)
+            ?: return HealthResult.Failure(HealthDataError.QueryError(Exception("Invalid date range")))
+        val predicate = HKQuery.predicateForSamplesWithStartDate(
+            startDate = startNSDate,
+            endDate = endNSDate,
+            options = HKQueryOptionNone
+        )
+
+        return suspendCancellableCoroutine { cont ->
+            val query = HKSampleQuery(
+                sampleType = workoutType,
+                predicate = predicate,
+                limit = 0u,
+                sortDescriptors = null,
+                resultsHandler = { _, samples, error ->
+                    if (error != null) {
+                        cont.resume(HealthResult.Failure(HealthDataError.QueryError(Exception(error.localizedDescription))))
+                    } else {
+                        val sessions = samples.orEmpty().mapNotNull { it as? HKWorkout }.map { workout ->
+                            CardioSession(
+                                id = workout.UUID.UUIDString,
+                                date = formatter.stringFromDate(workout.startDate),
+                                startEpochMs = (workout.startDate.timeIntervalSince1970 * 1000).toLong(),
+                                minutes = (workout.duration / 60).toInt(),
+                                activity = workoutLabel(workout.workoutActivityType),
+                                source = workout.sourceRevision.source.name
+                            )
+                        }
+                        cont.resume(HealthResult.Success(sessions))
+                    }
+                }
+            )
+            healthStore.executeQuery(query)
+        }
+    }
+
     override suspend fun writeNutritionRecord(entry: FoodDiaryEntry) {
         if (!HKHealthStore.isHealthDataAvailable()) return
 
@@ -276,4 +349,21 @@ private class HealthKitDataSource : HealthDataSource {
             healthStore.saveObject(sample) { _, _ -> }
         }
     }
+}
+
+private fun workoutLabel(type: HKWorkoutActivityType): String = when (type) {
+    HKWorkoutActivityTypeRunning -> "Running"
+    HKWorkoutActivityTypeWalking -> "Walking"
+    HKWorkoutActivityTypeHiking -> "Hiking"
+    HKWorkoutActivityTypeCycling -> "Cycling"
+    HKWorkoutActivityTypeSwimming -> "Swimming"
+    HKWorkoutActivityTypeElliptical -> "Elliptical"
+    HKWorkoutActivityTypeRowing -> "Rowing"
+    HKWorkoutActivityTypeStairClimbing -> "Stair climbing"
+    HKWorkoutActivityTypeHighIntensityIntervalTraining -> "HIIT"
+    HKWorkoutActivityTypeTraditionalStrengthTraining,
+    HKWorkoutActivityTypeFunctionalStrengthTraining -> "Strength training"
+    HKWorkoutActivityTypeYoga -> "Yoga"
+    HKWorkoutActivityTypeJumpRope -> "Jump rope"
+    else -> "Workout"
 }
