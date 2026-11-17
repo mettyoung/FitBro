@@ -135,13 +135,13 @@ fun DashboardWithTabs(
                     )
                     AppTab.TRENDS -> DashboardScreen(
                         stateHolder = stateHolder,
-                        weeklyCardioMinutes = cardioState.totalMinutes,
-                        previousWeekCardioMinutes = cardioState.previousWeekMinutes
+                        cardioSessions = cardioState.sessions,
+                        previousCardioSessions = cardioState.previousWeekSessions
                     )
                     AppTab.CARDIO -> CardioScreen(
                         stateHolder = cardioStateHolder,
                         weekLabel = dashboardState.selectedWeek.label(todayString(), dashboardState.weekStart),
-                        partialSpan = partialWeekSpan(dashboardState.selectedWeek, todayString(), dashboardState.weekStart)
+                        partialSpan = partialWeekSpan(dashboardState.selectedWeek, todayString(), dashboardState.weekStart, includeToday = true)
                     )
                     AppTab.SETTINGS -> MacroProfilesSettings(
                         stateHolder = macroProfilesStateHolder,

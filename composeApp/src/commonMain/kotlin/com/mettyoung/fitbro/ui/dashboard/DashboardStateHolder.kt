@@ -112,7 +112,8 @@ class DashboardStateHolder(
 
             val allBalances = computeBalances(foodDiaryTotals.map { it.toDailyIntake() }, metabolisms, activities)
             val balances = allBalances.filter { week.contains(it.date) }
-            val weekSummary = summarizeWeek(balances, week.days())
+            // Averages exclude today (partial day) for the current week.
+            val weekSummary = summarizeWeek(balances, week.averagingDays(today))
             val previousWeekSummary = summarizeWeek(allBalances, comparisonDays(week, today))
 
             val updatedSyncTime = mapOf(

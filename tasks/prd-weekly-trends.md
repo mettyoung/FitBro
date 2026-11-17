@@ -18,6 +18,7 @@ Trends currently shows a free-form date range (start/end pickers, persisted star
 - **Selected week**: week shown on Trends/Cardio. Defaults to the current week on every app start (not persisted).
 - **Elapsed days**: for the current week, Monday..today (1–7); for past weeks, 7.
 - **Logged day**: a day with food diary intake > 0.
+- **Averaging days**: days that count toward averages and the week-over-week window. Past weeks: all 7. Current week: completed days only (week start..yesterday) — today is still in progress, so it's excluded. On the week's first day there are none ("—").
 
 ## User Stories
 
@@ -69,7 +70,8 @@ Trends currently shows a free-form date range (start/end pickers, persisted star
 - FR-4: Week label: current week → "This week"; previous → "Last week"; otherwise "MMM d – MMM d" (`toShortDate`); add year suffix when the week isn't in the current year.
 - FR-5: Pure `fun summarizeWeek(balances: List<DailyBalance>, days: List<String>, cardioMinutes: Int): WeekSummary` in common. `WeekSummary(loggedDays, avgIntake, avgBurn, avgBalance, netBalance, avgProteinG, avgCarbG, avgFatG, cardioMinutes)`. Averages over **logged days** only; net balance = sum over logged days; `null` averages when `loggedDays == 0`.
 - FR-6: Pure `fun compareWeeks(current: WeekSummary, previous: WeekSummary): WeekComparison` with per-metric `delta: Double?` (null when either side has no logged days, or for cardio never null).
-- FR-7: Like-for-like (FR-6 inputs): when the selected week is the current week, the previous-week summary uses only its first `elapsedDays` days (balances and cardio sessions).
+- FR-7: Like-for-like (FR-6 inputs): when the selected week is the current week, the previous-week summary uses only its first N days, where N = number of averaging days (completed days, today excluded) — balances and cardio alike. The Cardio tab's running total ("▲ N min vs last week") instead compares through today on both sides (`includeToday = true`), since it's a total, not an average.
+- FR-7a: Top average cards (balance, intake, expenditure) also average over averaging days only and show "Completed days only · today excluded" on the current week. The chart still shows today's bar.
 - FR-8: `DashboardState` gains `weekStart`, `selectedWeek`, `weekSummary`, `previousWeekSummary`, `showCarbsFat`. Cardio minutes live in `CardioState`, so the UI merges them and calls the pure `compareWeeks` (memoised) rather than coupling the two holders.
 - FR-9: `CardioStateHolder.setDateRange` → `setWeek(week)`; reads both weeks (14 days), exposes visible sessions for the selected week, `totalMinutes`, and `previousWeekMinutes` (like-for-like per FR-7). Hidden workout types filter applies to both weeks.
 - FR-10: `DashboardWithTabs` drives Cardio from `dashboardState.selectedWeek` (replaces the `selectedDateRange` `LaunchedEffect`). Trends cardio minutes = selected week's visible cardio minutes; WoW cardio delta from FR-9.

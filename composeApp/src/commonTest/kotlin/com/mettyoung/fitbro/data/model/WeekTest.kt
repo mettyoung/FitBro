@@ -41,15 +41,42 @@ class WeekTest {
     }
 
     @Test
-    fun likeForLikeComparesSameElapsedDays() {
+    fun averagesExcludeTodayForTheCurrentWeek() {
         val week = Week("2026-11-16")
-        assertEquals(3, week.elapsedDays("2026-11-18"))
-        assertEquals(listOf("2026-11-09", "2026-11-10", "2026-11-11"), comparisonDays(week, "2026-11-18"))
-        assertEquals(7, comparisonDays(Week("2026-11-09"), "2026-11-18").size, "past week compares full weeks")
-        assertEquals("Mon–Wed", partialWeekSpan(week, "2026-11-18", WeekStart.MONDAY))
-        assertEquals("Sun–Tue", partialWeekSpan(Week("2026-11-15"), tuesday, WeekStart.SUNDAY))
-        assertEquals("Mon", partialWeekSpan(week, "2026-11-16", WeekStart.MONDAY))
+        assertEquals(listOf("2026-11-16", "2026-11-17"), week.averagingDays("2026-11-18"))
+        assertEquals(emptyList(), week.averagingDays("2026-11-16"), "first day: nothing completed yet")
+        assertEquals(7, Week("2026-11-09").averagingDays("2026-11-18").size, "past week: all days")
+    }
+
+    @Test
+    fun likeForLikeComparesCompletedDaysByDefault() {
+        val week = Week("2026-11-16")
+        // Wednesday: Mon–Tue completed → compare Mon–Tue last week.
+        assertEquals(listOf("2026-11-09", "2026-11-10"), comparisonDays(week, "2026-11-18"))
+        assertEquals("Mon–Tue", partialWeekSpan(week, "2026-11-18", WeekStart.MONDAY))
+        assertEquals("Sun–Mon", partialWeekSpan(Week("2026-11-15"), tuesday, WeekStart.SUNDAY))
+        // First day of the week: nothing to compare yet.
+        assertEquals(emptyList(), comparisonDays(week, "2026-11-16"))
+        assertEquals(0, comparedDayCount(week, "2026-11-16"))
+        assertNull(partialWeekSpan(week, "2026-11-16", WeekStart.MONDAY))
+        // Past week compares full weeks.
+        assertEquals(7, comparisonDays(Week("2026-11-09"), "2026-11-18").size)
         assertNull(partialWeekSpan(Week("2026-11-09"), tuesday, WeekStart.MONDAY))
+    }
+
+    @Test
+    fun runningTotalsCompareThroughToday() {
+        val week = Week("2026-11-16")
+        assertEquals(listOf("2026-11-09", "2026-11-10", "2026-11-11"), comparisonDays(week, "2026-11-18", includeToday = true))
+        assertEquals("Mon–Wed", partialWeekSpan(week, "2026-11-18", WeekStart.MONDAY, includeToday = true))
+        assertEquals("Mon", partialWeekSpan(week, "2026-11-16", WeekStart.MONDAY, includeToday = true))
+    }
+
+    @Test
+    fun cardioMinutesOnDays() {
+        fun s(date: String, min: Int) = CardioSession("id$date", date, 0, min, "Run", WorkoutType.RUNNING, "Mi Fitness")
+        val sessions = listOf(s("2026-11-16", 30), s("2026-11-17", 20), s("2026-11-18", 45))
+        assertEquals(50, sessions.minutesOn(Week("2026-11-16").averagingDays("2026-11-18")))
     }
 
     @Test

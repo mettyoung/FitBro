@@ -59,7 +59,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.data.model.CardioSession
 import com.mettyoung.fitbro.data.model.compareWeeks
+import com.mettyoung.fitbro.data.model.comparedDayCount
+import com.mettyoung.fitbro.data.model.comparisonDays
+import com.mettyoung.fitbro.data.model.minutesOn
 import com.mettyoung.fitbro.data.model.partialWeekSpan
 import com.mettyoung.fitbro.ui.BackHandlerEffect
 import com.mettyoung.fitbro.ui.ColorCarbs
@@ -77,8 +81,8 @@ import kotlin.math.roundToInt
 @Composable
 fun DashboardScreen(
     stateHolder: DashboardStateHolder,
-    weeklyCardioMinutes: Int = 0,
-    previousWeekCardioMinutes: Int = 0,
+    cardioSessions: List<CardioSession> = emptyList(),
+    previousCardioSessions: List<CardioSession> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val state by stateHolder.state.collectAsState()
@@ -89,8 +93,8 @@ fun DashboardScreen(
         onNextWeek = stateHolder::nextWeek,
         onCurrentWeek = stateHolder::currentWeek,
         onToggleCarbsFat = { stateHolder.setShowCarbsFat(!state.showCarbsFat) },
-        weeklyCardioMinutes = weeklyCardioMinutes,
-        previousWeekCardioMinutes = previousWeekCardioMinutes,
+        cardioSessions = cardioSessions,
+        previousCardioSessions = previousCardioSessions,
         modifier = modifier
     )
 }
@@ -103,8 +107,8 @@ fun DashboardContent(
     onNextWeek: () -> Unit = {},
     onCurrentWeek: () -> Unit = {},
     onToggleCarbsFat: () -> Unit = {},
-    weeklyCardioMinutes: Int = 0,
-    previousWeekCardioMinutes: Int = 0,
+    cardioSessions: List<CardioSession> = emptyList(),
+    previousCardioSessions: List<CardioSession> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
@@ -119,10 +123,13 @@ fun DashboardContent(
     val week = state.selectedWeek
     val canGoNext = !week.contains(today)
     val weekDays = remember(week) { week.days() }
-    val comparison = remember(state.weekSummary, state.previousWeekSummary, weeklyCardioMinutes, previousWeekCardioMinutes) {
+    // Current week: averages and the week-over-week window cover completed days only (today excluded).
+    val averagingDays = remember(week, today) { week.averagingDays(today).toSet() }
+    val excludesToday = week.contains(today)
+    val comparison = remember(state.weekSummary, state.previousWeekSummary, cardioSessions, previousCardioSessions, today) {
         compareWeeks(
-            state.weekSummary.copy(cardioMinutes = weeklyCardioMinutes),
-            state.previousWeekSummary.copy(cardioMinutes = previousWeekCardioMinutes)
+            state.weekSummary.copy(cardioMinutes = cardioSessions.minutesOn(averagingDays)),
+            state.previousWeekSummary.copy(cardioMinutes = previousCardioSessions.minutesOn(comparisonDays(week, today)))
         )
     }
     val isLoading = state.uiState is DashboardUiState.Loading
@@ -246,6 +253,8 @@ fun DashboardContent(
                             DashboardHome(
                                 balances = uiState.balances,
                                 days = weekDays,
+                                averagingDays = averagingDays,
+                                excludesToday = excludesToday,
                                 onBarClick = { selectedBreakdown = it },
                                 onIntakeClick = { selectedLens = DashboardViewMode.INTAKE },
                                 onExpenditureClick = { selectedLens = DashboardViewMode.EXPENDITURE },
@@ -253,7 +262,7 @@ fun DashboardContent(
                                     WeekComparisonCard(
                                         rows = comparison,
                                         loggedDays = state.weekSummary.loggedDays,
-                                        elapsedDays = week.elapsedDays(today),
+                                        comparedDays = comparedDayCount(week, today),
                                         partialSpan = partialWeekSpan(week, today, state.weekStart),
                                         showCarbsFat = state.showCarbsFat,
                                         onToggleCarbsFat = onToggleCarbsFat
@@ -264,6 +273,8 @@ fun DashboardContent(
                             DashboardDetail(
                                 balances = uiState.balances,
                                 days = weekDays,
+                                averagingDays = averagingDays,
+                                excludesToday = excludesToday,
                                 viewMode = selectedLens!!,
                                 onBarClick = { selectedBreakdown = it }
                             )
@@ -305,6 +316,8 @@ fun DashboardContent(
 private fun DashboardHome(
     balances: List<DailyBalance>,
     days: List<String>,
+    averagingDays: Set<String>,
+    excludesToday: Boolean,
     onBarClick: (DailyBalance) -> Unit,
     onIntakeClick: () -> Unit,
     onExpenditureClick: () -> Unit,
@@ -315,6 +328,8 @@ private fun DashboardHome(
         SlidingWindowInsightCard(
             balances = balances,
             days = days,
+            averagingDays = averagingDays,
+            excludesToday = excludesToday,
             viewMode = DashboardViewMode.BALANCE,
             onBarClick = onBarClick,
             modifier = Modifier.fillMaxWidth()
@@ -326,13 +341,13 @@ private fun DashboardHome(
         ) {
             SummaryMetricCard(
                 viewMode = DashboardViewMode.INTAKE,
-                balances = balances,
+                balances = balances.filter { it.date in averagingDays },
                 onClick = onIntakeClick,
                 modifier = Modifier.weight(1f)
             )
             SummaryMetricCard(
                 viewMode = DashboardViewMode.EXPENDITURE,
-                balances = balances,
+                balances = balances.filter { it.date in averagingDays },
                 onClick = onExpenditureClick,
                 modifier = Modifier.weight(1f)
             )
@@ -377,7 +392,7 @@ private fun SummaryMetricCard(
             Spacer(Modifier.height(10.dp))
 
             Text(
-                text = "${formatCalorieValue(avgValue)} kcal",
+                text = if (logged.isEmpty()) "—" else "${formatCalorieValue(avgValue)} kcal",
                 style = if (isBig) MaterialTheme.typography.displayMedium else MaterialTheme.typography.headlineMedium,
                 color = valueColor,
                 fontWeight = FontWeight.Black
@@ -413,6 +428,8 @@ private fun SummaryMetricCard(
 private fun DashboardDetail(
     balances: List<DailyBalance>,
     days: List<String>,
+    averagingDays: Set<String>,
+    excludesToday: Boolean,
     viewMode: DashboardViewMode,
     onBarClick: (DailyBalance) -> Unit,
     modifier: Modifier = Modifier
@@ -421,6 +438,8 @@ private fun DashboardDetail(
         SlidingWindowInsightCard(
             balances = balances,
             days = days,
+            averagingDays = averagingDays,
+            excludesToday = excludesToday,
             viewMode = viewMode,
             onBarClick = onBarClick,
             modifier = Modifier.fillMaxWidth()
@@ -554,12 +573,14 @@ private fun ErrorDialog(error: String, onDismiss: () -> Unit) {
 private fun SlidingWindowInsightCard(
     balances: List<DailyBalance>,
     days: List<String>,
+    averagingDays: Set<String>,
+    excludesToday: Boolean,
     viewMode: DashboardViewMode,
     onBarClick: (DailyBalance) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Averages/trend over logged days only, matching the week-over-week card (FR-5).
-    val logged = remember(balances) { balances.filter { it.intake > 0 } }
+    val logged = remember(balances, averagingDays) { balances.filter { it.intake > 0 && it.date in averagingDays } }
     val metrics = remember(logged) { com.mettyoung.fitbro.data.model.calculateWindowMetrics(logged) }
     val trendColor = when (metrics.trend) {
         com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING -> PositiveColor
@@ -596,10 +617,17 @@ private fun SlidingWindowInsightCard(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "${formatCalorieValue(avgValue)} kcal",
+                        text = if (logged.isEmpty()) "—" else "${formatCalorieValue(avgValue)} kcal",
                         style = MaterialTheme.typography.displayMedium.copy(fontSize = 32.sp),
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    if (excludesToday) {
+                        Text(
+                            text = "Completed days only · today excluded",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MiTextSecondary
+                        )
+                    }
                 }
 
                 if (isBalance) {

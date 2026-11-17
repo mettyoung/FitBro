@@ -30,7 +30,8 @@ import kotlin.math.roundToInt
 fun WeekComparisonCard(
     rows: List<MetricComparison>,
     loggedDays: Int,
-    elapsedDays: Int,
+    /** Completed days compared (current week excludes today); 0 on the week's first day. */
+    comparedDays: Int,
     /** e.g. "Mon–Wed" for a partial current week; null for a full week. */
     partialSpan: String?,
     showCarbsFat: Boolean,
@@ -46,9 +47,10 @@ fun WeekComparisonCard(
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
             Text("VS LAST WEEK", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
             Text(
-                text = buildString {
-                    append(if (partialSpan != null) "$partialSpan vs $partialSpan last week" else "Full week")
-                    append(" · $loggedDays of $elapsedDays days logged")
+                text = when {
+                    comparedDays == 0 -> "Starts after today — compares completed days only"
+                    partialSpan != null -> "$partialSpan vs $partialSpan last week · $loggedDays of $comparedDays days logged"
+                    else -> "Full week · $loggedDays of 7 days logged"
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MiTextSecondary

@@ -34,6 +34,12 @@ data class Week(val start: String) {
     /** Days of this week up to and including [today] (7 for past weeks, 0 for future weeks). */
     fun elapsedDays(today: String): Int = days().count { it <= today }
 
+    /**
+     * Days that count toward averages: completed days only, so today's partial intake doesn't drag
+     * the running average down. Past weeks → all 7; current week → start..yesterday (may be empty).
+     */
+    fun averagingDays(today: String): List<String> = days().filter { it < today }
+
     /** FR-4 */
     fun label(today: String, weekStart: WeekStart): String {
         val current = of(today, weekStart)
@@ -128,19 +134,27 @@ fun compareWeeks(current: WeekSummary, previous: WeekSummary): List<MetricCompar
     WeekMetric.entries.map { MetricComparison(it, it.valueOf(current), it.valueOf(previous)) }
 
 /**
- * FR-7: the days of [previous] to compare against. Like-for-like for a partial [current] week
- * (first `elapsedDays` days only), the full week otherwise.
+ * FR-7: the days of the previous week to compare against, like-for-like with [current].
+ * `includeToday = false` (week-over-week averages): completed days only, matching
+ * [Week.averagingDays]. `includeToday = true` (running totals, e.g. Cardio tab): through today.
  */
-fun comparisonDays(current: Week, today: String): List<String> {
-    val elapsed = current.elapsedDays(today).coerceIn(1, 7)
-    return current.previous().days().take(elapsed)
+fun comparisonDays(current: Week, today: String, includeToday: Boolean = false): List<String> =
+    current.previous().days().take(comparedDayCount(current, today, includeToday))
+
+fun comparedDayCount(current: Week, today: String, includeToday: Boolean = false): Int =
+    if (includeToday) current.elapsedDays(today) else current.averagingDays(today).size
+
+/** "Mon–Wed" style span for the like-for-like caption; null for full weeks or no days yet. */
+fun partialWeekSpan(current: Week, today: String, weekStart: WeekStart, includeToday: Boolean = false): String? {
+    val count = comparedDayCount(current, today, includeToday)
+    if (count >= 7 || count <= 0) return null
+    val first = weekStart.short
+    val last = WeekStart.entries[(weekStart.ordinal + count - 1).mod(7)].short
+    return if (count == 1) first else "$first–$last"
 }
 
-/** "Mon–Wed" style span for the like-for-like caption; null for full weeks. */
-fun partialWeekSpan(current: Week, today: String, weekStart: WeekStart): String? {
-    val elapsed = current.elapsedDays(today)
-    if (elapsed >= 7) return null
-    val first = weekStart.short
-    val last = WeekStart.entries[(weekStart.ordinal + elapsed - 1).mod(7)].short
-    return if (elapsed <= 1) first else "$first–$last"
+/** Visible cardio minutes on [days]. */
+fun List<CardioSession>.minutesOn(days: Collection<String>): Int {
+    val set = days.toSet()
+    return filter { it.date in set }.sumOf { it.minutes }
 }

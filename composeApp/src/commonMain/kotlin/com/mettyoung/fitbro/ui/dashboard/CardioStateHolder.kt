@@ -7,6 +7,7 @@ import com.mettyoung.fitbro.data.health.HealthResult
 import com.mettyoung.fitbro.data.model.CardioSession
 import com.mettyoung.fitbro.data.model.Week
 import com.mettyoung.fitbro.data.model.comparisonDays
+import com.mettyoung.fitbro.data.model.minutesOn
 import com.mettyoung.fitbro.data.model.WorkoutType
 import com.mettyoung.fitbro.data.model.visible
 import kotlinx.coroutines.CoroutineScope
@@ -78,11 +79,13 @@ class CardioStateHolder(
     private fun CardioState.withFilter(all: List<CardioSession>): CardioState {
         val thisWeek = all.filter { week.contains(it.date) }
         val visible = thisWeek.visible(hiddenTypes)
-        val previousDays = comparisonDays(week, todayString()).toSet()
+        val previousWeek = week.previous()
+        val previousVisible = all.filter { previousWeek.contains(it.date) }.visible(hiddenTypes)
         return copy(
             sessions = visible,
             totalMinutes = visible.sumOf { it.minutes },
-            previousWeekMinutes = all.filter { it.date in previousDays }.visible(hiddenTypes).sumOf { it.minutes },
+            previousWeekSessions = previousVisible,
+            previousWeekMinutes = previousVisible.minutesOn(comparisonDays(week, todayString(), includeToday = true)),
             hiddenCount = thisWeek.size - visible.size
         )
     }
