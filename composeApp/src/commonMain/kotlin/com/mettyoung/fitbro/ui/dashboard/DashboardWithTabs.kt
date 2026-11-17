@@ -44,6 +44,7 @@ import com.mettyoung.fitbro.data.sync.SyncSettings
 import com.mettyoung.fitbro.ui.settings.CloudSyncSettings
 import com.mettyoung.fitbro.ui.settings.MacroProfilesSettings
 import com.mettyoung.fitbro.ui.settings.MacroProfilesStateHolder
+import com.mettyoung.fitbro.ui.settings.WorkoutTypesSettings
 
 @Composable
 fun DashboardWithTabs(
@@ -135,7 +136,10 @@ fun DashboardWithTabs(
                     AppTab.CARDIO -> CardioScreen(stateHolder = cardioStateHolder)
                     AppTab.SETTINGS -> MacroProfilesSettings(
                         stateHolder = macroProfilesStateHolder,
-                        footer = { CloudSyncSettings(syncRepository, syncSettings) }
+                        footer = {
+                            WorkoutTypesSettings(cardioStateHolder)
+                            CloudSyncSettings(syncRepository, syncSettings)
+                        }
                     )
                 }
             }

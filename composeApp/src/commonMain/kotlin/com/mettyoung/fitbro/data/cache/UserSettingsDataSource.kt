@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.data.cache
 
 import com.mettyoung.fitbro.data.food.FoodDatabase
+import com.mettyoung.fitbro.data.model.WorkoutType
 
 interface UserSettingsDataSource {
     fun getProteinGoalG(): Double
@@ -24,6 +25,10 @@ interface UserSettingsDataSource {
 
     fun getDashboardEndDate(): String
     fun setDashboardEndDate(date: String)
+
+    /** Workout types hidden from the Cardio tab; defaults to [WorkoutType.DEFAULT_HIDDEN] until set. */
+    fun getHiddenWorkoutTypes(): Set<WorkoutType>
+    fun setHiddenWorkoutTypes(types: Set<WorkoutType>)
 }
 
 expect fun createUserSettingsDataSource(): UserSettingsDataSource

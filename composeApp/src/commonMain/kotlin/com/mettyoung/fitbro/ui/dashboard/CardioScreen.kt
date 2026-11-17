@@ -34,7 +34,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import com.mettyoung.fitbro.data.model.CardioSession
+import com.mettyoung.fitbro.data.model.WorkoutType
+import com.mettyoung.fitbro.ui.settings.WorkoutTypesSheet
+import kotlinx.coroutines.launch
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.MONTH_ABBR
@@ -54,6 +70,23 @@ fun CardioScreen(
     val sortedDates = grouped.keys.sortedDescending()
     val startDate = state.dateRange.startDate
     val endDate = state.dateRange.endDate
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    var showTypesSheet by remember { mutableStateOf(false) }
+
+    // US-002: hide the type, offer Undo.
+    val onHideType: (WorkoutType) -> Unit = { type ->
+        stateHolder.hideType(type)
+        snackbarScope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = "${type.label} hidden",
+                actionLabel = "Undo",
+                withDismissAction = true
+            )
+            if (result == SnackbarResult.ActionPerformed) stateHolder.showType(type)
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         ScreenHeader(
@@ -63,7 +96,8 @@ fun CardioScreen(
 
         Scaffold(
             modifier = Modifier.weight(1f),
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { innerPadding ->
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -76,9 +110,13 @@ fun CardioScreen(
             ) {
                 item {
                     WeeklySummaryCard(totalMinutes = state.totalMinutes, sessionCount = state.sessions.size)
-                    Spacer(Modifier.height(20.dp))
+                    if (state.hiddenCount > 0) {
+                        HiddenWorkoutsHint(count = state.hiddenCount, onManage = { showTypesSheet = true })
+                    } else {
+                        Spacer(Modifier.height(20.dp))
+                    }
                     Text(
-                        text = "From Health Connect — workouts recorded by Mi Fitness or any other app.",
+                        text = "From Health Connect — workouts recorded by Mi Fitness or any other app. Long-press a workout to hide its type.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MiTextSecondary
                     )
@@ -90,7 +128,8 @@ fun CardioScreen(
                     val sessions = grouped[date] ?: return@items
                     SessionDayGroup(
                         date = date,
-                        sessions = sessions
+                        sessions = sessions,
+                        onHideType = onHideType
                     )
                     Spacer(Modifier.height(12.dp))
                 }
@@ -100,6 +139,7 @@ fun CardioScreen(
                             text = when {
                                 state.error != null -> state.error ?: ""
                                 state.isLoading -> "Loading sessions…"
+                                state.hiddenCount > 0 -> "All workouts in this range are hidden types."
                                 else -> "No exercise sessions in this range. Make sure Mi Fitness shares workouts with Health Connect."
                             },
                             style = MaterialTheme.typography.bodyMedium,
@@ -110,6 +150,25 @@ fun CardioScreen(
                 }
             }
         }
+    }
+
+    if (showTypesSheet) WorkoutTypesSheet(stateHolder, onDismiss = { showTypesSheet = false })
+}
+
+/** US-004 */
+@Composable
+private fun HiddenWorkoutsHint(count: Int, onManage: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        Text(
+            text = if (count == 1) "1 workout hidden" else "$count workouts hidden",
+            style = MaterialTheme.typography.bodySmall,
+            color = MiTextSecondary,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = onManage) { Text("Manage") }
     }
 }
 
@@ -150,6 +209,7 @@ private fun WeeklySummaryCard(
 private fun SessionDayGroup(
     date: String,
     sessions: List<CardioSession>,
+    onHideType: (WorkoutType) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -165,7 +225,7 @@ private fun SessionDayGroup(
             )
             Spacer(Modifier.height(12.dp))
             sessions.forEachIndexed { index, session ->
-                SessionRow(session = session)
+                SessionRow(session = session, onHideType = onHideType)
                 if (index < sessions.lastIndex) {
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 12.dp),
@@ -177,22 +237,43 @@ private fun SessionDayGroup(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SessionRow(
     session: CardioSession,
+    onHideType: (WorkoutType) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(
-            text = "${session.activity} · ${session.minutes} min",
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = session.source,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MiTextSecondary
-        )
+    var menuOpen by remember { mutableStateOf(false) }
+    Box(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = {}, onLongClick = { menuOpen = true })
+                .padding(vertical = 4.dp)
+        ) {
+            Text(
+                text = "${session.activity} · ${session.minutes} min",
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                // Show the type too when the source app's title differs from it (e.g. "Morning run").
+                text = if (session.activity == session.type.label) session.source
+                       else "${session.type.label} · ${session.source}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MiTextSecondary
+            )
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text("Hide all ${session.type.label}") },
+                onClick = {
+                    menuOpen = false
+                    onHideType(session.type)
+                }
+            )
+        }
     }
 }
 

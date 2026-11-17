@@ -29,20 +29,6 @@ import platform.HealthKit.HKQuantityTypeIdentifierDietaryFatTotal
 import platform.HealthKit.HKSampleQuery
 import platform.HealthKit.HKUnit
 import platform.HealthKit.HKWorkout
-import platform.HealthKit.HKWorkoutActivityType
-import platform.HealthKit.HKWorkoutActivityTypeCycling
-import platform.HealthKit.HKWorkoutActivityTypeElliptical
-import platform.HealthKit.HKWorkoutActivityTypeFunctionalStrengthTraining
-import platform.HealthKit.HKWorkoutActivityTypeHighIntensityIntervalTraining
-import platform.HealthKit.HKWorkoutActivityTypeHiking
-import platform.HealthKit.HKWorkoutActivityTypeJumpRope
-import platform.HealthKit.HKWorkoutActivityTypeRowing
-import platform.HealthKit.HKWorkoutActivityTypeRunning
-import platform.HealthKit.HKWorkoutActivityTypeStairClimbing
-import platform.HealthKit.HKWorkoutActivityTypeSwimming
-import platform.HealthKit.HKWorkoutActivityTypeTraditionalStrengthTraining
-import platform.HealthKit.HKWorkoutActivityTypeWalking
-import platform.HealthKit.HKWorkoutActivityTypeYoga
 import platform.Foundation.timeIntervalSince1970
 import platform.HealthKit.kilocalorieUnit
 import platform.HealthKit.gramUnit
@@ -294,7 +280,8 @@ private class HealthKitDataSource : HealthDataSource {
                                 date = formatter.stringFromDate(workout.startDate),
                                 startEpochMs = (workout.startDate.timeIntervalSince1970 * 1000).toLong(),
                                 minutes = (workout.duration / 60).toInt(),
-                                activity = workoutLabel(workout.workoutActivityType),
+                                activity = workout.workoutActivityType.toWorkoutType().label,
+                                type = workout.workoutActivityType.toWorkoutType(),
                                 source = workout.sourceRevision.source.name
                             )
                         }
@@ -351,19 +338,3 @@ private class HealthKitDataSource : HealthDataSource {
     }
 }
 
-private fun workoutLabel(type: HKWorkoutActivityType): String = when (type) {
-    HKWorkoutActivityTypeRunning -> "Running"
-    HKWorkoutActivityTypeWalking -> "Walking"
-    HKWorkoutActivityTypeHiking -> "Hiking"
-    HKWorkoutActivityTypeCycling -> "Cycling"
-    HKWorkoutActivityTypeSwimming -> "Swimming"
-    HKWorkoutActivityTypeElliptical -> "Elliptical"
-    HKWorkoutActivityTypeRowing -> "Rowing"
-    HKWorkoutActivityTypeStairClimbing -> "Stair climbing"
-    HKWorkoutActivityTypeHighIntensityIntervalTraining -> "HIIT"
-    HKWorkoutActivityTypeTraditionalStrengthTraining,
-    HKWorkoutActivityTypeFunctionalStrengthTraining -> "Strength training"
-    HKWorkoutActivityTypeYoga -> "Yoga"
-    HKWorkoutActivityTypeJumpRope -> "Jump rope"
-    else -> "Workout"
-}

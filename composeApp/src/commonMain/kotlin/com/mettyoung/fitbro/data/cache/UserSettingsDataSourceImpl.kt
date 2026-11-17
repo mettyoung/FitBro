@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.data.cache
 
 import com.mettyoung.fitbro.data.food.FoodDatabase
+import com.mettyoung.fitbro.data.model.WorkoutType
 import com.mettyoung.fitbro.data.sync.SyncSettings
 import com.mettyoung.fitbro.util.minusDays
 import com.mettyoung.fitbro.util.todayString
@@ -15,6 +16,7 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         private const val FOOD_DATABASE_KEY = "food_database"
         private const val DASHBOARD_START_DATE_KEY = "dashboard_start_date"
         private const val DASHBOARD_END_DATE_KEY = "dashboard_end_date"
+        private const val HIDDEN_WORKOUT_TYPES_KEY = "hidden_workout_types"
         private const val SYNC_URL_KEY = "sync_url"
         private const val SYNC_TOKEN_KEY = "sync_token"
         private const val SYNC_CURSOR_KEY = "sync_cursor"
@@ -74,6 +76,13 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
 
     override fun setDashboardEndDate(date: String) {
         settings.putString(DASHBOARD_END_DATE_KEY, date)
+    }
+
+    override fun getHiddenWorkoutTypes(): Set<WorkoutType> =
+        WorkoutType.parseHidden(settings.getStringOrNull(HIDDEN_WORKOUT_TYPES_KEY))
+
+    override fun setHiddenWorkoutTypes(types: Set<WorkoutType>) {
+        settings.putString(HIDDEN_WORKOUT_TYPES_KEY, WorkoutType.serializeHidden(types))
     }
 
     override fun getSyncUrl(): String = settings.getString(SYNC_URL_KEY, "")

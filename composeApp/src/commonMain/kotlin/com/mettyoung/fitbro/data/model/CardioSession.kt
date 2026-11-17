@@ -13,6 +13,7 @@ data class CardioSession(
     val minutes: Int,
     /** Human-readable activity, e.g. "Running" or the session title from the source app. */
     val activity: String,
+    val type: WorkoutType,
     /** App that recorded it, e.g. "Mi Fitness". */
     val source: String
 )

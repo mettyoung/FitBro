@@ -161,12 +161,14 @@ private class HealthConnectDataSource : HealthDataSource {
             } while (pageToken != null)
 
             val sessions = records.map { record ->
+                val type = exerciseTypeToWorkoutType(record.exerciseType)
                 CardioSession(
                     id = record.metadata.id,
                     date = record.startTime.atZone(zone).toLocalDate().toString(),
                     startEpochMs = record.startTime.toEpochMilli(),
                     minutes = Duration.between(record.startTime, record.endTime).toMinutes().toInt(),
-                    activity = record.title?.takeIf { it.isNotBlank() } ?: exerciseTypeLabel(record.exerciseType),
+                    activity = record.title?.takeIf { it.isNotBlank() } ?: type.label,
+                    type = type,
                     source = sourceAppLabel(record.metadata.dataOrigin.packageName)
                 )
             }
@@ -226,31 +228,6 @@ private class HealthConnectDataSource : HealthDataSource {
             Log.e("HealthConnect", "writeNutritionRecord: failed for ${entry.foodName}: ${e.message}", e)
         }
     }
-}
-
-private fun exerciseTypeLabel(type: Int): String = when (type) {
-    ExerciseSessionRecord.EXERCISE_TYPE_RUNNING -> "Running"
-    ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL -> "Treadmill run"
-    ExerciseSessionRecord.EXERCISE_TYPE_WALKING -> "Walking"
-    ExerciseSessionRecord.EXERCISE_TYPE_HIKING -> "Hiking"
-    ExerciseSessionRecord.EXERCISE_TYPE_BIKING -> "Cycling"
-    ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY -> "Indoor cycling"
-    ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL -> "Pool swim"
-    ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER -> "Open water swim"
-    ExerciseSessionRecord.EXERCISE_TYPE_ELLIPTICAL -> "Elliptical"
-    ExerciseSessionRecord.EXERCISE_TYPE_ROWING_MACHINE -> "Rowing machine"
-    ExerciseSessionRecord.EXERCISE_TYPE_ROWING -> "Rowing"
-    ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING,
-    ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING_MACHINE -> "Stair climbing"
-    ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING -> "HIIT"
-    ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING -> "Strength training"
-    ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING -> "Weightlifting"
-    ExerciseSessionRecord.EXERCISE_TYPE_YOGA -> "Yoga"
-    ExerciseSessionRecord.EXERCISE_TYPE_BADMINTON -> "Badminton"
-    ExerciseSessionRecord.EXERCISE_TYPE_BASKETBALL -> "Basketball"
-    ExerciseSessionRecord.EXERCISE_TYPE_SOCCER -> "Football"
-    ExerciseSessionRecord.EXERCISE_TYPE_TENNIS -> "Tennis"
-    else -> "Workout"
 }
 
 /** Known health apps by package; others resolve via PackageManager (may be hidden by package visibility). */

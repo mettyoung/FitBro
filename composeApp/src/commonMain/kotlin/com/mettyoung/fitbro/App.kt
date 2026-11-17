@@ -101,8 +101,12 @@ fun App() {
             CustomFoodStateHolder(repository = customFoodRepository, scope = scope)
         }
 
-        val cardioStateHolder = remember(healthDataSource, scope) {
-            CardioStateHolder(healthDataSource = healthDataSource, scope = scope)
+        val cardioStateHolder = remember(healthDataSource, userSettingsDataSource, scope) {
+            CardioStateHolder(
+                healthDataSource = healthDataSource,
+                userSettingsDataSource = userSettingsDataSource,
+                scope = scope
+            )
         }
         // Pick up sessions Mi Fitness (etc.) synced to Health Connect while we were in the background.
         LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { cardioStateHolder.refresh() }
