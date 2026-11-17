@@ -12,7 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Restaurant
@@ -136,6 +138,12 @@ fun DashboardWithTabs(
                     AppTab.TRENDS -> DashboardScreen(
                         stateHolder = stateHolder,
                         cardioSessions = cardioState.sessions,
+                        previousCardioSessions = cardioState.previousWeekSessions,
+                        onOpenComparison = { selectedTabIndex = AppTab.COMPARE.ordinal }
+                    )
+                    AppTab.COMPARE -> WeekComparisonScreen(
+                        stateHolder = stateHolder,
+                        cardioSessions = cardioState.sessions,
                         previousCardioSessions = cardioState.previousWeekSessions
                     )
                     AppTab.CARDIO -> CardioScreen(
@@ -163,6 +171,7 @@ fun DashboardWithTabs(
 private enum class AppTab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
     TODAY("Today", Icons.Outlined.Restaurant, Icons.Filled.Restaurant),
     TRENDS("Trends", Icons.Outlined.Insights, Icons.Filled.Insights),
+    COMPARE("Compare", Icons.Outlined.BarChart, Icons.Filled.BarChart),
     CARDIO("Cardio", Icons.AutoMirrored.Outlined.DirectionsRun, Icons.AutoMirrored.Filled.DirectionsRun),
     SETTINGS("Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
 }

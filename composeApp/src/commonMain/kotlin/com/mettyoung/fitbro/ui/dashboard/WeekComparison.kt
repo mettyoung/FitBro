@@ -39,7 +39,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.collectAsState
+import com.mettyoung.fitbro.data.model.CardioSession
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.data.model.compareWeeks
+import com.mettyoung.fitbro.data.model.comparedDayCount
+import com.mettyoung.fitbro.data.model.comparisonDays
+import com.mettyoung.fitbro.data.model.minutesOn
+import com.mettyoung.fitbro.data.model.partialWeekSpan
+import com.mettyoung.fitbro.ui.components.ScreenGutter
+import com.mettyoung.fitbro.ui.components.ScreenHeader
+import com.mettyoung.fitbro.util.todayString
 import com.mettyoung.fitbro.data.model.MetricComparison
 import com.mettyoung.fitbro.data.model.WeekMetric
 import com.mettyoung.fitbro.ui.MiOrange
@@ -55,6 +69,91 @@ private fun comparisonCaption(loggedDays: Int, comparedDays: Int, partialSpan: S
     comparedDays == 0 -> "Starts after today — compares completed days only"
     partialSpan != null -> "$partialSpan vs $partialSpan last week · $loggedDays of $comparedDays days logged"
     else -> "Full week · $loggedDays of 7 days logged"
+}
+
+/**
+ * Week-over-week rows with cardio minutes filled in from CardioState: current week over its
+ * averaging days (today excluded), previous week over the like-for-like comparison days.
+ */
+@Composable
+fun rememberWeekComparison(
+    state: DashboardState,
+    cardioSessions: List<CardioSession>,
+    previousCardioSessions: List<CardioSession>,
+    today: String
+): List<MetricComparison> {
+    val week = state.selectedWeek
+    return remember(state.weekSummary, state.previousWeekSummary, cardioSessions, previousCardioSessions, week, today) {
+        compareWeeks(
+            state.weekSummary.copy(cardioMinutes = cardioSessions.minutesOn(week.averagingDays(today))),
+            state.previousWeekSummary.copy(cardioMinutes = previousCardioSessions.minutesOn(comparisonDays(week, today)))
+        )
+    }
+}
+
+/** "Compare" tab: shares the Trends week (same state holder) with its own stepper. */
+@Composable
+fun WeekComparisonScreen(
+    stateHolder: DashboardStateHolder,
+    cardioSessions: List<CardioSession>,
+    previousCardioSessions: List<CardioSession>,
+    modifier: Modifier = Modifier
+) {
+    val state by stateHolder.state.collectAsState()
+    val today = todayString()
+    val week = state.selectedWeek
+    val comparison = rememberWeekComparison(state, cardioSessions, previousCardioSessions, today)
+    val averagingDays = remember(week, today) { week.averagingDays(today).toSet() }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
+    ) {
+        ScreenHeader(
+            title = "Vs last week",
+            overline = "Compare",
+            bottom = {
+                WeekStepper(
+                    week = week,
+                    today = today,
+                    weekStart = state.weekStart,
+                    onPreviousWeek = stateHolder::previousWeek,
+                    onNextWeek = stateHolder::nextWeek,
+                    onCurrentWeek = stateHolder::currentWeek
+                )
+            }
+        )
+        Column(modifier = Modifier.padding(horizontal = ScreenGutter)) {
+            Spacer(Modifier.height(8.dp))
+            when (val uiState = state.uiState) {
+                is DashboardUiState.Loading -> Box(
+                    modifier = Modifier.height(300.dp).fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) { CircularProgressIndicator(color = MiOrange) }
+                is DashboardUiState.Error -> Text(
+                    uiState.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+                is DashboardUiState.Success -> WeekComparisonPage(
+                    rows = comparison,
+                    loggedDays = state.weekSummary.loggedDays,
+                    comparedDays = comparedDayCount(week, today),
+                    partialSpan = partialWeekSpan(week, today, state.weekStart),
+                    showCarbsFat = state.showCarbsFat,
+                    onToggleCarbsFat = { stateHolder.setShowCarbsFat(!state.showCarbsFat) },
+                    days = remember(week) { week.days() },
+                    balances = uiState.balances,
+                    averagingDays = averagingDays,
+                    previousBalances = state.previousWeekBalances,
+                    previousDays = remember(week) { week.previous().days() }
+                )
+            }
+            Spacer(Modifier.height(48.dp))
+        }
+    }
 }
 
 /** Compact entry point on Trends; tap opens [WeekComparisonPage]. */

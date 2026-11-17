@@ -28,7 +28,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -60,10 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.model.CardioSession
-import com.mettyoung.fitbro.data.model.compareWeeks
 import com.mettyoung.fitbro.data.model.comparedDayCount
-import com.mettyoung.fitbro.data.model.comparisonDays
-import com.mettyoung.fitbro.data.model.minutesOn
 import com.mettyoung.fitbro.data.model.partialWeekSpan
 import com.mettyoung.fitbro.ui.BackHandlerEffect
 import com.mettyoung.fitbro.ui.ColorCarbs
@@ -72,7 +68,6 @@ import com.mettyoung.fitbro.ui.ColorProtein
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.formatTimeAgo
-import com.mettyoung.fitbro.util.toShortDate
 import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -83,6 +78,7 @@ fun DashboardScreen(
     stateHolder: DashboardStateHolder,
     cardioSessions: List<CardioSession> = emptyList(),
     previousCardioSessions: List<CardioSession> = emptyList(),
+    onOpenComparison: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by stateHolder.state.collectAsState()
@@ -93,6 +89,7 @@ fun DashboardScreen(
         onNextWeek = stateHolder::nextWeek,
         onCurrentWeek = stateHolder::currentWeek,
         onToggleCarbsFat = { stateHolder.setShowCarbsFat(!state.showCarbsFat) },
+        onOpenComparison = onOpenComparison,
         cardioSessions = cardioSessions,
         previousCardioSessions = previousCardioSessions,
         modifier = modifier
@@ -107,33 +104,27 @@ fun DashboardContent(
     onNextWeek: () -> Unit = {},
     onCurrentWeek: () -> Unit = {},
     onToggleCarbsFat: () -> Unit = {},
+    onOpenComparison: () -> Unit = {},
     cardioSessions: List<CardioSession> = emptyList(),
     previousCardioSessions: List<CardioSession> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
     var selectedLens: DashboardViewMode? by remember { mutableStateOf(null) }
-    var showComparison by remember { mutableStateOf(false) }
     var wasRefreshing by remember { mutableStateOf(false) }
     var showSuccessToast by remember { mutableStateOf(false) }
     var refreshError by remember { mutableStateOf<String?>(null) }
 
-    val inDetail = selectedLens != null || showComparison
-    BackHandlerEffect(enabled = inDetail) { selectedLens = null; showComparison = false }
+    val inDetail = selectedLens != null
+    BackHandlerEffect(enabled = inDetail) { selectedLens = null }
 
     val today = todayString()
     val week = state.selectedWeek
-    val canGoNext = !week.contains(today)
     val weekDays = remember(week) { week.days() }
     // Current week: averages and the week-over-week window cover completed days only (today excluded).
     val averagingDays = remember(week, today) { week.averagingDays(today).toSet() }
     val excludesToday = week.contains(today)
-    val comparison = remember(state.weekSummary, state.previousWeekSummary, cardioSessions, previousCardioSessions, today) {
-        compareWeeks(
-            state.weekSummary.copy(cardioMinutes = cardioSessions.minutesOn(averagingDays)),
-            state.previousWeekSummary.copy(cardioMinutes = previousCardioSessions.minutesOn(comparisonDays(week, today)))
-        )
-    }
+    val comparison = rememberWeekComparison(state, cardioSessions, previousCardioSessions, today)
     val isLoading = state.uiState is DashboardUiState.Loading
 
     LaunchedEffect(state.uiState) {
@@ -168,14 +159,11 @@ fun DashboardContent(
                 .verticalScroll(rememberScrollState())
         ) {
             ScreenHeader(
-                title = when {
-                    showComparison -> "Vs last week"
-                    else -> selectedLens?.label ?: "Trends"
-                },
+                title = selectedLens?.label ?: "Trends",
                 overline = if (inDetail) "Trends" else "Energy balance",
                 navigation = if (inDetail) {
                     {
-                        IconButton(onClick = { selectedLens = null; showComparison = false }) {
+                        IconButton(onClick = { selectedLens = null }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
@@ -190,50 +178,14 @@ fun DashboardContent(
                     }
                 },
                 bottom = {
-                // Compact date navigator
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface, CircleShape)
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = onPreviousWeek,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous week", modifier = Modifier.size(20.dp), tint = MiTextSecondary)
-                    }
-                    // US-001: tap the label to jump back to the current week.
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onCurrentWeek).padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = week.label(today, state.weekStart),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "${week.start.toShortDate()} – ${week.end.toShortDate()}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MiTextSecondary
-                        )
-                    }
-                    IconButton(
-                        onClick = onNextWeek,
-                        enabled = canGoNext,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Next week",
-                            modifier = Modifier.size(20.dp),
-                            tint = if (canGoNext) MiTextSecondary else MiTextSecondary.copy(alpha = 0.3f)
-                        )
-                    }
-                }
+                    WeekStepper(
+                        week = week,
+                        today = today,
+                        weekStart = state.weekStart,
+                        onPreviousWeek = onPreviousWeek,
+                        onNextWeek = onNextWeek,
+                        onCurrentWeek = onCurrentWeek
+                    )
                 }
             )
 
@@ -254,21 +206,7 @@ fun DashboardContent(
                         }
                     }
                     is DashboardUiState.Success -> {
-                        if (showComparison) {
-                            WeekComparisonPage(
-                                rows = comparison,
-                                loggedDays = state.weekSummary.loggedDays,
-                                comparedDays = comparedDayCount(week, today),
-                                partialSpan = partialWeekSpan(week, today, state.weekStart),
-                                showCarbsFat = state.showCarbsFat,
-                                onToggleCarbsFat = onToggleCarbsFat,
-                                days = weekDays,
-                                balances = uiState.balances,
-                                averagingDays = averagingDays,
-                                previousBalances = state.previousWeekBalances,
-                                previousDays = remember(week) { week.previous().days() }
-                            )
-                        } else if (selectedLens == null) {
+                        if (selectedLens == null) {
                             DashboardHome(
                                 balances = uiState.balances,
                                 days = weekDays,
@@ -283,7 +221,7 @@ fun DashboardContent(
                                         loggedDays = state.weekSummary.loggedDays,
                                         comparedDays = comparedDayCount(week, today),
                                         partialSpan = partialWeekSpan(week, today, state.weekStart),
-                                        onClick = { showComparison = true }
+                                        onClick = onOpenComparison
                                     )
                                 }
                             )
