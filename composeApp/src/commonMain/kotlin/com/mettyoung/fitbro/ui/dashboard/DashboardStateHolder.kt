@@ -10,6 +10,10 @@ import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.model.DailyIntake
 import com.mettyoung.fitbro.data.model.DailyMacroTotals
 import com.mettyoung.fitbro.data.model.Metabolism
+import com.mettyoung.fitbro.data.model.Week
+import com.mettyoung.fitbro.data.model.WeekStart
+import com.mettyoung.fitbro.data.model.comparisonDays
+import com.mettyoung.fitbro.data.model.summarizeWeek
 import com.mettyoung.fitbro.data.repository.CalorieMathRepository
 import com.mettyoung.fitbro.data.repository.CalorieResult
 import com.mettyoung.fitbro.data.repository.FoodDiaryRepository
@@ -32,17 +36,20 @@ class DashboardStateHolder(
     private val userSettingsDataSource: UserSettingsDataSource,
     private val calorieMathRepository: CalorieMathRepository,
     private val scope: CoroutineScope,
-    initialDateRange: DateRange,
     /** Receives each refresh's computed balances (wired to cloud sync so expenditure reaches the MCP server). */
     private val onBalancesComputed: (List<DailyBalance>) -> Unit = {}
 ) {
     private val _state = MutableStateFlow(
-        DashboardState(
-            uiState = DashboardUiState.Loading,
-            lastSyncTime = emptyMap(),
-            errorMessage = null,
-            selectedDateRange = initialDateRange
-        )
+        userSettingsDataSource.getWeekStart().let { weekStart ->
+            DashboardState(
+                uiState = DashboardUiState.Loading,
+                lastSyncTime = emptyMap(),
+                errorMessage = null,
+                weekStart = weekStart,
+                selectedWeek = Week.of(todayString(), weekStart),
+                showCarbsFat = userSettingsDataSource.getShowCarbsFatComparison()
+            )
+        }
     )
     val state: StateFlow<DashboardState> = _state.asStateFlow()
 
@@ -55,7 +62,10 @@ class DashboardStateHolder(
 
     fun refresh() {
         scope.launch(Dispatchers.Default) {
-            val range = _state.value.selectedDateRange
+            val today = todayString()
+            val week = _state.value.selectedWeek
+            // FR-3: one read covering the previous week through the selected week (clamped to today).
+            val range = DateRange(week.previous().start, minOf(week.end, today))
             _state.update { it.copy(uiState = DashboardUiState.Loading, errorMessage = null) }
 
             val metabolismDeferred = async { healthDataSource.readBasalMetabolicRate(range.startDate, range.endDate) }
@@ -100,7 +110,10 @@ class DashboardStateHolder(
                 }
             }
 
-            val balances = computeBalances(foodDiaryTotals.map { it.toDailyIntake() }, metabolisms, activities)
+            val allBalances = computeBalances(foodDiaryTotals.map { it.toDailyIntake() }, metabolisms, activities)
+            val balances = allBalances.filter { week.contains(it.date) }
+            val weekSummary = summarizeWeek(balances, week.days())
+            val previousWeekSummary = summarizeWeek(allBalances, comparisonDays(week, today))
 
             val updatedSyncTime = mapOf(
                 CacheSource.HEALTH_METABOLISM to cacheDataSource.getSyncTimestamp(CacheSource.HEALTH_METABOLISM),
@@ -108,33 +121,54 @@ class DashboardStateHolder(
             )
 
             val warnings = buildWarnings(healthMetabolismFailed, healthFailed)
-            val totalFailure = balances.isEmpty() && errors.isNotEmpty() &&
+            val totalFailure = allBalances.isEmpty() && errors.isNotEmpty() &&
                 updatedSyncTime.values.all { it == null }
             val newUiState = if (totalFailure) {
                 DashboardUiState.Error(errors.joinToString("\n"))
             } else {
                 DashboardUiState.Success(balances, warnings)
             }
-            if (!totalFailure) onBalancesComputed(balances)
+            if (!totalFailure) onBalancesComputed(allBalances)
 
             _state.update {
                 it.copy(
                     uiState = newUiState,
                     lastSyncTime = updatedSyncTime,
+                    weekSummary = weekSummary,
+                    previousWeekSummary = previousWeekSummary,
                     errorMessage = if (errors.isNotEmpty()) errors.joinToString("\n") else null
                 )
             }
         }
     }
 
-    fun selectDateRange(dateRange: DateRange) {
-        userSettingsDataSource.setDashboardStartDate(dateRange.startDate)
-        userSettingsDataSource.setDashboardEndDate(dateRange.endDate)
-        _state.update { it.copy(selectedDateRange = dateRange) }
-        if (dateRange.startDate == dateRange.endDate) {
-            _selectedDate.value = dateRange.startDate
+    fun selectWeek(week: Week) {
+        val current = Week.of(todayString(), _state.value.weekStart)
+        val target = if (week.start > current.start) current else week
+        if (target == _state.value.selectedWeek) return
+        _state.update { it.copy(selectedWeek = target) }
+        refresh()
+    }
+
+    fun previousWeek() = selectWeek(_state.value.selectedWeek.previous())
+
+    fun nextWeek() = selectWeek(_state.value.selectedWeek.next())
+
+    fun currentWeek() = selectWeek(Week.of(todayString(), _state.value.weekStart))
+
+    /** US-003: persist and re-align to the week containing the old selection's first day. */
+    fun setWeekStart(weekStart: WeekStart) {
+        if (weekStart == _state.value.weekStart) return
+        userSettingsDataSource.setWeekStart(weekStart)
+        _state.update {
+            it.copy(weekStart = weekStart, selectedWeek = Week.of(it.selectedWeek.start, weekStart))
         }
         refresh()
+    }
+
+    fun setShowCarbsFat(show: Boolean) {
+        userSettingsDataSource.setShowCarbsFatComparison(show)
+        _state.update { it.copy(showCarbsFat = show) }
     }
 
     private fun computeBalances(

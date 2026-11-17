@@ -59,6 +59,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
+import com.mettyoung.fitbro.data.model.compareWeeks
+import com.mettyoung.fitbro.data.model.partialWeekSpan
 import com.mettyoung.fitbro.ui.BackHandlerEffect
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
@@ -66,8 +68,6 @@ import com.mettyoung.fitbro.ui.ColorProtein
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import com.mettyoung.fitbro.util.formatTimeAgo
-import com.mettyoung.fitbro.util.minusDays
-import com.mettyoung.fitbro.util.plusDays
 import com.mettyoung.fitbro.util.toShortDate
 import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.delay
@@ -78,14 +78,19 @@ import kotlin.math.roundToInt
 fun DashboardScreen(
     stateHolder: DashboardStateHolder,
     weeklyCardioMinutes: Int = 0,
+    previousWeekCardioMinutes: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val state by stateHolder.state.collectAsState()
     DashboardContent(
         state = state,
         onRefresh = { stateHolder.refresh() },
-        onDateRangeChanged = { stateHolder.selectDateRange(it) },
+        onPreviousWeek = stateHolder::previousWeek,
+        onNextWeek = stateHolder::nextWeek,
+        onCurrentWeek = stateHolder::currentWeek,
+        onToggleCarbsFat = { stateHolder.setShowCarbsFat(!state.showCarbsFat) },
         weeklyCardioMinutes = weeklyCardioMinutes,
+        previousWeekCardioMinutes = previousWeekCardioMinutes,
         modifier = modifier
     )
 }
@@ -94,12 +99,14 @@ fun DashboardScreen(
 fun DashboardContent(
     state: DashboardState,
     onRefresh: () -> Unit,
-    onDateRangeChanged: (DateRange) -> Unit = {},
+    onPreviousWeek: () -> Unit = {},
+    onNextWeek: () -> Unit = {},
+    onCurrentWeek: () -> Unit = {},
+    onToggleCarbsFat: () -> Unit = {},
     weeklyCardioMinutes: Int = 0,
+    previousWeekCardioMinutes: Int = 0,
     modifier: Modifier = Modifier
 ) {
-    var showStartPicker by remember { mutableStateOf(false) }
-    var showEndPicker by remember { mutableStateOf(false) }
     var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
     var selectedLens: DashboardViewMode? by remember { mutableStateOf(null) }
     var wasRefreshing by remember { mutableStateOf(false) }
@@ -109,9 +116,15 @@ fun DashboardContent(
     BackHandlerEffect(enabled = selectedLens != null) { selectedLens = null }
 
     val today = todayString()
-    val startDate = state.selectedDateRange.startDate
-    val endDate = state.selectedDateRange.endDate
-    val canGoNext = startDate.plusDays(7) <= today
+    val week = state.selectedWeek
+    val canGoNext = !week.contains(today)
+    val weekDays = remember(week) { week.days() }
+    val comparison = remember(state.weekSummary, state.previousWeekSummary, weeklyCardioMinutes, previousWeekCardioMinutes) {
+        compareWeeks(
+            state.weekSummary.copy(cardioMinutes = weeklyCardioMinutes),
+            state.previousWeekSummary.copy(cardioMinutes = previousWeekCardioMinutes)
+        )
+    }
     val isLoading = state.uiState is DashboardUiState.Loading
 
     LaunchedEffect(state.uiState) {
@@ -175,37 +188,35 @@ fun DashboardContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
-                        onClick = { onDateRangeChanged(DateRange(startDate.minusDays(7), endDate)) },
+                        onClick = onPreviousWeek,
                         modifier = Modifier.size(36.dp)
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev", modifier = Modifier.size(20.dp), tint = MiTextSecondary)
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous week", modifier = Modifier.size(20.dp), tint = MiTextSecondary)
                     }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    // US-001: tap the label to jump back to the current week.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onCurrentWeek).padding(horizontal = 8.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = startDate.toShortDate(),
+                            text = week.label(today, state.weekStart),
                             style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { showStartPicker = true }.padding(horizontal = 4.dp, vertical = 2.dp)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        Text("–", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
                         Text(
-                            text = endDate.toShortDate(),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { showEndPicker = true }.padding(horizontal = 4.dp, vertical = 2.dp)
+                            text = "${week.start.toShortDate()} – ${week.end.toShortDate()}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MiTextSecondary
                         )
                     }
                     IconButton(
-                        onClick = { onDateRangeChanged(DateRange(startDate.plusDays(7), endDate)) },
+                        onClick = onNextWeek,
                         enabled = canGoNext,
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Next",
+                            contentDescription = "Next week",
                             modifier = Modifier.size(20.dp),
                             tint = if (canGoNext) MiTextSecondary else MiTextSecondary.copy(alpha = 0.3f)
                         )
@@ -234,14 +245,25 @@ fun DashboardContent(
                         if (selectedLens == null) {
                             DashboardHome(
                                 balances = uiState.balances,
-                                weeklyCardioMinutes = weeklyCardioMinutes,
+                                days = weekDays,
                                 onBarClick = { selectedBreakdown = it },
                                 onIntakeClick = { selectedLens = DashboardViewMode.INTAKE },
-                                onExpenditureClick = { selectedLens = DashboardViewMode.EXPENDITURE }
+                                onExpenditureClick = { selectedLens = DashboardViewMode.EXPENDITURE },
+                                comparisonCard = {
+                                    WeekComparisonCard(
+                                        rows = comparison,
+                                        loggedDays = state.weekSummary.loggedDays,
+                                        elapsedDays = week.elapsedDays(today),
+                                        partialSpan = partialWeekSpan(week, today, state.weekStart),
+                                        showCarbsFat = state.showCarbsFat,
+                                        onToggleCarbsFat = onToggleCarbsFat
+                                    )
+                                }
                             )
                         } else {
                             DashboardDetail(
                                 balances = uiState.balances,
+                                days = weekDays,
                                 viewMode = selectedLens!!,
                                 onBarClick = { selectedBreakdown = it }
                             )
@@ -277,44 +299,22 @@ fun DashboardContent(
         BreakdownDialog(balance = breakdown, onDismiss = { selectedBreakdown = null })
     }
 
-    if (showStartPicker) {
-        DatePickerDialog(
-            initialStartDate = startDate,
-            onDismiss = { showStartPicker = false },
-            onDateRangeSelected = { range ->
-                onDateRangeChanged(DateRange(range.startDate, endDate))
-                showStartPicker = false
-            },
-            singleDay = true
-        )
-    }
-
-    if (showEndPicker) {
-        DatePickerDialog(
-            initialStartDate = endDate,
-            onDismiss = { showEndPicker = false },
-            onDateRangeSelected = { range ->
-                val newEnd = if (range.startDate >= startDate) range.startDate else endDate
-                onDateRangeChanged(DateRange(startDate, newEnd))
-                showEndPicker = false
-            },
-            singleDay = true
-        )
-    }
 }
 
 @Composable
 private fun DashboardHome(
     balances: List<DailyBalance>,
-    weeklyCardioMinutes: Int,
+    days: List<String>,
     onBarClick: (DailyBalance) -> Unit,
     onIntakeClick: () -> Unit,
     onExpenditureClick: () -> Unit,
+    comparisonCard: @Composable () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SlidingWindowInsightCard(
             balances = balances,
+            days = days,
             viewMode = DashboardViewMode.BALANCE,
             onBarClick = onBarClick,
             modifier = Modifier.fillMaxWidth()
@@ -337,6 +337,8 @@ private fun DashboardHome(
                 modifier = Modifier.weight(1f)
             )
         }
+
+        comparisonCard()
     }
 }
 
@@ -349,8 +351,9 @@ private fun SummaryMetricCard(
     isBig: Boolean = false,
     extraContent: @Composable () -> Unit = {}
 ) {
-    val avgValue = if (balances.isEmpty()) 0.0 else balances.sumOf { viewMode.valueOf(it) } / balances.size
-    val netBalance = balances.sumOf { it.balance }.roundToInt()
+    val logged = balances.filter { it.intake > 0 }
+    val avgValue = if (logged.isEmpty()) 0.0 else logged.sumOf { viewMode.valueOf(it) } / logged.size
+    val netBalance = logged.sumOf { it.balance }.roundToInt()
 
     val valueColor = when (viewMode) {
         DashboardViewMode.BALANCE     -> if (netBalance >= 0) PositiveColor else NegativeColor
@@ -409,6 +412,7 @@ private fun SummaryMetricCard(
 @Composable
 private fun DashboardDetail(
     balances: List<DailyBalance>,
+    days: List<String>,
     viewMode: DashboardViewMode,
     onBarClick: (DailyBalance) -> Unit,
     modifier: Modifier = Modifier
@@ -416,6 +420,7 @@ private fun DashboardDetail(
     Column(modifier = modifier) {
         SlidingWindowInsightCard(
             balances = balances,
+            days = days,
             viewMode = viewMode,
             onBarClick = onBarClick,
             modifier = Modifier.fillMaxWidth()
@@ -548,11 +553,14 @@ private fun ErrorDialog(error: String, onDismiss: () -> Unit) {
 @Composable
 private fun SlidingWindowInsightCard(
     balances: List<DailyBalance>,
+    days: List<String>,
     viewMode: DashboardViewMode,
     onBarClick: (DailyBalance) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val metrics = remember(balances) { com.mettyoung.fitbro.data.model.calculateWindowMetrics(balances) }
+    // Averages/trend over logged days only, matching the week-over-week card (FR-5).
+    val logged = remember(balances) { balances.filter { it.intake > 0 } }
+    val metrics = remember(logged) { com.mettyoung.fitbro.data.model.calculateWindowMetrics(logged) }
     val trendColor = when (metrics.trend) {
         com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING -> PositiveColor
         com.mettyoung.fitbro.data.model.TrendDirection.DECLINING -> NegativeColor
@@ -566,8 +574,8 @@ private fun SlidingWindowInsightCard(
         DashboardViewMode.EXPENDITURE -> "AVERAGE EXPENDITURE"
     }
     val avgValue = if (isBalance) metrics.avgDailyBalance
-        else if (balances.isEmpty()) 0.0 else balances.sumOf { viewMode.valueOf(it) } / balances.size
-    val totalValue = if (isBalance) metrics.totalBalance else balances.sumOf { viewMode.valueOf(it) }
+        else if (logged.isEmpty()) 0.0 else logged.sumOf { viewMode.valueOf(it) } / logged.size
+    val totalValue = if (isBalance) metrics.totalBalance else logged.sumOf { viewMode.valueOf(it) }
 
     Card(
         modifier = modifier,
@@ -624,7 +632,8 @@ private fun SlidingWindowInsightCard(
                 onBarClick = onBarClick,
                 modifier = Modifier.fillMaxWidth().height(160.dp),
                 valueSelector = { viewMode.valueOf(it) },
-                diverging = viewMode.isDiverging
+                diverging = viewMode.isDiverging,
+                days = days
             )
 
             Spacer(Modifier.height(24.dp))

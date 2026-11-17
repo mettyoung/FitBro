@@ -44,7 +44,10 @@ import com.mettyoung.fitbro.data.sync.SyncSettings
 import com.mettyoung.fitbro.ui.settings.CloudSyncSettings
 import com.mettyoung.fitbro.ui.settings.MacroProfilesSettings
 import com.mettyoung.fitbro.ui.settings.MacroProfilesStateHolder
+import com.mettyoung.fitbro.ui.settings.WeekStartSettings
 import com.mettyoung.fitbro.ui.settings.WorkoutTypesSettings
+import com.mettyoung.fitbro.data.model.partialWeekSpan
+import com.mettyoung.fitbro.util.todayString
 
 @Composable
 fun DashboardWithTabs(
@@ -70,8 +73,9 @@ fun DashboardWithTabs(
     }
 
     val dashboardState by stateHolder.state.collectAsState()
-    LaunchedEffect(dashboardState.selectedDateRange) {
-        cardioStateHolder.setDateRange(dashboardState.selectedDateRange)
+    // US-004: Cardio follows the Trends week.
+    LaunchedEffect(dashboardState.selectedWeek) {
+        cardioStateHolder.setWeek(dashboardState.selectedWeek)
     }
 
     Scaffold(
@@ -131,12 +135,21 @@ fun DashboardWithTabs(
                     )
                     AppTab.TRENDS -> DashboardScreen(
                         stateHolder = stateHolder,
-                        weeklyCardioMinutes = cardioState.totalMinutes
+                        weeklyCardioMinutes = cardioState.totalMinutes,
+                        previousWeekCardioMinutes = cardioState.previousWeekMinutes
                     )
-                    AppTab.CARDIO -> CardioScreen(stateHolder = cardioStateHolder)
+                    AppTab.CARDIO -> CardioScreen(
+                        stateHolder = cardioStateHolder,
+                        weekLabel = dashboardState.selectedWeek.label(todayString(), dashboardState.weekStart),
+                        partialSpan = partialWeekSpan(dashboardState.selectedWeek, todayString(), dashboardState.weekStart)
+                    )
                     AppTab.SETTINGS -> MacroProfilesSettings(
                         stateHolder = macroProfilesStateHolder,
                         footer = {
+                            WeekStartSettings(
+                                weekStart = dashboardState.weekStart,
+                                onWeekStartChange = stateHolder::setWeekStart
+                            )
                             WorkoutTypesSettings(cardioStateHolder)
                             CloudSyncSettings(syncRepository, syncSettings)
                         }

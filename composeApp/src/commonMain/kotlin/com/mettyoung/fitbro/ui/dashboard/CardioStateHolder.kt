@@ -5,6 +5,8 @@ import com.mettyoung.fitbro.data.health.HealthDataError
 import com.mettyoung.fitbro.data.health.HealthDataSource
 import com.mettyoung.fitbro.data.health.HealthResult
 import com.mettyoung.fitbro.data.model.CardioSession
+import com.mettyoung.fitbro.data.model.Week
+import com.mettyoung.fitbro.data.model.comparisonDays
 import com.mettyoung.fitbro.data.model.WorkoutType
 import com.mettyoung.fitbro.data.model.visible
 import kotlinx.coroutines.CoroutineScope
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.launch
 
 /**
@@ -27,22 +30,26 @@ class CardioStateHolder(
     private val _state = MutableStateFlow(CardioState(hiddenTypes = userSettingsDataSource.getHiddenWorkoutTypes()))
     val state: StateFlow<CardioState> = _state.asStateFlow()
 
-    /** Last successful read, unfiltered, so hide/show re-filters without re-reading Health Connect. */
+    /**
+     * Last successful read (previous + selected week), unfiltered, so hide/show re-filters
+     * without re-reading Health Connect.
+     */
     private var allSessions: List<CardioSession> = emptyList()
     private var loadJob: Job? = null
 
-    fun setDateRange(dateRange: DateRange) {
-        _state.update { it.copy(dateRange = dateRange) }
+    fun setWeek(week: Week) {
+        if (week == _state.value.week && allSessions.isNotEmpty()) return
+        _state.update { it.copy(week = week) }
         refresh()
     }
 
     /** Re-reads the current range; call on resume so sessions synced in the background show up. */
     fun refresh() {
         loadJob?.cancel()
-        val range = _state.value.dateRange
+        val week = _state.value.week
         loadJob = scope.launch {
             _state.update { it.copy(isLoading = true) }
-            when (val result = healthDataSource.readExerciseSessions(range.startDate, range.endDate)) {
+            when (val result = healthDataSource.readExerciseSessions(week.previous().start, week.end)) {
                 is HealthResult.Success -> {
                     allSessions = result.value.sortedByDescending { s -> s.startEpochMs }
                     _state.update { it.copy(isLoading = false, error = null).withFilter(allSessions) }
@@ -69,11 +76,14 @@ class CardioStateHolder(
     }
 
     private fun CardioState.withFilter(all: List<CardioSession>): CardioState {
-        val visible = all.visible(hiddenTypes)
+        val thisWeek = all.filter { week.contains(it.date) }
+        val visible = thisWeek.visible(hiddenTypes)
+        val previousDays = comparisonDays(week, todayString()).toSet()
         return copy(
             sessions = visible,
             totalMinutes = visible.sumOf { it.minutes },
-            hiddenCount = all.size - visible.size
+            previousWeekMinutes = all.filter { it.date in previousDays }.visible(hiddenTypes).sumOf { it.minutes },
+            hiddenCount = thisWeek.size - visible.size
         )
     }
 }

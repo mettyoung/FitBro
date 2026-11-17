@@ -28,6 +28,7 @@ FitBro is a Kotlin Multiplatform (KMP) calorie-tracking app targeting Android an
 - **StateHolder pattern** (`ui/dashboard/DashboardStateHolder.kt`): Compose ViewModel equivalent. Manages state, side effects, coordination.
 - **Unidirectional data flow**: StateHolder emits `StateFlow<UiState>`, UI responds to events.
 - **Navigation**: `DashboardWithTabs` `AppTab` enum — Today (food diary, `MacroDailyCounterDetail`, default) / Trends (`DashboardScreen`) / Cardio / Settings.
+- **Weeks**: Trends and Cardio show one calendar week (`data/model/Week.kt`; start day = `WeekStart` setting, default Monday) plus a week-over-week card. Comparison logic is pure (`summarizeWeek`/`compareWeeks`/`comparisonDays`, like-for-like for the current partial week); averages count logged days only (intake > 0). No custom date ranges.
 - **Theme** (`ui/Theme.kt`): full orange-seeded M3 light/dark schemes; `MiOrange`/`MiTextSecondary` are theme-aware `@Composable` getters (not constants — can't be used inside `Canvas`/DrawScope lambdas; hoist first). Surplus/deficit colors via `PositiveColor`/`NegativeColor`. No raw `Color(0x…)` in screens.
 - **Shared components** (`ui/components/`): `ScreenHeader` (handles status-bar inset), `DateStepper`, `SectionLabel`, `ScreenGutter`. Cards are flat `Card` with `surface` on `background`, `MaterialTheme.shapes.large`.
 - **Wiring**: `App.kt` instantiates data sources, repositories, and StateHolders via `remember { ... }` and passes them down. Platform factories called here.

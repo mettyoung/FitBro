@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.data.cache
 
 import com.mettyoung.fitbro.data.food.FoodDatabase
+import com.mettyoung.fitbro.data.model.WeekStart
 import com.mettyoung.fitbro.data.model.WorkoutType
 
 interface UserSettingsDataSource {
@@ -19,12 +20,13 @@ interface UserSettingsDataSource {
     fun getFoodDatabase(): FoodDatabase
     fun setFoodDatabase(db: FoodDatabase)
 
+    /** First day of the week for Trends / Cardio; defaults to Monday. */
+    fun getWeekStart(): WeekStart
+    fun setWeekStart(weekStart: WeekStart)
 
-    fun getDashboardStartDate(): String
-    fun setDashboardStartDate(date: String)
-
-    fun getDashboardEndDate(): String
-    fun setDashboardEndDate(date: String)
+    /** Show avg carbs / fat rows in the week-over-week card (hidden by default). */
+    fun getShowCarbsFatComparison(): Boolean
+    fun setShowCarbsFatComparison(show: Boolean)
 
     /** Workout types hidden from the Cardio tab; defaults to [WorkoutType.DEFAULT_HIDDEN] until set. */
     fun getHiddenWorkoutTypes(): Set<WorkoutType>

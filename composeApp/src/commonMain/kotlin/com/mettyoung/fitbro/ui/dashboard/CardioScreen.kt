@@ -63,13 +63,14 @@ private val DAY_ABBR = arrayOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 @Composable
 fun CardioScreen(
     stateHolder: CardioStateHolder,
+    weekLabel: String,
+    /** e.g. "Mon–Wed" when the selected week is still in progress. */
+    partialSpan: String?,
     modifier: Modifier = Modifier
 ) {
     val state by stateHolder.state.collectAsState()
     val grouped = state.sessions.groupBy { it.date }
     val sortedDates = grouped.keys.sortedDescending()
-    val startDate = state.dateRange.startDate
-    val endDate = state.dateRange.endDate
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarScope = rememberCoroutineScope()
     var showTypesSheet by remember { mutableStateOf(false) }
@@ -91,7 +92,7 @@ fun CardioScreen(
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         ScreenHeader(
             title = "Cardio",
-            overline = "${startDate.toShortDate()} – ${endDate.toShortDate()}"
+            overline = "$weekLabel · ${state.week.start.toShortDate()} – ${state.week.end.toShortDate()}"
         )
 
         Scaffold(
@@ -109,7 +110,12 @@ fun CardioScreen(
                 )
             ) {
                 item {
-                    WeeklySummaryCard(totalMinutes = state.totalMinutes, sessionCount = state.sessions.size)
+                    WeeklySummaryCard(
+                        totalMinutes = state.totalMinutes,
+                        sessionCount = state.sessions.size,
+                        deltaText = "${formatDelta((state.totalMinutes - state.previousWeekMinutes).toDouble(), "min")} vs " +
+                            (partialSpan?.let { "$it last week" } ?: "last week")
+                    )
                     if (state.hiddenCount > 0) {
                         HiddenWorkoutsHint(count = state.hiddenCount, onManage = { showTypesSheet = true })
                     } else {
@@ -176,6 +182,7 @@ private fun HiddenWorkoutsHint(count: Int, onManage: () -> Unit) {
 private fun WeeklySummaryCard(
     totalMinutes: Int,
     sessionCount: Int,
+    deltaText: String,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -193,6 +200,7 @@ private fun WeeklySummaryCard(
                     text = "$totalMinutes",
                     style = MaterialTheme.typography.displayLarge
                 )
+                Text(deltaText, style = MaterialTheme.typography.bodySmall)
             }
             Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
                 Text("SESSIONS", style = MaterialTheme.typography.labelSmall)

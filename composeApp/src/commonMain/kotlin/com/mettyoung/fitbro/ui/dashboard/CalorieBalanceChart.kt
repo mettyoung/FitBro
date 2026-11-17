@@ -36,9 +36,13 @@ fun CalorieBalanceChart(
     modifier: Modifier = Modifier,
     valueSelector: (DailyBalance) -> Double = { it.balance },
     diverging: Boolean = true,
-    showDayLabels: Boolean = true
+    showDayLabels: Boolean = true,
+    /** Fixed slots (e.g. the 7 days of a week); days without a balance render as empty slots. */
+    days: List<String>? = null
 ) {
-    if (balances.isEmpty()) {
+    val slots: List<Pair<String, DailyBalance?>> = days?.map { d -> d to balances.firstOrNull { it.date == d } }
+        ?: balances.map { it.date to it }
+    if (balances.isEmpty() && days == null) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
             Text("No data available", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
         }
@@ -48,9 +52,9 @@ fun CalorieBalanceChart(
     // Diverging (balance) keeps the original 100..3000 clamp; positive-only modes
     // normalize against the actual window max of the plotted value.
     val maxValue = if (diverging) {
-        balances.maxOf { abs(valueSelector(it)) }.coerceAtLeast(100.0).coerceAtMost(3000.0)
+        (balances.maxOfOrNull { abs(valueSelector(it)) } ?: 0.0).coerceAtLeast(100.0).coerceAtMost(3000.0)
     } else {
-        balances.maxOf { abs(valueSelector(it)) }.coerceAtLeast(1.0)
+        (balances.maxOfOrNull { abs(valueSelector(it)) } ?: 0.0).coerceAtLeast(1.0)
     }
 
     Box(modifier = modifier) {
@@ -68,16 +72,20 @@ fun CalorieBalanceChart(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
         ) {
-            balances.forEach { balance ->
+            slots.forEach { (date, balance) ->
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    CalorieBarItem(
-                        balance = balance,
-                        value = valueSelector(balance),
-                        maxValue = maxValue,
-                        diverging = diverging,
-                        showLabel = showDayLabels,
-                        onClick = { onBarClick(balance) }
-                    )
+                    if (balance != null) {
+                        CalorieBarItem(
+                            balance = balance,
+                            value = valueSelector(balance),
+                            maxValue = maxValue,
+                            diverging = diverging,
+                            showLabel = showDayLabels,
+                            onClick = { onBarClick(balance) }
+                        )
+                    } else {
+                        EmptySlot(date = date, showLabel = showDayLabels)
+                    }
                 }
             }
         }
@@ -149,6 +157,25 @@ private fun CalorieBarItem(
                 text = balance.date.toDayInitial(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MiTextSecondary,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptySlot(date: String, showLabel: Boolean) {
+    Column(
+        modifier = Modifier.fillMaxHeight().padding(horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.weight(1f))
+        if (showLabel) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = date.toDayInitial(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MiTextSecondary.copy(alpha = 0.4f),
                 fontWeight = FontWeight.Bold
             )
         }

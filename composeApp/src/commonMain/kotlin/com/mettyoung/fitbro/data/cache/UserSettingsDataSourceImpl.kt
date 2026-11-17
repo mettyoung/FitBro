@@ -1,10 +1,9 @@
 package com.mettyoung.fitbro.data.cache
 
 import com.mettyoung.fitbro.data.food.FoodDatabase
+import com.mettyoung.fitbro.data.model.WeekStart
 import com.mettyoung.fitbro.data.model.WorkoutType
 import com.mettyoung.fitbro.data.sync.SyncSettings
-import com.mettyoung.fitbro.util.minusDays
-import com.mettyoung.fitbro.util.todayString
 import com.russhwolf.settings.Settings
 
 class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsDataSource, SyncSettings {
@@ -14,8 +13,8 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         private const val FAT_GOAL_KEY = "macro_goal_fat_g"
         private const val CALORIE_GOAL_KEY = "macro_goal_calorie_kcal"
         private const val FOOD_DATABASE_KEY = "food_database"
-        private const val DASHBOARD_START_DATE_KEY = "dashboard_start_date"
-        private const val DASHBOARD_END_DATE_KEY = "dashboard_end_date"
+        private const val WEEK_START_KEY = "week_start"
+        private const val SHOW_CARBS_FAT_KEY = "wow_show_carbs_fat"
         private const val HIDDEN_WORKOUT_TYPES_KEY = "hidden_workout_types"
         private const val SYNC_URL_KEY = "sync_url"
         private const val SYNC_TOKEN_KEY = "sync_token"
@@ -64,18 +63,16 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         settings.putString(FOOD_DATABASE_KEY, db.name)
     }
 
-    override fun getDashboardStartDate(): String =
-        settings.getStringOrNull(DASHBOARD_START_DATE_KEY) ?: todayString().minusDays(6)
+    override fun getWeekStart(): WeekStart = WeekStart.parse(settings.getStringOrNull(WEEK_START_KEY))
 
-    override fun setDashboardStartDate(date: String) {
-        settings.putString(DASHBOARD_START_DATE_KEY, date)
+    override fun setWeekStart(weekStart: WeekStart) {
+        settings.putString(WEEK_START_KEY, weekStart.name)
     }
 
-    override fun getDashboardEndDate(): String =
-        settings.getStringOrNull(DASHBOARD_END_DATE_KEY) ?: todayString()
+    override fun getShowCarbsFatComparison(): Boolean = settings.getBoolean(SHOW_CARBS_FAT_KEY, false)
 
-    override fun setDashboardEndDate(date: String) {
-        settings.putString(DASHBOARD_END_DATE_KEY, date)
+    override fun setShowCarbsFatComparison(show: Boolean) {
+        settings.putBoolean(SHOW_CARBS_FAT_KEY, show)
     }
 
     override fun getHiddenWorkoutTypes(): Set<WorkoutType> =

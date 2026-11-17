@@ -36,9 +36,7 @@ import com.mettyoung.fitbro.ui.dashboard.CustomMealStateHolder
 import com.mettyoung.fitbro.ui.dashboard.DashboardStateHolder
 import com.mettyoung.fitbro.ui.dashboard.DashboardUiState
 import com.mettyoung.fitbro.ui.dashboard.DashboardWithTabs
-import com.mettyoung.fitbro.ui.dashboard.DateRange
 import com.mettyoung.fitbro.ui.dashboard.FoodDiaryStateHolder
-import com.mettyoung.fitbro.util.todayString
 
 @Composable
 fun App() {
@@ -111,9 +109,6 @@ fun App() {
         // Pick up sessions Mi Fitness (etc.) synced to Health Connect while we were in the background.
         LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { cardioStateHolder.refresh() }
 
-        val initialDateRange = remember {
-            DateRange(userSettingsDataSource.getDashboardStartDate(), userSettingsDataSource.getDashboardEndDate())
-        }
         val stateHolder = remember(
             healthDataSource,
             cacheDataSource,
@@ -130,7 +125,6 @@ fun App() {
                 userSettingsDataSource = userSettingsDataSource,
                 calorieMathRepository = calorieMathRepository,
                 scope = scope,
-                initialDateRange = initialDateRange,
                 onBalancesComputed = syncRepository::publishExpenditure
             )
         }
