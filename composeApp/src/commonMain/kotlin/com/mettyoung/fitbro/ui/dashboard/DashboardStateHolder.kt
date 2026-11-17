@@ -137,6 +137,7 @@ class DashboardStateHolder(
                     lastSyncTime = updatedSyncTime,
                     weekSummary = weekSummary,
                     previousWeekSummary = previousWeekSummary,
+                    previousWeekBalances = allBalances.filter { week.previous().contains(it.date) },
                     errorMessage = if (errors.isNotEmpty()) errors.joinToString("\n") else null
                 )
             }

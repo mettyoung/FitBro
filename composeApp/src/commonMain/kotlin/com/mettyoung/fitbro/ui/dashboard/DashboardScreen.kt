@@ -113,11 +113,13 @@ fun DashboardContent(
 ) {
     var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
     var selectedLens: DashboardViewMode? by remember { mutableStateOf(null) }
+    var showComparison by remember { mutableStateOf(false) }
     var wasRefreshing by remember { mutableStateOf(false) }
     var showSuccessToast by remember { mutableStateOf(false) }
     var refreshError by remember { mutableStateOf<String?>(null) }
 
-    BackHandlerEffect(enabled = selectedLens != null) { selectedLens = null }
+    val inDetail = selectedLens != null || showComparison
+    BackHandlerEffect(enabled = inDetail) { selectedLens = null; showComparison = false }
 
     val today = todayString()
     val week = state.selectedWeek
@@ -166,11 +168,14 @@ fun DashboardContent(
                 .verticalScroll(rememberScrollState())
         ) {
             ScreenHeader(
-                title = selectedLens?.label ?: "Trends",
-                overline = if (selectedLens == null) "Energy balance" else "Trends",
-                navigation = if (selectedLens != null) {
+                title = when {
+                    showComparison -> "Vs last week"
+                    else -> selectedLens?.label ?: "Trends"
+                },
+                overline = if (inDetail) "Trends" else "Energy balance",
+                navigation = if (inDetail) {
                     {
-                        IconButton(onClick = { selectedLens = null }) {
+                        IconButton(onClick = { selectedLens = null; showComparison = false }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
@@ -249,7 +254,21 @@ fun DashboardContent(
                         }
                     }
                     is DashboardUiState.Success -> {
-                        if (selectedLens == null) {
+                        if (showComparison) {
+                            WeekComparisonPage(
+                                rows = comparison,
+                                loggedDays = state.weekSummary.loggedDays,
+                                comparedDays = comparedDayCount(week, today),
+                                partialSpan = partialWeekSpan(week, today, state.weekStart),
+                                showCarbsFat = state.showCarbsFat,
+                                onToggleCarbsFat = onToggleCarbsFat,
+                                days = weekDays,
+                                balances = uiState.balances,
+                                averagingDays = averagingDays,
+                                previousBalances = state.previousWeekBalances,
+                                previousDays = remember(week) { week.previous().days() }
+                            )
+                        } else if (selectedLens == null) {
                             DashboardHome(
                                 balances = uiState.balances,
                                 days = weekDays,
@@ -259,13 +278,12 @@ fun DashboardContent(
                                 onIntakeClick = { selectedLens = DashboardViewMode.INTAKE },
                                 onExpenditureClick = { selectedLens = DashboardViewMode.EXPENDITURE },
                                 comparisonCard = {
-                                    WeekComparisonCard(
+                                    WeekComparisonTeaser(
                                         rows = comparison,
                                         loggedDays = state.weekSummary.loggedDays,
                                         comparedDays = comparedDayCount(week, today),
                                         partialSpan = partialWeekSpan(week, today, state.weekStart),
-                                        showCarbsFat = state.showCarbsFat,
-                                        onToggleCarbsFat = onToggleCarbsFat
+                                        onClick = { showComparison = true }
                                     )
                                 }
                             )
@@ -785,7 +803,7 @@ private fun LogDotRow(
     }
 }
 
-private fun String.toDayAbbr(): String {
+internal fun String.toDayAbbr(): String {
     val parts = split("-")
     if (parts.size != 3) return ""
     val year = parts[0].toIntOrNull() ?: return ""
