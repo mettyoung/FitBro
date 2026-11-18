@@ -2,6 +2,7 @@ package com.mettyoung.fitbro.ui.dashboard
 
 import com.mettyoung.fitbro.ui.components.ScreenGutter
 import com.mettyoung.fitbro.ui.components.ScreenHeader
+import com.mettyoung.fitbro.ui.components.DetailHeader
 import com.mettyoung.fitbro.ui.PositiveColor
 import com.mettyoung.fitbro.ui.NegativeColor
 import androidx.compose.foundation.background
@@ -58,24 +59,19 @@ import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.model.partialWeekSpan
 import com.mettyoung.fitbro.data.model.BodyMetric
+import com.mettyoung.fitbro.util.toShortDate
 import com.mettyoung.fitbro.data.model.CardioSession
 import com.mettyoung.fitbro.data.model.WeekGoals
 import com.mettyoung.fitbro.data.model.WeekMetric
 import com.mettyoung.fitbro.data.model.WeekSummary
 import com.mettyoung.fitbro.data.model.minutesOn
-import com.mettyoung.fitbro.ui.components.ActivityRings
-import com.mettyoung.fitbro.ui.components.MetricTileCard
-import com.mettyoung.fitbro.ui.components.MiniTicks
-import com.mettyoung.fitbro.ui.components.StatItem
-import com.mettyoung.fitbro.ui.components.StatTripletCard
-import com.mettyoung.fitbro.ui.components.TwoColumnTiles
 import androidx.compose.material.icons.filled.CheckCircle
 import com.mettyoung.fitbro.ui.BackHandlerEffect
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.util.formatTimeAgo
 import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.delay
@@ -104,7 +100,6 @@ fun DashboardScreen(
         onPreviousWeek = stateHolder::previousWeek,
         onNextWeek = stateHolder::nextWeek,
         onCurrentWeek = stateHolder::currentWeek,
-        onToggleCarbsFat = { stateHolder.setShowCarbsFat(!state.showCarbsFat) },
         cardioSessions = cardioSessions,
         resistanceCount = resistanceCount,
         strengthSessions = strengthSessions,
@@ -126,7 +121,6 @@ fun DashboardContent(
     onPreviousWeek: () -> Unit = {},
     onNextWeek: () -> Unit = {},
     onCurrentWeek: () -> Unit = {},
-    onToggleCarbsFat: () -> Unit = {},
     cardioSessions: List<CardioSession> = emptyList(),
     resistanceCount: Int = 0,
     strengthSessions: List<CardioSession> = emptyList(),
@@ -194,49 +188,48 @@ fun DashboardContent(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            ScreenHeader(
-                title = when (val p = page) {
-                    null -> "Dashboard"
-                    is DashboardPage.Lens -> p.mode.label
-                    is DashboardPage.Body -> p.metric.label
-                    DashboardPage.Estimate -> "Estimated expenditure"
-                    DashboardPage.Resistance -> "Resistance"
-                    DashboardPage.Workout -> workoutDetail?.session?.activity ?: "Workout"
-                },
-                // Lens pages drop the week stepper (its ‹ read as a second back button); the overline keeps the week.
-                overline = when {
-                    page is DashboardPage.Lens -> week.label(today, state.weekStart)
-                    page == DashboardPage.Workout -> "Resistance"
-                    inDetail -> "Dashboard"
-                    else -> null
-                },
-                navigation = if (inDetail) {
-                    {
-                        IconButton(onClick = goBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            val weekRange = "${week.start.toShortDate()} – ${week.end.toShortDate()}"
+            val bodyWindow = state.body.trends[BodyMetric.WEIGHT]?.windowDays
+                ?.let { d -> if (d.isEmpty()) null else "${d.first().toShortDate()} – ${d.last().toShortDate()}" }
+            when (val p = page) {
+                null -> ScreenHeader(
+                    title = "Dashboard",
+                    actions = {
+                        if (isLoading && wasRefreshing) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            IconButton(onClick = { wasRefreshing = true; onRefresh() }, enabled = !isLoading) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = TextSecondary)
+                            }
                         }
+                    },
+                    bottom = {
+                        WeekStepper(
+                            week = week,
+                            today = today,
+                            weekStart = state.weekStart,
+                            onPreviousWeek = onPreviousWeek,
+                            onNextWeek = onNextWeek,
+                            onCurrentWeek = onCurrentWeek
+                        )
                     }
-                } else null,
-                actions = {
-                    if (isLoading && wasRefreshing) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        IconButton(onClick = { wasRefreshing = true; onRefresh() }, enabled = !isLoading) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MiTextSecondary)
-                        }
-                    }
-                },
-                bottom = if (page is DashboardPage.Lens || page == DashboardPage.Workout) null else ({
-                    WeekStepper(
-                        week = week,
-                        today = today,
-                        weekStart = state.weekStart,
-                        onPreviousWeek = onPreviousWeek,
-                        onNextWeek = onNextWeek,
-                        onCurrentWeek = onCurrentWeek
-                    )
-                })
-            )
+                )
+                else -> DetailHeader(
+                    title = when (p) {
+                        is DashboardPage.Lens -> p.mode.label
+                        is DashboardPage.Body -> p.metric.shortLabel
+                        DashboardPage.Estimate -> "Expenditure"
+                        DashboardPage.Resistance -> "Resistance"
+                        DashboardPage.Workout -> workoutDetail?.session?.activity ?: "Workout"
+                    },
+                    subtitle = when (p) {
+                        is DashboardPage.Lens, DashboardPage.Resistance -> weekRange
+                        is DashboardPage.Body, DashboardPage.Estimate -> bodyWindow
+                        DashboardPage.Workout -> workoutDetail?.session?.date?.let { "${it.toDayAbbr().lowercase().replaceFirstChar { c -> c.uppercase() }}, ${it.toShortDate()}" }
+                    },
+                    onBack = goBack
+                )
+            }
 
             Column(
                 modifier = Modifier
@@ -251,7 +244,7 @@ fun DashboardContent(
                             modifier = Modifier.height(300.dp).fillMaxWidth(),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(color = MiOrange)
+                            CircularProgressIndicator(color = BrandPrimary)
                         }
                     }
                     is DashboardUiState.Success -> {
@@ -364,7 +357,7 @@ private fun DashboardDetail(
             Text(
                 text = "${balances.size} days",
                 style = MaterialTheme.typography.labelSmall,
-                color = MiTextSecondary
+                color = TextSecondary
             )
         }
         Card(
@@ -433,7 +426,7 @@ private fun ErrorView(message: String, onRetry: () -> Unit) {
             Button(
                 onClick = onRetry,
                 shape = RoundedCornerShape(24.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
             ) {
                 Text("Retry")
             }
@@ -449,7 +442,7 @@ private fun SuccessToast(modifier: Modifier = Modifier) {
             .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(16.dp))
             .padding(horizontal = 24.dp, vertical = 12.dp)
     ) {
-        Text("Sync successful", color = Color.White, style = MaterialTheme.typography.labelSmall)
+        Text("Sync successful", color = MaterialTheme.colorScheme.onSecondary, style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -464,12 +457,12 @@ private fun ErrorDialog(error: String, onDismiss: () -> Unit) {
                 Text(
                     suggestAction(error),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MiTextSecondary
+                    color = TextSecondary
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("OK", color = MiOrange, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onDismiss) { Text("OK", color = BrandPrimary, fontWeight = FontWeight.Bold) }
         },
         shape = RoundedCornerShape(24.dp)
     )
@@ -491,7 +484,7 @@ private fun CondensedLogItem(
             Text(
                 text = balance.date.toDayAbbr(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MiTextSecondary
+                color = TextSecondary
             )
             Text(
                 text = balance.date.split("-").last(),
@@ -519,12 +512,12 @@ private fun CondensedLogItem(
                     LogDotRow(ColorFat, "${(balance.neat + balance.eat).roundToInt()} Active")
                 }
                 else -> {
-                    LogDotRow(MiOrange, "${balance.intake.roundToInt()} in")
+                    LogDotRow(BrandPrimary, "${balance.intake.roundToInt()} in")
                     Spacer(Modifier.height(4.dp))
                     LogDotRow(
                         MaterialTheme.colorScheme.tertiary,
                         "${balance.burn.roundToInt()} out",
-                        textColor = MiTextSecondary
+                        textColor = TextSecondary
                     )
                 }
             }
@@ -613,7 +606,7 @@ private fun SyncStatusBar(state: DashboardState) {
         Text(
             text = statusText,
             style = MaterialTheme.typography.labelSmall,
-            color = MiTextSecondary.copy(alpha = 0.5f)
+            color = TextSecondary.copy(alpha = 0.5f)
         )
     }
 }

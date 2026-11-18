@@ -56,8 +56,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.MacroGoalProfile
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -69,7 +69,6 @@ fun MacroProfilesSettings(
     footer: @Composable () -> Unit = {}
 ) {
     val state by stateHolder.state.collectAsState()
-    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -83,7 +82,9 @@ fun MacroProfilesSettings(
                 Snackbar(snackbarData = data, containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface)
             }
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        // ScreenHeader handles the status bar; avoid a second inset.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -92,7 +93,7 @@ fun MacroProfilesSettings(
                 .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState())
         ) {
-            ScreenHeader(title = "Settings", overline = "Targets & sync", navigation = com.mettyoung.fitbro.ui.components.backNavigation(onBack))
+            ScreenHeader(title = "Settings", navigation = com.mettyoung.fitbro.ui.components.backNavigation(onBack))
 
             Column(
                 modifier = Modifier
@@ -142,7 +143,7 @@ fun MacroProfilesSettings(
                                             "C ${profile.carbsG.roundToInt()}g · " +
                                             "F ${profile.fatG.roundToInt()}g",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MiTextSecondary
+                                        color = TextSecondary
                                     )
                                 }
                                 Text(
@@ -153,7 +154,7 @@ fun MacroProfilesSettings(
                                 Text(
                                     text = " kcal",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MiTextSecondary
+                                    color = TextSecondary
                                 )
                             }
                         }
@@ -256,7 +257,7 @@ private fun WeekdayRow(
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedBorderColor = MiOrange
+                    focusedBorderColor = BrandPrimary
                 )
             )
             ExposedDropdownMenu(

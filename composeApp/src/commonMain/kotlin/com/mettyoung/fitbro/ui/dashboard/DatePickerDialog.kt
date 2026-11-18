@@ -37,7 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.mettyoung.fitbro.ui.MiOrange
+import com.mettyoung.fitbro.ui.BrandPrimary
 import com.mettyoung.fitbro.util.MONTH_ABBR
 import com.mettyoung.fitbro.util.dayOfWeekMonBased
 import com.mettyoung.fitbro.util.daysInMonth
@@ -82,7 +82,7 @@ fun DatePickerDialog(
                         if (displayMonth == 1) { displayYear--; displayMonth = 12 }
                         else displayMonth--
                     }) {
-                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Prev", tint = MiOrange)
+                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Prev", tint = BrandPrimary)
                     }
                     
                     Text(
@@ -107,7 +107,7 @@ fun DatePickerDialog(
                         Icon(
                             Icons.Default.KeyboardArrowRight, 
                             contentDescription = "Next", 
-                            tint = if (canGoNext) MiOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            tint = if (canGoNext) BrandPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                         )
                     }
                 }
@@ -151,14 +151,14 @@ fun DatePickerDialog(
                                     val inRange = !singleDay && dayStr in selectedStart..selectedEnd
 
                                     val bgColor = when {
-                                        isStart || isEnd -> MiOrange
-                                        inRange -> MiOrange.copy(alpha = 0.1f)
+                                        isStart || isEnd -> BrandPrimary
+                                        inRange -> BrandPrimary.copy(alpha = 0.1f)
                                         else -> Color.Transparent
                                     }
                                     val textColor = when {
                                         isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                                        isStart || isEnd -> Color.White
-                                        inRange -> MiOrange
+                                        isStart || isEnd -> MaterialTheme.colorScheme.onPrimary
+                                        inRange -> BrandPrimary
                                         else -> MaterialTheme.colorScheme.onSurface
                                     }
 
@@ -210,10 +210,10 @@ fun DatePickerDialog(
                             onDateRangeSelected(DateRange(selectedStart, endDate))
                             onDismiss()
                         },
-                        modifier = Modifier.weight(1f).background(MiOrange.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
+                        modifier = Modifier.weight(1f).background(BrandPrimary.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
                         shape = RoundedCornerShape(24.dp)
                     ) {
-                        Text("OK", color = MiOrange, fontWeight = FontWeight.Bold)
+                        Text("OK", color = BrandPrimary, fontWeight = FontWeight.Bold)
                     }
                 }
             }

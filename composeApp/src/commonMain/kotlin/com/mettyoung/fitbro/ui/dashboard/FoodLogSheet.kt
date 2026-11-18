@@ -1,5 +1,6 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,10 +28,10 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -77,8 +78,8 @@ import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
 import com.mettyoung.fitbro.ui.FitroBroIcon
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -211,7 +212,7 @@ fun FoodSearchSheet(
                     modifier = Modifier.fillMaxWidth().height(300.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = MiOrange, strokeWidth = 3.dp)
+                    CircularProgressIndicator(color = BrandPrimary, strokeWidth = 3.dp)
                 }
             }
             is SheetContent.Error -> {
@@ -228,10 +229,10 @@ fun FoodSearchSheet(
                     )
                     Button(
                         onClick = { content = SheetContent.Search },
-                        colors = ButtonDefaults.buttonColors(containerColor = MiOrange),
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text("Go back", color = Color.White)
+                        Text("Go back", color = MaterialTheme.colorScheme.onPrimary)
                     }
                     Spacer(Modifier.height(48.dp))
                 }
@@ -312,7 +313,7 @@ fun EditEntrySheet(
                     modifier = Modifier.fillMaxWidth().height(300.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = MiOrange, strokeWidth = 3.dp)
+                    CircularProgressIndicator(color = BrandPrimary, strokeWidth = 3.dp)
                 }
             }
             is SheetContent.Error -> {
@@ -329,10 +330,10 @@ fun EditEntrySheet(
                     )
                     Button(
                         onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = MiOrange),
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text("Go back", color = Color.White)
+                        Text("Go back", color = MaterialTheme.colorScheme.onPrimary)
                     }
                     Spacer(Modifier.height(48.dp))
                 }
@@ -389,7 +390,7 @@ private fun FoodSearchContent(
             Icon(
                 imageVector = FitroBroIcon,
                 contentDescription = null,
-                tint = MiOrange,
+                tint = BrandPrimary,
                 modifier = Modifier.size(28.dp)
             )
             Spacer(Modifier.width(10.dp))
@@ -403,7 +404,7 @@ private fun FoodSearchContent(
                 Text(
                     text = "Find nutrition data for millions of items",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MiOrange
+                    color = BrandPrimary
                 )
             }
         }
@@ -429,7 +430,7 @@ private fun FoodSearchContent(
                     Text(
                         "No recent foods yet — log something first.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MiTextSecondary
+                        color = TextSecondary
                     )
                 }
             } else {
@@ -475,7 +476,7 @@ private fun FoodSearchContent(
                     }
                 },
                 placeholder = { Text("Search ingredients, snacks, meals...", style = MaterialTheme.typography.bodyMedium) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MiOrange) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = BrandPrimary) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
                         IconButton(onClick = { query = ""; searchState = SearchState.Idle }) {
@@ -520,7 +521,7 @@ private fun FoodSearchContent(
                     Icon(
                         imageVector = Icons.Default.QrCodeScanner,
                         contentDescription = "Scan barcode",
-                        tint = MiOrange
+                        tint = BrandPrimary
                     )
                 }
             }
@@ -536,12 +537,12 @@ private fun FoodSearchContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = MiOrange, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Add, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(
                     "Create custom food",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MiOrange,
+                    color = BrandPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -555,7 +556,7 @@ private fun FoodSearchContent(
                     modifier = Modifier.fillMaxWidth().height(300.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Search results will appear here", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
+                    Text("Search results will appear here", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 }
             }
             is SearchState.Loading -> {
@@ -563,7 +564,7 @@ private fun FoodSearchContent(
                     modifier = Modifier.fillMaxWidth().height(300.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = MiOrange, strokeWidth = 3.dp)
+                    CircularProgressIndicator(color = BrandPrimary, strokeWidth = 3.dp)
                 }
             }
             is SearchState.Empty -> {
@@ -572,7 +573,7 @@ private fun FoodSearchContent(
                     contentAlignment = Alignment.Center
                 ) {
                     val emptyMsg = if (query.isNotBlank()) "No foods found matching \"$query\"" else "No food found for that barcode"
-                    Text(emptyMsg, style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
+                    Text(emptyMsg, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 }
             }
             is SearchState.Error -> {
@@ -600,14 +601,14 @@ private fun SegmentChip(label: String, selected: Boolean, modifier: Modifier = M
     Box(
         modifier = modifier
             .height(40.dp)
-            .background(if (selected) MiOrange else Color.Transparent, RoundedCornerShape(12.dp))
+            .background(if (selected) BrandPrimary else Color.Transparent, RoundedCornerShape(12.dp))
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (selected) Color.White else MiTextSecondary,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else TextSecondary,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
         )
     }
@@ -615,12 +616,12 @@ private fun SegmentChip(label: String, selected: Boolean, modifier: Modifier = M
 
 @Composable
 private fun RecentFoodRow(entry: FoodDiaryEntry, onClick: () -> Unit) {
-    ElevatedCard(
+    Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -638,7 +639,7 @@ private fun RecentFoodRow(entry: FoodDiaryEntry, onClick: () -> Unit) {
                     Text(
                         text = entry.brandName,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MiTextSecondary,
+                        color = TextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -646,7 +647,7 @@ private fun RecentFoodRow(entry: FoodDiaryEntry, onClick: () -> Unit) {
                 Text(
                     text = "${entry.servingSizeG.roundToInt()}${entry.servingUnit} · ${entry.calories.roundToInt()}kcal",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MiOrange,
+                    color = BrandPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -654,7 +655,7 @@ private fun RecentFoodRow(entry: FoodDiaryEntry, onClick: () -> Unit) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
-                tint = MiTextSecondary.copy(alpha = 0.4f),
+                tint = TextSecondary.copy(alpha = 0.4f),
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -663,12 +664,12 @@ private fun RecentFoodRow(entry: FoodDiaryEntry, onClick: () -> Unit) {
 
 @Composable
 private fun FoodResultRow(food: FoodSearchResult, onClick: () -> Unit) {
-    ElevatedCard(
+    Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -686,7 +687,7 @@ private fun FoodResultRow(food: FoodSearchResult, onClick: () -> Unit) {
                     Text(
                         text = food.brand,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MiTextSecondary,
+                        color = TextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -694,7 +695,7 @@ private fun FoodResultRow(food: FoodSearchResult, onClick: () -> Unit) {
                 Text(
                     text = food.displayText,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MiOrange,
+                    color = BrandPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -702,7 +703,7 @@ private fun FoodResultRow(food: FoodSearchResult, onClick: () -> Unit) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
-                tint = MiTextSecondary.copy(alpha = 0.4f),
+                tint = TextSecondary.copy(alpha = 0.4f),
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -847,7 +848,7 @@ internal fun FoodEntryContent(
                     Text(
                         text = brand,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MiTextSecondary
+                        color = TextSecondary
                     )
                 }
             }
@@ -855,16 +856,16 @@ internal fun FoodEntryContent(
 
         Spacer(Modifier.height(24.dp))
 
-        ElevatedCard(
-            shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+        Card(
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(24.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                MacroPreviewItem("Calories", "${calories.roundToInt()}", "kcal", MiOrange)
+                MacroPreviewItem("Calories", "${calories.roundToInt()}", "kcal", BrandPrimary)
                 MacroPreviewItem("Protein", formatMacroG(proteinG), "g", ColorProtein)
                 MacroPreviewItem("Carbs", formatMacroG(carbG), "g", ColorCarbs)
                 MacroPreviewItem("Fat", formatMacroG(fatG), "g", ColorFat)
@@ -876,7 +877,7 @@ internal fun FoodEntryContent(
         Text(
             text = "SERVING SIZE",
             style = MaterialTheme.typography.labelSmall,
-            color = MiOrange,
+            color = BrandPrimary,
             fontWeight = FontWeight.Bold
         )
 
@@ -905,7 +906,7 @@ internal fun FoodEntryContent(
                         unfocusedIndicatorColor = Color.Transparent,
                         focusedContainerColor = MaterialTheme.colorScheme.background,
                         unfocusedContainerColor = MaterialTheme.colorScheme.background,
-                        focusedLabelColor = MiOrange
+                        focusedLabelColor = BrandPrimary
                     )
                 )
 
@@ -951,7 +952,7 @@ internal fun FoodEntryContent(
                                     Text(
                                         "Custom amount ($customUnit)",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MiOrange
+                                        color = BrandPrimary
                                     )
                                 },
                                 onClick = {
@@ -987,7 +988,7 @@ internal fun FoodEntryContent(
                         unfocusedIndicatorColor = Color.Transparent,
                         focusedContainerColor = MaterialTheme.colorScheme.background,
                         unfocusedContainerColor = MaterialTheme.colorScheme.background,
-                        focusedLabelColor = MiOrange
+                        focusedLabelColor = BrandPrimary
                     )
                 )
 
@@ -1009,7 +1010,7 @@ internal fun FoodEntryContent(
                 Text(
                     text = gramLabel,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MiTextSecondary
+                    color = TextSecondary
                 )
             }
         }
@@ -1051,10 +1052,10 @@ internal fun FoodEntryContent(
             },
             modifier = Modifier.fillMaxWidth().height(64.dp),
             shape = RoundedCornerShape(20.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MiOrange),
+            colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
             enabled = addEnabled
         ) {
-            Text(actionLabel, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+            Text(actionLabel, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
         }
 
         Spacer(Modifier.height(40.dp))
@@ -1072,7 +1073,7 @@ private fun MacroPreviewItem(label: String, value: String, unit: String, color: 
         Text(
             text = unit,
             style = MaterialTheme.typography.labelSmall,
-            color = MiTextSecondary,
+            color = TextSecondary,
             modifier = Modifier.padding(bottom = 4.dp)
         )
         Text(
@@ -1092,10 +1093,10 @@ private fun ServingUnitChip(unit: String, selectedUnit: String, onSelect: (Strin
         onClick = { onSelect(unit) },
         label = { Text(unit, style = MaterialTheme.typography.labelSmall) },
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MiOrange,
-            selectedLabelColor = Color.White,
+            selectedContainerColor = BrandPrimary,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
             containerColor = MaterialTheme.colorScheme.background,
-            labelColor = MiTextSecondary
+            labelColor = TextSecondary
         ),
         border = FilterChipDefaults.filterChipBorder(
             enabled = true,

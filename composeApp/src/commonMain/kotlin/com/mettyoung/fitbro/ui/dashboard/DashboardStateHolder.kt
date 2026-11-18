@@ -61,7 +61,6 @@ class DashboardStateHolder(
                 errorMessage = null,
                 weekStart = weekStart,
                 selectedWeek = Week.of(todayString(), weekStart),
-                showCarbsFat = userSettingsDataSource.getShowCarbsFatComparison(),
                 resistanceTarget = userSettingsDataSource.getWeeklyResistanceTarget(),
                 cardioMinutesTarget = userSettingsDataSource.getWeeklyCardioMinutesTarget()
             )
@@ -174,7 +173,6 @@ class DashboardStateHolder(
             val balances = allBalances.filter { week.contains(it.date) }
             // Averages exclude today (partial day) for the current week.
             val weekSummary = summarizeWeek(balances, week.averagingDays(today))
-            val previousWeekSummary = summarizeWeek(allBalances, comparisonDays(week, today))
             // Goals over the same days as the averages; first day of the week → the whole week's goals.
             val goalDays = week.averagingDays(today).ifEmpty { week.days() }
             val body = computeBodyTrends(
@@ -207,8 +205,6 @@ class DashboardStateHolder(
                     uiState = newUiState,
                     lastSyncTime = updatedSyncTime,
                     weekSummary = weekSummary,
-                    previousWeekSummary = previousWeekSummary,
-                    previousWeekBalances = allBalances.filter { week.previous().contains(it.date) },
                     weekGoals = weekGoals,
                     weekToDate = weekToDateBalance(balances, week.averagingDays(today)),
                     body = body,
@@ -240,11 +236,6 @@ class DashboardStateHolder(
             it.copy(weekStart = weekStart, selectedWeek = Week.of(it.selectedWeek.start, weekStart))
         }
         refresh()
-    }
-
-    fun setShowCarbsFat(show: Boolean) {
-        userSettingsDataSource.setShowCarbsFatComparison(show)
-        _state.update { it.copy(showCarbsFat = show) }
     }
 
     private fun computeBalances(

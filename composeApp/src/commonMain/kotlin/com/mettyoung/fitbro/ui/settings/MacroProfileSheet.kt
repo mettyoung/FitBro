@@ -30,7 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.MacroGoalProfile
-import com.mettyoung.fitbro.ui.MiOrange
+import com.mettyoung.fitbro.ui.BrandPrimary
 import com.mettyoung.fitbro.util.MacroMath
 import kotlin.math.roundToInt
 
@@ -162,7 +162,7 @@ fun MacroProfileSheet(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
             ) {
                 Text(if (isEdit) "Save Changes" else "Add Profile")
             }

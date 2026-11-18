@@ -14,11 +14,11 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         private const val CALORIE_GOAL_KEY = "macro_goal_calorie_kcal"
         private const val FOOD_DATABASE_KEY = "food_database"
         private const val WEEK_START_KEY = "week_start"
-        private const val SHOW_CARBS_FAT_KEY = "wow_show_carbs_fat"
         private const val RESISTANCE_TARGET_KEY = "weekly_resistance_target"
         private const val CARDIO_TARGET_KEY = "weekly_cardio_minutes_target"
         private const val HIDDEN_WORKOUT_TYPES_KEY = "hidden_workout_types"
         private const val EXCLUDED_RESISTANCE_SOURCES_KEY = "resistance_excluded_sources"
+        private const val THEME_MODE_KEY = "theme_mode"
         private const val SYNC_URL_KEY = "sync_url"
         private const val SYNC_TOKEN_KEY = "sync_token"
         private const val SYNC_CURSOR_KEY = "sync_cursor"
@@ -72,11 +72,6 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         settings.putString(WEEK_START_KEY, weekStart.name)
     }
 
-    override fun getShowCarbsFatComparison(): Boolean = settings.getBoolean(SHOW_CARBS_FAT_KEY, false)
-
-    override fun setShowCarbsFatComparison(show: Boolean) {
-        settings.putBoolean(SHOW_CARBS_FAT_KEY, show)
-    }
 
     override fun getWeeklyResistanceTarget(): Int = settings.getInt(RESISTANCE_TARGET_KEY, 3)
 
@@ -95,6 +90,15 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
 
     override fun setHiddenWorkoutTypes(types: Set<WorkoutType>) {
         settings.putString(HIDDEN_WORKOUT_TYPES_KEY, WorkoutType.serializeHidden(types))
+    }
+
+    override fun getThemeMode(): com.mettyoung.fitbro.ui.ThemeMode =
+        settings.getStringOrNull(THEME_MODE_KEY)
+            ?.let { name -> com.mettyoung.fitbro.ui.ThemeMode.entries.firstOrNull { it.name == name } }
+            ?: com.mettyoung.fitbro.ui.ThemeMode.SYSTEM
+
+    override fun setThemeMode(mode: com.mettyoung.fitbro.ui.ThemeMode) {
+        settings.putString(THEME_MODE_KEY, mode.name)
     }
 
     override fun getExcludedResistanceSources(): Set<String> =

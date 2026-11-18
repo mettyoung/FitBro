@@ -25,8 +25,6 @@ interface UserSettingsDataSource {
     fun setWeekStart(weekStart: WeekStart)
 
     /** Show avg carbs / fat rows in the week-over-week card (hidden by default). */
-    fun getShowCarbsFatComparison(): Boolean
-    fun setShowCarbsFatComparison(show: Boolean)
 
     /** Dashboard weekly targets (FR-6). */
     fun getWeeklyResistanceTarget(): Int
@@ -38,6 +36,8 @@ interface UserSettingsDataSource {
     fun getHiddenWorkoutTypes(): Set<WorkoutType>
     fun setHiddenWorkoutTypes(types: Set<WorkoutType>)
     /** Source apps (display labels, e.g. "Mi Fitness") excluded from resistance counting. Default: none. */
+    fun getThemeMode(): com.mettyoung.fitbro.ui.ThemeMode
+    fun setThemeMode(mode: com.mettyoung.fitbro.ui.ThemeMode)
     fun getExcludedResistanceSources(): Set<String>
     fun setExcludedResistanceSources(sources: Set<String>)
 }

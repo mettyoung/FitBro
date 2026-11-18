@@ -36,8 +36,8 @@ import com.mettyoung.fitbro.data.sync.SyncSettings
 import com.mettyoung.fitbro.data.sync.SyncStatus
 import com.mettyoung.fitbro.data.sync.normalizeSyncToken
 import com.mettyoung.fitbro.data.sync.normalizeSyncUrl
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.util.formatTimeAgo
 
 /** FR-17: Worker URL + token, manual sync, and last-sync status. */
@@ -59,7 +59,7 @@ fun CloudSyncSettings(syncRepository: SyncRepository, settings: SyncSettings) {
             Text(
                 text = "Sync your food diary with your FitBro MCP server so Grok can read and log meals.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MiTextSecondary
+                color = TextSecondary
             )
             OutlinedTextField(
                 value = url,
@@ -87,7 +87,7 @@ fun CloudSyncSettings(syncRepository: SyncRepository, settings: SyncSettings) {
                 Text(
                     text = status.label(),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (status is SyncStatus.Failed) MaterialTheme.colorScheme.error else MiTextSecondary,
+                    color = if (status is SyncStatus.Failed) MaterialTheme.colorScheme.error else TextSecondary,
                     modifier = Modifier.weight(1f)
                 )
                 Button(

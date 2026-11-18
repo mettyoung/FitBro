@@ -33,7 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.WorkoutCategory
 import com.mettyoung.fitbro.data.model.WorkoutType
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.ui.components.SectionLabel
 import com.mettyoung.fitbro.ui.dashboard.CardioStateHolder
 
@@ -59,7 +59,7 @@ fun WorkoutTypesSettings(cardioStateHolder: CardioStateHolder) {
             Text(
                 text = "${state.hiddenTypes.size} of ${WorkoutType.entries.size} types hidden from the Cardio tab",
                 style = MaterialTheme.typography.bodySmall,
-                color = MiTextSecondary
+                color = TextSecondary
             )
         }
     }
@@ -85,7 +85,7 @@ fun WorkoutTypesSheet(cardioStateHolder: CardioStateHolder, onDismiss: () -> Uni
                 Text(
                     "Hidden types don't show on the Cardio tab or count toward cardio minutes.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MiTextSecondary
+                    color = TextSecondary
                 )
             }
             TextButton(onClick = cardioStateHolder::resetHiddenTypes) { Text("Reset") }

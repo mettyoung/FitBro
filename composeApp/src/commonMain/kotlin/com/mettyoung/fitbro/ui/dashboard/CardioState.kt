@@ -23,8 +23,6 @@ data class CardioState(
     val workoutDetail: WorkoutDetailState? = null,
     /** Previous week's visible minutes through the same weekday as today (FR-9). */
     val previousWeekMinutes: Int = 0,
-    /** Previous week's visible sessions (all 7 days), for week-over-week comparisons. */
-    val previousWeekSessions: List<CardioSession> = emptyList(),
     /** Sessions in range filtered out by [hiddenTypes]. */
     val hiddenCount: Int = 0,
     val hiddenTypes: Set<WorkoutType> = emptySet(),

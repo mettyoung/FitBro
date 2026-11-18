@@ -43,8 +43,8 @@ import com.mettyoung.fitbro.data.model.Measured
 import com.mettyoung.fitbro.data.model.WorkoutDetail
 import com.mettyoung.fitbro.data.model.endEpochMs
 import com.mettyoung.fitbro.ui.ColorBurn
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.util.formatLocalTime
 import com.mettyoung.fitbro.util.toShortDate
 import kotlin.math.roundToInt
@@ -69,23 +69,23 @@ internal fun ResistanceDetail(
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text("${sessions.size}", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black)
                     Spacer(Modifier.width(6.dp))
-                    Text("/ $target sessions", style = MaterialTheme.typography.titleMedium, color = MiTextSecondary, modifier = Modifier.padding(bottom = 8.dp))
+                    Text("/ $target sessions", style = MaterialTheme.typography.titleMedium, color = TextSecondary, modifier = Modifier.padding(bottom = 8.dp))
                 }
                 Text(
                     "${sessions.sumOf { it.minutes }} min · strength sessions from Health Connect",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary
+                    color = TextSecondary
                 )
                 Row(
                     Modifier.fillMaxWidth().padding(top = 8.dp).clickable { showSources = true }.padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Filled.Tune, contentDescription = null, tint = MiOrange, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.Tune, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
                         resistanceSourcesSummary(sources, excludedSources),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MiOrange,
+                        color = BrandPrimary,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -96,7 +96,7 @@ internal fun ResistanceDetail(
             Text(
                 "No strength sessions this week. Workouts from Hevy or Mi Fitness show up here once they sync to Health Connect.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MiTextSecondary,
+                color = TextSecondary,
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
             )
             return
@@ -118,11 +118,11 @@ internal fun ResistanceDetail(
                             Text(
                                 "${s.date.toDayAbbr().titleCase()} ${s.date.toShortDate()} · ${formatLocalTime(s.startEpochMs)} · ${s.minutes} min",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MiTextSecondary
+                                color = TextSecondary
                             )
                         }
                         SourceChip(s.source)
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MiTextSecondary)
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextSecondary)
                     }
                     if (i < sessions.lastIndex) Divider()
                 }
@@ -137,7 +137,7 @@ internal fun WorkoutDetailPage(state: WorkoutDetailState?) {
     when (state) {
         null -> Unit
         is WorkoutDetailState.Loading -> Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = MiOrange)
+            CircularProgressIndicator(color = BrandPrimary)
         }
         is WorkoutDetailState.Failed -> Text(
             "Couldn't read this workout: ${state.message}",
@@ -159,12 +159,12 @@ private fun LoadedWorkout(d: WorkoutDetail, overlapping: List<CardioSession>) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text("${s.minutes}", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black)
                     Spacer(Modifier.width(6.dp))
-                    Text("min", style = MaterialTheme.typography.titleMedium, color = MiTextSecondary, modifier = Modifier.padding(bottom = 8.dp))
+                    Text("min", style = MaterialTheme.typography.titleMedium, color = TextSecondary, modifier = Modifier.padding(bottom = 8.dp))
                 }
                 Text(
                     "${s.date.toDayAbbr().titleCase()} ${s.date.toShortDate()} · ${formatLocalTime(s.startEpochMs)}–${formatLocalTime(d.endEpochMs)}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary
+                    color = TextSecondary
                 )
             }
         }
@@ -236,7 +236,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
         Text(
             title,
             style = MaterialTheme.typography.titleSmall,
-            color = MiTextSecondary,
+            color = TextSecondary,
             modifier = Modifier.padding(start = 4.dp, bottom = 6.dp, top = 4.dp)
         )
         SurfaceCard { Column { content() } }
@@ -249,7 +249,7 @@ private fun DetailRow(label: String, value: String, last: Boolean = false) {
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary, modifier = Modifier.width(120.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, modifier = Modifier.width(120.dp))
         Text(value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
     }
     if (!last) Divider()

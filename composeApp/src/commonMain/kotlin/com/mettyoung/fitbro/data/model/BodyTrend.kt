@@ -14,10 +14,10 @@ data class BodyMeasurement(
 )
 
 /** Smoothed body-composition series shown on the Dashboard. */
-enum class BodyMetric(val label: String) {
-    WEIGHT("Weight trend"),
-    LEAN_MASS("Lean body mass"),
-    BODY_FAT("Body fat trend");
+enum class BodyMetric(val label: String, val shortLabel: String) {
+    WEIGHT("Weight trend", "Weight"),
+    LEAN_MASS("Lean body mass", "Lean mass"),
+    BODY_FAT("Body fat trend", "Body fat");
 
     fun valueOf(m: BodyMeasurement): Double? = when (this) {
         WEIGHT -> m.weightKg

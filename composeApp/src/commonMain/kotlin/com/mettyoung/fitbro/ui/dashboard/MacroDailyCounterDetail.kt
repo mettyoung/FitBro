@@ -101,8 +101,8 @@ import com.mettyoung.fitbro.data.model.MealType
 import com.mettyoung.fitbro.data.repository.CustomFoodRepository
 import com.mettyoung.fitbro.data.repository.MacroGoalRepository
 import com.mettyoung.fitbro.ui.FitroBroIcon
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.util.MONTH_ABBR
 import com.mettyoung.fitbro.util.minusDays
 import com.mettyoung.fitbro.util.plusDays
@@ -128,7 +128,6 @@ fun MacroDailyCounterDetail(
     val density = LocalDensity.current
     val foodState by foodDiaryStateHolder.state.collectAsState()
     val selectedDate by foodDiaryStateHolder.selectedDate.collectAsState()
-    val weeklyTotals by foodDiaryStateHolder.weeklyTotals.collectAsState()
     val recentFoods by foodDiaryStateHolder.recentFoods.collectAsState()
     val customMeals by customMealStateHolder.customMeals.collectAsState()
     val customFoods by customFoodStateHolder.customFoods.collectAsState()
@@ -202,11 +201,7 @@ fun MacroDailyCounterDetail(
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
                 ScreenHeader(
-                    title = selectedDate.relativeDayLabel(today),
-                    overline = selectedDate.let { d ->
-                        val (y, m, day) = d.toYMD()
-                        "${MONTH_ABBR[m]} $day, $y"
-                    },
+                    title = "Food log",
                     actions = {
                         if (selectedDate != today) {
                             TextButton(onClick = { onDateSelected(today) }) { Text("Today") }
@@ -220,9 +215,10 @@ fun MacroDailyCounterDetail(
                     },
                     bottom = {
                         DateStepper(
-                            label = selectedDate.let { d ->
+                            label = selectedDate.relativeDayLabel(today),
+                            sublabel = selectedDate.let { d ->
                                 val (y, m, day) = d.toYMD()
-                                "${dayOfWeekName(y, m, day)}, ${MONTH_ABBR[m]} $day"
+                                "${MONTH_ABBR[m]} $day, $y"
                             },
                             onPrevious = { onDateSelected(selectedDate.minusDays(1)) },
                             onNext = { onDateSelected(selectedDate.plusDays(1)) },
@@ -296,16 +292,6 @@ fun MacroDailyCounterDetail(
                 }
             }
 
-            if (weeklyTotals.isNotEmpty()) {
-                item {
-                    WeeklyTrendsCard(
-                        weeklyTotals = weeklyTotals,
-                        modifier = Modifier.padding(horizontal = ScreenGutter)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                }
-            }
-
             item { Spacer(Modifier.height(96.dp)) }
         }
 
@@ -346,7 +332,7 @@ fun MacroDailyCounterDetail(
                     if (selectedIds.size > 1) {
                         Button(
                             onClick = { namingSelection = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
                         ) { Text("Save as meal") }
                     } else {
                         Spacer(Modifier.width(64.dp))
@@ -458,7 +444,7 @@ fun MacroDailyCounterDetail(
                             },
                             enabled = mealName.isNotBlank() && selectedIds.isNotEmpty(),
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
                         ) { Text("Save") }
                     }
                 }
@@ -480,7 +466,7 @@ fun MacroDailyCounterDetail(
                         Text(
                             text = "No custom meals yet.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MiTextSecondary
+                            color = TextSecondary
                         )
                     } else {
                         customMeals.forEach { meal ->
@@ -524,7 +510,7 @@ fun MacroDailyCounterDetail(
                                     Text(
                                         text = "${meal.items.size} items · $kcal kcal",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MiTextSecondary
+                                        color = TextSecondary
                                     )
                                 }
                             }
@@ -621,7 +607,7 @@ private fun FoodDiarySection(
                 dragState.reportMeal(mealType, top, top + it.size.height)
             }
             .then(
-                if (isDropTarget) Modifier.border(2.dp, MiOrange, MaterialTheme.shapes.large)
+                if (isDropTarget) Modifier.border(2.dp, BrandPrimary, MaterialTheme.shapes.large)
                 else Modifier
             ),
         shape = MaterialTheme.shapes.large,
@@ -705,7 +691,7 @@ private fun FoodDiarySection(
                 Text(
                     text = "Nothing logged yet",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary.copy(alpha = 0.7f)
+                    color = TextSecondary.copy(alpha = 0.7f)
                 )
             }
         }
@@ -803,7 +789,7 @@ private fun DropIndicator() {
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .height(3.dp)
-            .background(MiOrange, RoundedCornerShape(2.dp))
+            .background(BrandPrimary, RoundedCornerShape(2.dp))
     )
 }
 
@@ -845,7 +831,7 @@ private fun FoodEntryRow(
                     append("${entry.servingSizeG.roundToInt()} g")
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = MiTextSecondary,
+                color = TextSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -865,7 +851,7 @@ private fun FoodEntryRow(
             Text(
                 text = "kcal",
                 style = MaterialTheme.typography.bodySmall,
-                color = MiTextSecondary
+                color = TextSecondary
             )
         }
         if (!selectionMode) {
@@ -873,7 +859,7 @@ private fun FoodEntryRow(
                 Icon(
                     Icons.Outlined.Delete,
                     contentDescription = "Delete",
-                    tint = MiTextSecondary,
+                    tint = TextSecondary,
                     modifier = Modifier.size(18.dp)
                 )
             }

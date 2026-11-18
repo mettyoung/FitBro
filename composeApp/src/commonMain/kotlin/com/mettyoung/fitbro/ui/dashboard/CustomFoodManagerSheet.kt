@@ -1,5 +1,6 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,8 +24,8 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,8 +44,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.CustomFood
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import kotlin.math.roundToInt
 
 private sealed class ManagerScreen {
@@ -116,7 +117,7 @@ private fun CustomFoodList(
             Icon(
                 imageVector = Icons.Default.Restaurant,
                 contentDescription = null,
-                tint = MiOrange,
+                tint = BrandPrimary,
                 modifier = Modifier.size(28.dp)
             )
             Spacer(Modifier.size(12.dp))
@@ -130,7 +131,7 @@ private fun CustomFoodList(
                 Text(
                     text = "Manage your private library",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MiOrange
+                    color = BrandPrimary
                 )
             }
         }
@@ -141,7 +142,7 @@ private fun CustomFoodList(
             onClick = onNew,
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+            colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
         ) {
             Icon(Icons.Filled.Add, contentDescription = null)
             Spacer(Modifier.size(8.dp))
@@ -158,7 +159,7 @@ private fun CustomFoodList(
                 Text(
                     text = "No custom foods yet.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary
+                    color = TextSecondary
                 )
             }
         } else {
@@ -201,11 +202,11 @@ private fun CustomFoodRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    ElevatedCard(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
@@ -222,12 +223,12 @@ private fun CustomFoodRow(
                     text = "${food.servingSizeG.roundToInt()}g · ${food.calories.roundToInt()} kcal" +
                         (food.brandName?.let { " · $it" } ?: ""),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary
+                    color = TextSecondary
                 )
             }
             Row {
                 IconButton(onClick = onEdit, modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MiTextSecondary, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = TextSecondary, modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.size(8.dp))
                 IconButton(onClick = onDelete, modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)) {

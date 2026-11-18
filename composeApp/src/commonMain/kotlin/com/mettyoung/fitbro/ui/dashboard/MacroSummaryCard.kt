@@ -16,8 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,8 +34,8 @@ import com.mettyoung.fitbro.data.model.MacroGoalProfile
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import kotlin.math.roundToInt
 
 @Composable
@@ -45,13 +45,12 @@ fun MacroSummaryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    ElevatedCard(
+    Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Row(
@@ -62,7 +61,7 @@ fun MacroSummaryCard(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(MiOrange.copy(alpha = 0.1f)),
+                        .background(BrandPrimary.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("🍏", fontSize = 24.sp)
@@ -80,14 +79,14 @@ fun MacroSummaryCard(
                     Text(
                         text = activeProfile.name,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MiOrange
+                        color = BrandPrimary
                     )
                 }
 
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
-                    tint = MiTextSecondary.copy(alpha = 0.4f),
+                    tint = TextSecondary.copy(alpha = 0.4f),
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -126,7 +125,7 @@ fun MacroSummaryCard(
                 Text(
                     text = "No nutrition data logged for today",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary.copy(alpha = 0.6f)
+                    color = TextSecondary.copy(alpha = 0.6f)
                 )
             }
         }
@@ -147,7 +146,7 @@ private fun MiniMacroStatus(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-            color = MiTextSecondary,
+            color = TextSecondary,
             fontWeight = FontWeight.SemiBold
         )
         Text(

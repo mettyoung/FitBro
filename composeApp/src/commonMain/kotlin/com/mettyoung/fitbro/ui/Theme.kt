@@ -11,6 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -62,13 +64,13 @@ object FitBroColors {
         @Composable @ReadOnlyComposable get() = LocalExtendedColors.current
 }
 
-// Theme-aware aliases kept for the many existing call sites. They used to be fixed light-mode
-// colors, which is why dark mode looked half-broken.
-val MiOrange: Color
+// Theme-aware aliases used across screens. `@Composable` getters (not constants): hoist
+// them before Canvas/DrawScope lambdas.
+val BrandPrimary: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
-val MiTextSecondary: Color
+val TextSecondary: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onSurfaceVariant
-val MiTextPrimary: Color
+val TextPrimary: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onSurface
 val PositiveColor: Color
     @Composable @ReadOnlyComposable get() = LocalExtendedColors.current.positive
@@ -76,37 +78,38 @@ val NegativeColor: Color
     @Composable @ReadOnlyComposable get() = LocalExtendedColors.current.negative
 
 // ---------------------------------------------------------------------------
-// Color schemes — orange-seeded tonal palette. `background` sits one step below `surface`
-// so plain surface-colored cards separate from the page without shadows.
+// Color schemes — ink-blue primary on cool neutrals, so the data colours (macros, burn,
+// body metrics) carry the colour. `background` sits one step below `surface` so plain
+// surface-coloured cards separate from the page without shadows.
 // ---------------------------------------------------------------------------
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFFE85D04),
+    primary = Color(0xFF2B4C7E),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFDCC8),
-    onPrimaryContainer = Color(0xFF361200),
-    secondary = Color(0xFF5E5F6E),
+    primaryContainer = Color(0xFFD6E3FF),
+    onPrimaryContainer = Color(0xFF001B3E),
+    secondary = Color(0xFF565E71),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE6E4F2),
-    onSecondaryContainer = Color(0xFF1B1B26),
+    secondaryContainer = Color(0xFFDAE2F9),
+    onSecondaryContainer = Color(0xFF131C2B),
     tertiary = Color(0xFF00897B),
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFB2EFE6),
     onTertiaryContainer = Color(0xFF00201C),
-    background = Color(0xFFF5F2EF),
-    onBackground = Color(0xFF1C1B1A),
+    background = Color(0xFFF3F4F7),
+    onBackground = Color(0xFF1A1C1F),
     surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF1C1B1A),
-    surfaceVariant = Color(0xFFF1EDE9),
-    onSurfaceVariant = Color(0xFF5F5852),
-    surfaceTint = Color(0xFFE85D04),
+    onSurface = Color(0xFF1A1C1F),
+    surfaceVariant = Color(0xFFE9ECF1),
+    onSurfaceVariant = Color(0xFF5A6070),
+    surfaceTint = Color(0xFF2B4C7E),
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFFBF8F6),
+    surfaceContainerLow = Color(0xFFF8F9FB),
     surfaceContainer = Color(0xFFFFFFFF),
-    surfaceContainerHigh = Color(0xFFF3EFEC),
-    surfaceContainerHighest = Color(0xFFECE7E3),
-    outline = Color(0xFF8F8780),
-    outlineVariant = Color(0xFFE6E0DA),
+    surfaceContainerHigh = Color(0xFFEEF0F4),
+    surfaceContainerHighest = Color(0xFFE6E9EE),
+    outline = Color(0xFF8A909C),
+    outlineVariant = Color(0xFFDDE1E8),
     error = Color(0xFFBA1A1A),
     onError = Color.White,
     errorContainer = Color(0xFFFFDAD6),
@@ -114,39 +117,39 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFFF8A3D),
-    onPrimary = Color(0xFF3A1400),
-    primaryContainer = Color(0xFF6B2D00),
-    onPrimaryContainer = Color(0xFFFFDCC8),
-    secondary = Color(0xFFC7C5D4),
-    onSecondary = Color(0xFF30303C),
-    secondaryContainer = Color(0xFF45464F),
-    onSecondaryContainer = Color(0xFFE6E4F2),
+    primary = Color(0xFFA9C7FF),
+    onPrimary = Color(0xFF0B2F5F),
+    primaryContainer = Color(0xFF234678),
+    onPrimaryContainer = Color(0xFFD6E3FF),
+    secondary = Color(0xFFBEC6DC),
+    onSecondary = Color(0xFF283141),
+    secondaryContainer = Color(0xFF3E4759),
+    onSecondaryContainer = Color(0xFFDAE2F9),
     tertiary = Color(0xFF7FD6C8),
     onTertiary = Color(0xFF003731),
     tertiaryContainer = Color(0xFF005048),
     onTertiaryContainer = Color(0xFFB2EFE6),
-    background = Color(0xFF0F0E0D),
-    onBackground = Color(0xFFEAE4DF),
-    surface = Color(0xFF1C1A19),
-    onSurface = Color(0xFFEAE4DF),
-    surfaceVariant = Color(0xFF2A2725),
-    onSurfaceVariant = Color(0xFFC9C1BA),
-    surfaceTint = Color(0xFFFF8A3D),
-    surfaceContainerLowest = Color(0xFF0B0A09),
-    surfaceContainerLow = Color(0xFF171615),
-    surfaceContainer = Color(0xFF1C1A19),
-    surfaceContainerHigh = Color(0xFF262422),
-    surfaceContainerHighest = Color(0xFF312E2C),
-    outline = Color(0xFF948C85),
-    outlineVariant = Color(0xFF3A3633),
+    background = Color(0xFF0E1013),
+    onBackground = Color(0xFFE3E5EA),
+    surface = Color(0xFF191C20),
+    onSurface = Color(0xFFE3E5EA),
+    surfaceVariant = Color(0xFF262A30),
+    onSurfaceVariant = Color(0xFFC2C7D1),
+    surfaceTint = Color(0xFFA9C7FF),
+    surfaceContainerLowest = Color(0xFF0A0C0F),
+    surfaceContainerLow = Color(0xFF15181C),
+    surfaceContainer = Color(0xFF191C20),
+    surfaceContainerHigh = Color(0xFF23272C),
+    surfaceContainerHighest = Color(0xFF2E3238),
+    outline = Color(0xFF8C919B),
+    outlineVariant = Color(0xFF363A41),
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
 )
 
-val MiTypography = Typography(
+val FitBroTypography = Typography(
     displayLarge = TextStyle(fontWeight = FontWeight.Black, fontSize = 48.sp, lineHeight = 52.sp, letterSpacing = (-1).sp),
     displayMedium = TextStyle(fontWeight = FontWeight.Black, fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = (-0.5).sp),
     displaySmall = TextStyle(fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.25).sp),
@@ -173,15 +176,27 @@ val FitBroShapes = Shapes(
     extraLarge = RoundedCornerShape(32.dp),
 )
 
+/** User's appearance choice (Settings → Appearance). */
+enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
+
+/** True when the app is drawing its dark scheme (platform code syncs status-bar icons to it). */
+val LocalIsDarkTheme = staticCompositionLocalOf { false }
+
 @Composable
-fun FitBroTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
-) {
-    CompositionLocalProvider(LocalExtendedColors provides if (darkTheme) DarkExtended else LightExtended) {
+fun FitBroTheme(content: @Composable () -> Unit) {
+    val mode by ThemePreference.mode.collectAsState()
+    val darkTheme = when (mode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+    CompositionLocalProvider(
+        LocalExtendedColors provides if (darkTheme) DarkExtended else LightExtended,
+        LocalIsDarkTheme provides darkTheme
+    ) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
-            typography = MiTypography,
+            typography = FitBroTypography,
             shapes = FitBroShapes,
             content = content
         )

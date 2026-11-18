@@ -38,8 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.CustomFood
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.util.MacroMath
 import kotlin.math.roundToInt
 
@@ -113,7 +113,7 @@ internal fun CustomFoodFormContent(
                 Text(
                     text = "Nutrition per serving",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MiOrange
+                    color = BrandPrimary
                 )
             }
         }
@@ -143,8 +143,8 @@ internal fun CustomFoodFormContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Estimated Calories", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
-            Text("${caloriesVal?.roundToInt() ?: 0} kcal", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = MiOrange)
+            Text("Estimated Calories", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            Text("${caloriesVal?.roundToInt() ?: 0} kcal", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = BrandPrimary)
         }
 
         Spacer(Modifier.height(40.dp))
@@ -167,10 +167,10 @@ internal fun CustomFoodFormContent(
             },
             enabled = valid,
             modifier = Modifier.fillMaxWidth().height(64.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MiOrange),
+            colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
             shape = RoundedCornerShape(20.dp)
         ) {
-            Text(actionLabel, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+            Text(actionLabel, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
         }
 
         Spacer(Modifier.height(40.dp))
@@ -195,8 +195,8 @@ private fun CustomFoodField(
             keyboardType = if (isText) KeyboardType.Text else KeyboardType.Decimal
         ),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MiOrange,
-            focusedLabelColor = MiOrange,
+            focusedBorderColor = BrandPrimary,
+            focusedLabelColor = BrandPrimary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
         )
     )

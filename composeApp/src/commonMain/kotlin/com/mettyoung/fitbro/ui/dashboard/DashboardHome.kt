@@ -50,7 +50,7 @@ import com.mettyoung.fitbro.ui.ColorBurn
 import com.mettyoung.fitbro.ui.ColorCardio
 import com.mettyoung.fitbro.ui.ColorLeanMass
 import com.mettyoung.fitbro.ui.ColorWeight
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.ui.NegativeColor
 import com.mettyoung.fitbro.ui.PositiveColor
 import com.mettyoung.fitbro.ui.components.MetricTileCard
@@ -269,9 +269,9 @@ private fun WeekToDateBalanceCard(
     ) {
         Column(Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Balance, contentDescription = null, tint = MiTextSecondary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.Balance, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Week-to-date balance", style = MaterialTheme.typography.labelLarge, color = MiTextSecondary)
+                Text("Week-to-date balance", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
             }
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.Bottom) {
@@ -286,9 +286,9 @@ private fun WeekToDateBalanceCard(
                     }
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("kcal", style = MaterialTheme.typography.bodyLarge, color = MiTextSecondary, modifier = Modifier.padding(bottom = 6.dp))
+                Text("kcal", style = MaterialTheme.typography.bodyLarge, color = TextSecondary, modifier = Modifier.padding(bottom = 6.dp))
             }
-            Text(caption, style = MaterialTheme.typography.bodySmall, color = MiTextSecondary)
+            Text(caption, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             Spacer(Modifier.height(12.dp))
             CalorieBalanceChart(
                 balances = balances,
@@ -328,13 +328,13 @@ private fun GoalCard(
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.width(4.dp))
-                Text(target, style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary, modifier = Modifier.padding(bottom = 4.dp))
+                Text(target, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
             }
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(10.dp))
             indicator()
             Spacer(Modifier.height(8.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MiTextSecondary)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
     }
     if (onClick != null) Card(onClick = onClick, modifier = modifier, shape = MaterialTheme.shapes.large, colors = colors) { content() }
@@ -371,21 +371,21 @@ internal fun BodyTrendDetail(trend: TrendSummary?, metric: BodyMetric, access: B
                 HeaderStat("Difference", kgDelta(trend?.delta), Modifier.weight(1f))
             }
             trend?.windowDays?.let {
-                Text("${it.first().toShortDate()} – ${it.last().toShortDate()}", style = MaterialTheme.typography.bodySmall, color = MiTextSecondary)
+                Text("${it.first().toShortDate()} – ${it.last().toShortDate()}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             }
             Spacer(Modifier.height(16.dp))
             if (trend == null || trend.weighIns.isEmpty()) {
                 Text(
                     bodySubtitle(metric, trend, access),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary,
+                    color = TextSecondary,
                     modifier = Modifier.padding(vertical = 40.dp)
                 )
             } else {
                 TrendChart(scale = trend.scale, trend = trend.trend, color = style.color, unit = "kg")
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                    Text(trend.windowDays.first().toShortDate(), style = MaterialTheme.typography.labelSmall, color = MiTextSecondary, modifier = Modifier.weight(1f))
-                    Text(trend.windowDays.last().toShortDate(), style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
+                    Text(trend.windowDays.first().toShortDate(), style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.weight(1f))
+                    Text(trend.windowDays.last().toShortDate(), style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -405,7 +405,7 @@ internal fun BodyTrendDetail(trend: TrendSummary?, metric: BodyMetric, access: B
                         Text("${date.toDayAbbr()} ${date.toShortDate()}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                         Text(kg(v), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.width(12.dp))
-                        Text("trend ${kg(trendByDate[date])}", style = MaterialTheme.typography.bodySmall, color = MiTextSecondary)
+                        Text("trend ${kg(trendByDate[date])}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                     }
                 }
             }
@@ -423,7 +423,7 @@ internal fun EstimateDetail(estimate: ExpenditureEstimate?, healthAvgBurn: Doubl
             Text(
                 "Needs at least $EE_MIN_LOGGED_DAYS logged days and two weigh-ins $EE_MIN_SPAN_DAYS+ days apart in the last 28 days.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MiTextSecondary
+                color = TextSecondary
             )
         } else {
             EstimateRow("Average intake", "${estimate.avgIntake.grouped()} kcal", "${estimate.loggedDays} logged days")
@@ -435,7 +435,7 @@ internal fun EstimateDetail(estimate: ExpenditureEstimate?, healthAvgBurn: Doubl
             "Average intake − trend change × 7,700 kcal/kg ÷ days between weigh-ins, over the 28 days" +
                 (windowEnd?.let { " ending ${it.toShortDate()}" } ?: "") + ".",
             style = MaterialTheme.typography.bodySmall,
-            color = MiTextSecondary
+            color = TextSecondary
         )
     }
 }
@@ -445,7 +445,7 @@ private fun EstimateRow(label: String, value: String, note: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-            Text(note, style = MaterialTheme.typography.bodySmall, color = MiTextSecondary)
+            Text(note, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
         Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
     }
@@ -463,7 +463,7 @@ private fun DetailCard(content: @Composable () -> Unit) {
 @Composable
 private fun HeaderStat(label: String, value: String, modifier: Modifier) {
     Column(modifier) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
     }
 }
@@ -473,7 +473,7 @@ private fun LegendDot(color: Color, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(8.dp).background(color, CircleShape))
         Spacer(Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MiTextSecondary)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
     }
 }
 

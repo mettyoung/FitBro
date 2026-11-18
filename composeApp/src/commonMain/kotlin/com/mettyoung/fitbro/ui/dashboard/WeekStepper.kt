@@ -24,7 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.Week
 import com.mettyoung.fitbro.data.model.WeekStart
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.util.toShortDate
 
 /** US-001: ‹ week label › stepper. Tapping the label jumps to the current week; › disabled on it. */
@@ -48,7 +48,7 @@ fun WeekStepper(
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onPreviousWeek, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous week", modifier = Modifier.size(20.dp), tint = MiTextSecondary)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous week", modifier = Modifier.size(20.dp), tint = TextSecondary)
         }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -62,7 +62,7 @@ fun WeekStepper(
             Text(
                 text = "${week.start.toShortDate()} – ${week.end.toShortDate()}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MiTextSecondary
+                color = TextSecondary
             )
         }
         IconButton(onClick = onNextWeek, enabled = canGoNext, modifier = Modifier.size(36.dp)) {
@@ -70,7 +70,7 @@ fun WeekStepper(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Next week",
                 modifier = Modifier.size(20.dp),
-                tint = if (canGoNext) MiTextSecondary else MiTextSecondary.copy(alpha = 0.3f)
+                tint = if (canGoNext) TextSecondary else TextSecondary.copy(alpha = 0.3f)
             )
         }
     }

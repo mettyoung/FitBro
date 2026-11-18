@@ -124,15 +124,6 @@ enum class WeekMetric(val label: String, val unit: String, val optional: Boolean
     }
 }
 
-data class MetricComparison(val metric: WeekMetric, val current: Double?, val previous: Double?) {
-    /** Null when either side has no data. */
-    val delta: Double? get() = if (current != null && previous != null) current - previous else null
-}
-
-/** FR-6 */
-fun compareWeeks(current: WeekSummary, previous: WeekSummary): List<MetricComparison> =
-    WeekMetric.entries.map { MetricComparison(it, it.valueOf(current), it.valueOf(previous)) }
-
 /**
  * FR-7: the days of the previous week to compare against, like-for-like with [current].
  * `includeToday = false` (week-over-week averages): completed days only, matching

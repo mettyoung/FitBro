@@ -26,7 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.ui.components.SectionLabel
 import com.mettyoung.fitbro.ui.dashboard.CardioStateHolder
 
@@ -52,7 +52,7 @@ fun ResistanceSourcesSettings(cardioStateHolder: CardioStateHolder) {
             Text(
                 text = resistanceSourcesSummary(state.resistanceSources, state.excludedResistanceSources),
                 style = MaterialTheme.typography.bodySmall,
-                color = MiTextSecondary
+                color = TextSecondary
             )
         }
     }
@@ -93,14 +93,14 @@ fun ResistanceSourcesSheet(
             Text(
                 "Turn off an app to stop its strength workouts counting toward Resistance — e.g. when Hevy and your watch both record the same session.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MiTextSecondary
+                color = TextSecondary
             )
             Spacer(Modifier.height(12.dp))
             if (sources.isEmpty()) {
                 Text(
                     "No strength workouts in Health Connect for these two weeks yet.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary,
+                    color = TextSecondary,
                     modifier = Modifier.padding(vertical = 12.dp)
                 )
             }

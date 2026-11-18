@@ -12,10 +12,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.outlined.Dashboard
-import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -49,6 +49,7 @@ import com.mettyoung.fitbro.ui.settings.WeeklyGoalsSettings
 import com.mettyoung.fitbro.ui.BackHandlerEffect
 import com.mettyoung.fitbro.ui.settings.WorkoutTypesSettings
 import com.mettyoung.fitbro.ui.settings.ResistanceSourcesSettings
+import com.mettyoung.fitbro.ui.settings.AppearanceSettings
 import com.mettyoung.fitbro.data.model.partialWeekSpan
 import com.mettyoung.fitbro.util.todayString
 
@@ -69,8 +70,6 @@ fun DashboardWithTabs(
     modifier: Modifier = Modifier
 ) {
     var selectedTabIndex by rememberSaveable { mutableStateOf(AppTab.DASHBOARD.ordinal) }
-    var moreDestination by remember { mutableStateOf<MoreDestination?>(null) }
-    BackHandlerEffect(enabled = selectedTabIndex == AppTab.MORE.ordinal && moreDestination != null) { moreDestination = null }
     // Cardio opened from the Dashboard's cardio card gets a back button; via the tab it doesn't.
     var cardioFromDashboard by remember { mutableStateOf(false) }
     BackHandlerEffect(enabled = selectedTabIndex == AppTab.CARDIO.ordinal && cardioFromDashboard) {
@@ -102,8 +101,6 @@ fun DashboardWithTabs(
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
-                            // Re-tapping More returns to its list.
-                            if (tab == AppTab.MORE) moreDestination = null
                             cardioFromDashboard = false
                             selectedTabIndex = index
                         },
@@ -167,7 +164,10 @@ fun DashboardWithTabs(
                     )
                     AppTab.CARDIO -> CardioScreen(
                         stateHolder = cardioStateHolder,
-                        weekLabel = dashboardState.selectedWeek.label(todayString(), dashboardState.weekStart),
+                        weekStart = dashboardState.weekStart,
+                        onPreviousWeek = stateHolder::previousWeek,
+                        onNextWeek = stateHolder::nextWeek,
+                        onCurrentWeek = stateHolder::currentWeek,
                         partialSpan = partialWeekSpan(dashboardState.selectedWeek, todayString(), dashboardState.weekStart, includeToday = true),
                         onBack = if (cardioFromDashboard) {
                             {
@@ -176,18 +176,10 @@ fun DashboardWithTabs(
                             }
                         } else null
                     )
-                    AppTab.MORE -> when (moreDestination) {
-                        null -> MoreScreen(onOpen = { moreDestination = it })
-                        MoreDestination.COMPARE -> WeekComparisonScreen(
-                            stateHolder = stateHolder,
-                            cardioSessions = cardioState.sessions,
-                            previousCardioSessions = cardioState.previousWeekSessions,
-                            onBack = { moreDestination = null }
-                        )
-                        MoreDestination.SETTINGS -> MacroProfilesSettings(
+                    AppTab.SETTINGS -> MacroProfilesSettings(
                             stateHolder = macroProfilesStateHolder,
-                            onBack = { moreDestination = null },
                             footer = {
+                                AppearanceSettings()
                                 WeeklyGoalsSettings(
                                     resistanceTarget = dashboardState.resistanceTarget,
                                     cardioMinutesTarget = dashboardState.cardioMinutesTarget,
@@ -203,7 +195,6 @@ fun DashboardWithTabs(
                                 CloudSyncSettings(syncRepository, syncSettings)
                             }
                         )
-                    }
                 }
             }
         }
@@ -214,5 +205,5 @@ private enum class AppTab(val label: String, val icon: ImageVector, val selected
     DASHBOARD("Dashboard", Icons.Outlined.Dashboard, Icons.Filled.Dashboard),
     FOOD_LOG("Food log", Icons.Outlined.Restaurant, Icons.Filled.Restaurant),
     CARDIO("Cardio", Icons.AutoMirrored.Outlined.DirectionsRun, Icons.AutoMirrored.Filled.DirectionsRun),
-    MORE("More", Icons.Outlined.MoreHoriz, Icons.Filled.MoreHoriz),
+    SETTINGS("Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
 }

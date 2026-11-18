@@ -40,7 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.model.WeekMetric
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.util.toShortDate
 import kotlin.math.ceil
 
@@ -80,13 +80,13 @@ internal fun MetricDetailHeader(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.width(6.dp))
-            Text("kcal", style = MaterialTheme.typography.titleMedium, color = MiTextSecondary, modifier = Modifier.padding(bottom = 10.dp))
+            Text("kcal", style = MaterialTheme.typography.titleMedium, color = TextSecondary, modifier = Modifier.padding(bottom = 10.dp))
         }
         Text(
             text = if (sel != null) "${days[sel].toDayAbbr().titleCase()}, ${days[sel].toShortDate()}"
                 else heroCaption(stats.map { it.first }, excludesToday),
             style = MaterialTheme.typography.bodyLarge,
-            color = MiTextSecondary
+            color = TextSecondary
         )
 
         Spacer(Modifier.height(24.dp))
@@ -134,7 +134,7 @@ internal fun MetricDetailHeader(
                             "${stats.size} of ${averagingDays.size}",
                             style = MaterialTheme.typography.headlineMedium
                         )
-                        Text("Days logged", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
+                        Text("Days logged", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                     }
                 }
             }
@@ -149,10 +149,10 @@ private fun SummaryStat(value: Double?, label: String, modifier: Modifier = Modi
             Text(value.grouped(), style = MaterialTheme.typography.headlineMedium)
             if (value != null) {
                 Spacer(Modifier.width(4.dp))
-                Text("kcal", style = MaterialTheme.typography.bodySmall, color = MiTextSecondary, modifier = Modifier.padding(bottom = 4.dp))
+                Text("kcal", style = MaterialTheme.typography.bodySmall, color = TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
             }
         }
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
     }
 }
 
@@ -226,7 +226,7 @@ private fun DailyBarChart(
                     Text(
                         t,
                         style = MaterialTheme.typography.labelMedium,
-                        color = MiTextSecondary,
+                        color = TextSecondary,
                         modifier = Modifier.align(a).offset(y = dy.dp)
                     )
                 }
@@ -241,7 +241,7 @@ private fun DailyBarChart(
                     l,
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (selected == i) MaterialTheme.colorScheme.onSurface else MiTextSecondary,
+                    color = if (selected == i) MaterialTheme.colorScheme.onSurface else TextSecondary,
                     fontWeight = if (selected == i) FontWeight.Bold else FontWeight.Normal,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )

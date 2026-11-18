@@ -127,20 +127,6 @@ class WeekTest {
     }
 
     @Test
-    fun comparisonDeltas() {
-        val current = summarizeWeek(listOf(day("2026-11-16", 2100.0)), Week("2026-11-16").days(), 60)
-        val previous = summarizeWeek(listOf(day("2026-11-09", 2000.0)), Week("2026-11-09").days(), 90)
-        val rows = compareWeeks(current, previous).associateBy { it.metric }
-        assertEquals(WeekMetric.entries.size, rows.size)
-        assertEquals(100.0, rows.getValue(WeekMetric.AVG_INTAKE).delta)
-        assertEquals(-30.0, rows.getValue(WeekMetric.CARDIO_MINUTES).delta)
-
-        val none = compareWeeks(current, WeekSummary.EMPTY).associateBy { it.metric }
-        assertNull(none.getValue(WeekMetric.AVG_INTAKE).delta, "no data last week → no delta")
-        assertEquals(60.0, none.getValue(WeekMetric.CARDIO_MINUTES).delta, "cardio 0 is real data")
-    }
-
-    @Test
     fun carbsAndFatAreTheOnlyOptionalMetrics() {
         assertEquals(setOf(WeekMetric.AVG_CARBS, WeekMetric.AVG_FAT), WeekMetric.entries.filter { it.optional }.toSet())
     }

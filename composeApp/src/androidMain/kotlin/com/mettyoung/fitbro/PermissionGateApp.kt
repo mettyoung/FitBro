@@ -49,8 +49,8 @@ import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.WeightRecord
 import com.mettyoung.fitbro.ui.FitBroTheme
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 
 private val REQUIRED_READ_PERMISSIONS = setOf(
     HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
@@ -78,6 +78,7 @@ fun PermissionGateApp() {
     }
 
     FitBroTheme {
+        SyncSystemBarIcons()
         if (sdkAvailable) {
             PermissionGateContent()
         } else {
@@ -128,7 +129,7 @@ private fun PermissionGateContent() {
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator(color = MiOrange)
+            CircularProgressIndicator(color = BrandPrimary)
         }
         requiredGranted -> {
             // Existing installs: ask once for the new body-composition permissions.
@@ -166,14 +167,14 @@ private fun PermissionScreen(onGrant: () -> Unit) {
                 modifier = Modifier
                     .size(80.dp)
                     .clip(CircleShape)
-                    .background(MiOrange.copy(alpha = 0.1f)),
+                    .background(BrandPrimary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.Info,
                     contentDescription = null,
                     modifier = Modifier.size(40.dp),
-                    tint = MiOrange
+                    tint = BrandPrimary
                 )
             }
             
@@ -191,7 +192,7 @@ private fun PermissionScreen(onGrant: () -> Unit) {
                 text = "FitBro needs read access to your health data to track calories and macros accurately.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
-                color = MiTextSecondary,
+                color = TextSecondary,
                 lineHeight = 24.sp
             )
             
@@ -203,7 +204,7 @@ private fun PermissionScreen(onGrant: () -> Unit) {
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
             ) {
                 Text("Allow Access", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
             }

@@ -20,7 +20,7 @@ import com.mettyoung.fitbro.ui.ColorCardio
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
-import com.mettyoung.fitbro.ui.MiOrange
+import com.mettyoung.fitbro.ui.BrandPrimary
 import com.mettyoung.fitbro.ui.PositiveColor
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -31,7 +31,7 @@ internal class MetricStyle(val icon: ImageVector, val color: Color, val shortLab
 @Composable
 internal fun metricStyles(): Map<WeekMetric, MetricStyle> {
     val positive = PositiveColor
-    val orange = MiOrange
+    val orange = BrandPrimary
     return WeekMetric.entries.associateWith { m ->
         when (m) {
             WeekMetric.AVG_INTAKE -> MetricStyle(Icons.Filled.Restaurant, positive, "Intake")
@@ -75,10 +75,10 @@ internal fun dailySeries(
     }
 }
 
+/** "2,100 kcal", "+300 kcal" (signed metrics), or "—". */
 internal val WeekMetric.isSigned: Boolean
     get() = this == WeekMetric.AVG_BALANCE || this == WeekMetric.NET_BALANCE
 
-/** "2,100 kcal", "+300 kcal" (signed metrics), or "—". */
 internal fun formatValue(value: Double?, metric: WeekMetric): String {
     if (value == null) return "—"
     val v = value.roundToInt()

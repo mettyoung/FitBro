@@ -23,7 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.ui.components.SectionLabel
 
 /** FR-6: Dashboard weekly targets. */
@@ -56,7 +56,7 @@ private fun StepperRow(title: String, subtitle: String, value: String, onMinus: 
     Row(Modifier.padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MiTextSecondary)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
         IconButton(onClick = onMinus) { Icon(Icons.Filled.Remove, contentDescription = "Decrease $title") }
         Text(value, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 40.dp))

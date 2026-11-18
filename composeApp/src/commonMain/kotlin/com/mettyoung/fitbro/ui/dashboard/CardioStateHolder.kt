@@ -115,7 +115,6 @@ class CardioStateHolder(
         return copy(
             sessions = visible,
             totalMinutes = visible.sumOf { it.minutes },
-            previousWeekSessions = previousVisible,
             previousWeekMinutes = previousVisible.minutesOn(comparisonDays(week, todayString(), includeToday = true)),
             hiddenCount = thisWeek.size - visible.size,
             resistanceCount = resistanceCount(all, week, excludedResistanceSources),

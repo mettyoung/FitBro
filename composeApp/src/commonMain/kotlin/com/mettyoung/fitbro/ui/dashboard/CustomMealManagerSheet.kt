@@ -1,5 +1,6 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,8 +25,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,8 +52,8 @@ import com.mettyoung.fitbro.data.model.CustomMeal
 import com.mettyoung.fitbro.data.model.CustomMealItem
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.MealType
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.util.todayString
 import kotlin.math.roundToInt
 
@@ -124,7 +125,7 @@ private fun CustomMealList(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.List,
                 contentDescription = null,
-                tint = MiOrange,
+                tint = BrandPrimary,
                 modifier = Modifier.size(28.dp)
             )
             Spacer(Modifier.size(12.dp))
@@ -138,7 +139,7 @@ private fun CustomMealList(
                 Text(
                     text = "Combine foods into single-tap logs",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MiOrange
+                    color = BrandPrimary
                 )
             }
         }
@@ -149,7 +150,7 @@ private fun CustomMealList(
             onClick = onNew,
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+            colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
         ) {
             Icon(Icons.Filled.Add, contentDescription = null)
             Spacer(Modifier.size(8.dp))
@@ -166,7 +167,7 @@ private fun CustomMealList(
                 Text(
                     text = "No custom meals yet.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary
+                    color = TextSecondary
                 )
             }
         } else {
@@ -199,8 +200,8 @@ private fun CustomMealList(
                     label = { Text("Meal Name") },
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MiOrange,
-                        focusedLabelColor = MiOrange
+                        focusedBorderColor = BrandPrimary,
+                        focusedLabelColor = BrandPrimary
                     )
                 )
             },
@@ -211,7 +212,7 @@ private fun CustomMealList(
                         onRename(meal.id, name)
                         renameTarget = null
                     }
-                ) { Text("Save", color = MiOrange) }
+                ) { Text("Save", color = BrandPrimary) }
             },
             dismissButton = { TextButton(onClick = { renameTarget = null }) { Text("Cancel") } },
             shape = RoundedCornerShape(24.dp)
@@ -242,11 +243,11 @@ private fun CustomMealRow(
     onDelete: () -> Unit
 ) {
     val totalCalories = meal.items.sumOf { it.calories }.roundToInt()
-    ElevatedCard(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
@@ -262,12 +263,12 @@ private fun CustomMealRow(
                 Text(
                     text = "${meal.items.size} items · $totalCalories kcal",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary
+                    color = TextSecondary
                 )
             }
             Row {
                 IconButton(onClick = onRename, modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Rename", tint = MiTextSecondary, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Edit, contentDescription = "Rename", tint = TextSecondary, modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.size(8.dp))
                 IconButton(onClick = onDelete, modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)) {
@@ -306,8 +307,8 @@ private fun CustomMealBuilder(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MiOrange,
-                focusedLabelColor = MiOrange
+                focusedBorderColor = BrandPrimary,
+                focusedLabelColor = BrandPrimary
             )
         )
         
@@ -328,9 +329,9 @@ private fun CustomMealBuilder(
                 onClick = { searching = true },
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(Icons.Filled.Add, contentDescription = null, tint = MiOrange)
+                Icon(Icons.Filled.Add, contentDescription = null, tint = BrandPrimary)
                 Spacer(Modifier.size(4.dp))
-                Text("Add food", color = MiOrange)
+                Text("Add food", color = BrandPrimary)
             }
         }
 
@@ -342,7 +343,7 @@ private fun CustomMealBuilder(
                 Text(
                     text = "Add at least one food",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary.copy(alpha = 0.6f)
+                    color = TextSecondary.copy(alpha = 0.6f)
                 )
             }
         } else {
@@ -352,11 +353,11 @@ private fun CustomMealBuilder(
             ) {
                 items(items.size) { index ->
                     val item = items[index]
-                    ElevatedCard(
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        shape = MaterialTheme.shapes.large,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -372,7 +373,7 @@ private fun CustomMealBuilder(
                                 Text(
                                     text = "${item.calories.roundToInt()} kcal · ${item.servingSizeG.roundToInt()}g",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MiTextSecondary
+                                    color = TextSecondary
                                 )
                             }
                             IconButton(onClick = { items.removeAt(index) }, modifier = Modifier.background(MaterialTheme.colorScheme.background, CircleShape)) {
@@ -393,7 +394,7 @@ private fun CustomMealBuilder(
                 enabled = name.isNotBlank() && items.isNotEmpty(),
                 modifier = Modifier.weight(1f).height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MiOrange)
+                colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
             ) { Text("Save Meal", style = MaterialTheme.typography.titleMedium) }
         }
         

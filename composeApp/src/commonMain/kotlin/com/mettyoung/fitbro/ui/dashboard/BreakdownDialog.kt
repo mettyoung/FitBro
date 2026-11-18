@@ -33,8 +33,8 @@ import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
 import com.mettyoung.fitbro.ui.ColorProtein
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.util.MONTH_ABBR
 import com.mettyoung.fitbro.util.toYMD
 import kotlin.math.roundToInt
@@ -57,7 +57,7 @@ fun BreakdownDialog(
                 Text(
                     text = dateDisplay,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MiOrange
+                    color = BrandPrimary
                 )
                 Text(
                     text = "Daily Breakdown",
@@ -80,7 +80,7 @@ fun BreakdownDialog(
                     Text(
                         text = "NET BALANCE",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MiTextSecondary
+                        color = TextSecondary
                     )
                     Text(
                         text = "${if (balance.balance >= 0) "+" else ""}${balance.balance.roundToInt()} kcal",
@@ -97,7 +97,7 @@ fun BreakdownDialog(
                     label = "Total Caloric Intake",
                     value = balance.intake,
                     total = balance.intake,
-                    color = MiOrange
+                    color = BrandPrimary
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -142,8 +142,8 @@ fun BreakdownDialog(
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MiOrange, 
-                        contentColor = Color.White
+                        containerColor = BrandPrimary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     Text("Dismiss", style = MaterialTheme.typography.titleMedium)
@@ -158,7 +158,7 @@ private fun SectionTitle(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelSmall,
-        color = MiOrange,
+        color = BrandPrimary,
         modifier = Modifier.padding(bottom = 12.dp)
     )
 }

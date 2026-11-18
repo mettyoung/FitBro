@@ -33,23 +33,6 @@ class FoodDiaryStateHolder(
     private val _selectedDate = MutableStateFlow(todayString())
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
 
-    val weeklyTotals: StateFlow<List<DailyMacroTotals>> = _selectedDate
-        .flatMapLatest { date ->
-            val startDate = date.minusDays(6)
-            repository.getDailyTotalsForRange(startDate, date).map { rows ->
-                val byDate = rows.associateBy { it.date }
-                (0..6).map { i ->
-                    val d = startDate.plusDays(i)
-                    byDate[d] ?: DailyMacroTotals.empty(d)
-                }
-            }
-        }
-        .stateIn(
-            scope = scope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = emptyList()
-        )
-
     val state: StateFlow<FoodDiaryState> = _selectedDate
         .flatMapLatest { date ->
             combine(

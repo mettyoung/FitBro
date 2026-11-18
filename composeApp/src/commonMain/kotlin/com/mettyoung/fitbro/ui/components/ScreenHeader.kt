@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
@@ -87,13 +88,14 @@ fun ScreenHeader(
     }
 }
 
-/** Pill with prev/next chevrons and a tappable centre label. */
+/** Pill with prev/next chevrons and a tappable two-line centre label; matches the week stepper. */
 @Composable
 fun DateStepper(
     label: String,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
+    sublabel: String? = null,
     nextEnabled: Boolean = true,
     onLabelClick: (() -> Unit)? = null,
 ) {
@@ -106,22 +108,24 @@ fun DateStepper(
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onPrevious, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous")
+            IconButton(onClick = onPrevious, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .weight(1f)
                     .clip(CircleShape)
                     .then(if (onLabelClick != null) Modifier.clickable(onClick = onLabelClick) else Modifier)
-                    .padding(vertical = 10.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-            IconButton(onClick = onNext, enabled = nextEnabled, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
+                    .padding(vertical = 2.dp)
+            ) {
+                Text(label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                if (sublabel != null) {
+                    Text(sublabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            IconButton(onClick = onNext, enabled = nextEnabled, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -141,5 +145,50 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier, trailing: @Composa
             modifier = Modifier.weight(1f)
         )
         trailing()
+    }
+}
+
+/**
+ * Header for drill-in pages: back arrow, one-line title, optional one-line subtitle. No overline,
+ * actions or steppers — those belong to the tab headers ([ScreenHeader]).
+ */
+@Composable
+fun DetailHeader(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+) {
+    val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = top + 8.dp, start = 8.dp, end = ScreenGutter, bottom = 8.dp)
+            .height(56.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+        }
+        Spacer(Modifier.size(4.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }

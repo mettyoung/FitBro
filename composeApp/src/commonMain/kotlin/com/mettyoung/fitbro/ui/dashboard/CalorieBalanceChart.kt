@@ -26,8 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -48,7 +48,7 @@ fun CalorieBalanceChart(
         ?: balances.map { it.date to it }
     if (balances.isEmpty() && days == null) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Text("No data available", style = MaterialTheme.typography.bodyMedium, color = MiTextSecondary)
+            Text("No data available", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         }
         return
     }
@@ -107,7 +107,7 @@ private fun CalorieBarItem(
     showValue: Boolean,
     onClick: () -> Unit
 ) {
-    val positiveColor = MiOrange
+    val positiveColor = BrandPrimary
     val negativeColor = MaterialTheme.colorScheme.tertiary
     // Positive-only modes always use the positive accent; diverging keys on sign.
     val color = if (!diverging || value >= 0) positiveColor else negativeColor
@@ -137,7 +137,7 @@ private fun CalorieBarItem(
             Text(
                 text = balance.date.toDayInitial(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MiTextSecondary,
+                color = TextSecondary,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -185,7 +185,7 @@ private fun BarLabel(text: String, modifier: Modifier = Modifier) {
         text = text,
         modifier = modifier,
         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 13.sp),
-        color = MiOrange,
+        color = BrandPrimary,
         fontWeight = FontWeight.Bold,
         maxLines = 1,
         softWrap = false
@@ -217,7 +217,7 @@ private fun EmptySlot(date: String, showLabel: Boolean) {
             Text(
                 text = date.toDayInitial(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MiTextSecondary.copy(alpha = 0.4f),
+                color = TextSecondary.copy(alpha = 0.4f),
                 fontWeight = FontWeight.Bold
             )
         }

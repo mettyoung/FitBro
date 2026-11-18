@@ -4,7 +4,7 @@ import androidx.compose.material3.Card
 import androidx.compose.foundation.layout.Row
 import com.mettyoung.fitbro.ui.components.ScreenGutter
 import com.mettyoung.fitbro.ui.components.ScreenHeader
-import com.mettyoung.fitbro.ui.components.backNavigation
+import com.mettyoung.fitbro.ui.components.DetailHeader
 import com.mettyoung.fitbro.ui.components.SectionLabel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -52,8 +52,8 @@ import com.mettyoung.fitbro.data.model.CardioSession
 import com.mettyoung.fitbro.data.model.WorkoutType
 import com.mettyoung.fitbro.ui.settings.WorkoutTypesSheet
 import kotlinx.coroutines.launch
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.util.MONTH_ABBR
 import com.mettyoung.fitbro.util.dayOfWeekMonBased
 import com.mettyoung.fitbro.util.toShortDate
@@ -64,7 +64,10 @@ private val DAY_ABBR = arrayOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 @Composable
 fun CardioScreen(
     stateHolder: CardioStateHolder,
-    weekLabel: String,
+    weekStart: com.mettyoung.fitbro.data.model.WeekStart,
+    onPreviousWeek: () -> Unit,
+    onNextWeek: () -> Unit,
+    onCurrentWeek: () -> Unit,
     /** e.g. "Mon–Wed" when the selected week is still in progress. */
     partialSpan: String?,
     /** Non-null when opened from the Dashboard: shows a back button. */
@@ -93,27 +96,47 @@ fun CardioScreen(
     }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        ScreenHeader(
-            title = "Cardio",
-            overline = "$weekLabel · ${state.week.start.toShortDate()} – ${state.week.end.toShortDate()}",
-            navigation = backNavigation(onBack)
-        )
-
         Scaffold(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
+            // The header above already handles the status bar; don't inset again.
+            contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
             snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { innerPadding ->
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    start = ScreenGutter,
-                    end = ScreenGutter,
-                    top = innerPadding.calculateTopPadding() + 4.dp,
+                    top = innerPadding.calculateTopPadding(),
                     bottom = innerPadding.calculateBottomPadding() + 24.dp
                 )
             ) {
+                // Same header rules as every other screen: tab header, or compact bar when drilled in from the Dashboard.
                 item {
+                    if (onBack != null) {
+                        DetailHeader(
+                            title = "Cardio",
+                            subtitle = "${state.week.start.toShortDate()} – ${state.week.end.toShortDate()}",
+                            onBack = onBack
+                        )
+                    } else {
+                        ScreenHeader(
+                            title = "Cardio",
+                            bottom = {
+                                WeekStepper(
+                                    week = state.week,
+                                    today = com.mettyoung.fitbro.util.todayString(),
+                                    weekStart = weekStart,
+                                    onPreviousWeek = onPreviousWeek,
+                                    onNextWeek = onNextWeek,
+                                    onCurrentWeek = onCurrentWeek
+                                )
+                            }
+                        )
+                    }
+                }
+                item {
+                  Column(Modifier.padding(horizontal = ScreenGutter)) {
+                    Spacer(Modifier.height(8.dp))
                     WeeklySummaryCard(
                         totalMinutes = state.totalMinutes,
                         sessionCount = state.sessions.size,
@@ -128,10 +151,11 @@ fun CardioScreen(
                     Text(
                         text = "From Health Connect — workouts recorded by Mi Fitness or any other app. Long-press a workout to hide its type.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MiTextSecondary
+                        color = TextSecondary
                     )
                     Spacer(Modifier.height(16.dp))
                     if (sortedDates.isNotEmpty()) SectionLabel("Sessions")
+                  }
                 }
 
                 items(sortedDates) { date ->
@@ -139,7 +163,8 @@ fun CardioScreen(
                     SessionDayGroup(
                         date = date,
                         sessions = sessions,
-                        onHideType = onHideType
+                        onHideType = onHideType,
+                        modifier = Modifier.padding(horizontal = ScreenGutter)
                     )
                     Spacer(Modifier.height(12.dp))
                 }
@@ -153,8 +178,8 @@ fun CardioScreen(
                                 else -> "No exercise sessions in this range. Make sure Mi Fitness shares workouts with Health Connect."
                             },
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (state.error != null) MaterialTheme.colorScheme.error else MiTextSecondary,
-                            modifier = Modifier.padding(vertical = 24.dp)
+                            color = if (state.error != null) MaterialTheme.colorScheme.error else TextSecondary,
+                            modifier = Modifier.padding(horizontal = ScreenGutter, vertical = 24.dp)
                         )
                     }
                 }
@@ -175,7 +200,7 @@ private fun HiddenWorkoutsHint(count: Int, onManage: () -> Unit) {
         Text(
             text = if (count == 1) "1 workout hidden" else "$count workouts hidden",
             style = MaterialTheme.typography.bodySmall,
-            color = MiTextSecondary,
+            color = TextSecondary,
             modifier = Modifier.weight(1f)
         )
         TextButton(onClick = onManage) { Text("Manage") }
@@ -192,22 +217,19 @@ private fun WeeklySummaryCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(modifier = Modifier.padding(24.dp)) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("ACTIVE MINUTES", style = MaterialTheme.typography.labelSmall)
+                Text("ACTIVE MINUTES", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                 Text(
                     text = "$totalMinutes",
                     style = MaterialTheme.typography.displayLarge
                 )
-                Text(deltaText, style = MaterialTheme.typography.bodySmall)
+                Text(deltaText, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             }
             Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                Text("SESSIONS", style = MaterialTheme.typography.labelSmall)
+                Text("SESSIONS", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                 Text(
                     text = "$sessionCount",
                     style = MaterialTheme.typography.displayLarge
@@ -274,7 +296,7 @@ private fun SessionRow(
                 text = if (session.activity == session.type.label) session.source
                        else "${session.type.label} · ${session.source}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MiTextSecondary
+                color = TextSecondary
             )
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {

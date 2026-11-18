@@ -24,8 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mettyoung.fitbro.data.model.WeekStart
-import com.mettyoung.fitbro.ui.MiOrange
-import com.mettyoung.fitbro.ui.MiTextSecondary
+import com.mettyoung.fitbro.ui.BrandPrimary
+import com.mettyoung.fitbro.ui.TextSecondary
 import com.mettyoung.fitbro.ui.components.SectionLabel
 
 /** US-003: first day of the week for Trends and Cardio. */
@@ -48,13 +48,13 @@ fun WeekStartSettings(weekStart: WeekStart, onWeekStartChange: (WeekStart) -> Un
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Used by Dashboard, Compare and Cardio",
+                    text = "Used by Dashboard and Cardio",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MiTextSecondary
+                    color = TextSecondary
                 )
             }
             Box {
-                Text(weekStart.label, style = MaterialTheme.typography.bodyLarge, color = MiOrange)
+                Text(weekStart.label, style = MaterialTheme.typography.bodyLarge, color = BrandPrimary)
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     WeekStart.entries.forEach { day ->
                         DropdownMenuItem(
