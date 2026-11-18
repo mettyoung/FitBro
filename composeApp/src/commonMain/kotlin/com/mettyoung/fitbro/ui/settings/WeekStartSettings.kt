@@ -48,7 +48,7 @@ fun WeekStartSettings(weekStart: WeekStart, onWeekStartChange: (WeekStart) -> Un
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Used by Trends and Cardio",
+                    text = "Used by Dashboard, Compare and Cardio",
                     style = MaterialTheme.typography.bodySmall,
                     color = MiTextSecondary
                 )

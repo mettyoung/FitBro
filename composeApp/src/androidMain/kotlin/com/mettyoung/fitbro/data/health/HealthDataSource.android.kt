@@ -4,9 +4,21 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BasalMetabolicRateRecord
+import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.LeanBodyMassRecord
+import androidx.health.connect.client.records.Record
+import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.metadata.Metadata as HCMetadata
+import androidx.health.connect.client.records.metadata.Device
+import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.ExerciseRouteResult
+import androidx.health.connect.client.request.AggregateRequest
+import com.mettyoung.fitbro.data.model.HeartRateSummary
+import com.mettyoung.fitbro.data.model.Measured
+import com.mettyoung.fitbro.data.model.WorkoutDetail
+import com.mettyoung.fitbro.data.model.WorkoutSegment
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -14,6 +26,10 @@ import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Mass
 import com.mettyoung.fitbro.AndroidAppContext
 import com.mettyoung.fitbro.data.model.ActivityBurn
+import com.mettyoung.fitbro.data.model.BodyMeasurement
+import java.time.Instant
+import java.time.LocalDateTime
+import kotlin.reflect.KClass
 import com.mettyoung.fitbro.data.model.CardioSession
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.Metabolism
@@ -125,6 +141,65 @@ private class HealthConnectDataSource : HealthDataSource {
         }
     }
 
+    override suspend fun readBodyMeasurements(
+        startDate: String,
+        endDate: String
+    ): HealthResult<List<BodyMeasurement>> {
+        val healthClient = client ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+        val granted = try {
+            healthClient.permissionController.getGrantedPermissions()
+        } catch (e: Exception) {
+            return HealthResult.Failure(HealthDataError.QueryError(e))
+        }
+        fun allowed(type: KClass<out Record>) = HealthPermission.getReadPermission(type) in granted
+        if (!allowed(WeightRecord::class) && !allowed(BodyFatRecord::class) && !allowed(LeanBodyMassRecord::class)) {
+            return HealthResult.Failure(HealthDataError.PermissionDenied)
+        }
+
+        return try {
+            val zone = ZoneId.systemDefault()
+            val start = LocalDate.parse(startDate).atStartOfDay()
+            val end = LocalDate.parse(endDate).plusDays(1).atStartOfDay()
+            fun Instant.day() = atZone(zone).toLocalDate().toString()
+
+            /** Last value of the day per date. */
+            fun <T> lastPerDay(records: List<T>, time: (T) -> Instant, value: (T) -> Double): Map<String, Double> =
+                records.sortedBy(time).associate { time(it).day() to value(it) }
+
+            val weights = if (allowed(WeightRecord::class))
+                lastPerDay(readAll(healthClient, WeightRecord::class, start, end), { it.time }, { it.weight.inKilograms }) else emptyMap()
+            val fat = if (allowed(BodyFatRecord::class))
+                lastPerDay(readAll(healthClient, BodyFatRecord::class, start, end), { it.time }, { it.percentage.value }) else emptyMap()
+            val lean = if (allowed(LeanBodyMassRecord::class))
+                lastPerDay(readAll(healthClient, LeanBodyMassRecord::class, start, end), { it.time }, { it.mass.inKilograms }) else emptyMap()
+
+            val measurements = (weights.keys + fat.keys + lean.keys).sorted().map { d ->
+                BodyMeasurement(date = d, weightKg = weights[d], bodyFatPct = fat[d], leanMassKg = lean[d])
+            }
+            HealthResult.Success(measurements)
+        } catch (e: Exception) {
+            HealthResult.Failure(HealthDataError.QueryError(e))
+        }
+    }
+
+    private suspend fun <T : Record> readAll(
+        healthClient: HealthConnectClient,
+        type: KClass<T>,
+        start: LocalDateTime,
+        end: LocalDateTime
+    ): List<T> {
+        val records = mutableListOf<T>()
+        var pageToken: String? = null
+        do {
+            val response = healthClient.readRecords(
+                ReadRecordsRequest(recordType = type, timeRangeFilter = TimeRangeFilter.between(start, end), pageToken = pageToken)
+            )
+            records += response.records
+            pageToken = response.pageToken
+        } while (pageToken != null)
+        return records
+    }
+
     override suspend fun readExerciseSessions(
         startDate: String,
         endDate: String
@@ -180,6 +255,86 @@ private class HealthConnectDataSource : HealthDataSource {
         }
     }
 
+    override suspend fun readWorkoutDetail(session: CardioSession): HealthResult<WorkoutDetail> {
+        val healthClient = client ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+        return try {
+            val granted = healthClient.permissionController.getGrantedPermissions()
+            if (HealthPermission.getReadPermission(ExerciseSessionRecord::class) !in granted) {
+                return HealthResult.Failure(HealthDataError.PermissionDenied)
+            }
+            val record = healthClient.readRecord(ExerciseSessionRecord::class, session.id).record
+            val window = TimeRangeFilter.between(record.startTime, record.endTime)
+
+            val calories = if (HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class) in granted) {
+                val agg = healthClient.aggregate(
+                    AggregateRequest(setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL), window)
+                )
+                agg[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.let { energy ->
+                    Measured(energy.inKilocalories, agg.dataOrigins.map { sourceAppLabel(it.packageName) }.distinct())
+                }
+            } else null
+
+            val hrAllowed = HealthPermission.getReadPermission(HeartRateRecord::class) in granted
+            val heartRate = if (hrAllowed) {
+                val agg = healthClient.aggregate(
+                    AggregateRequest(
+                        setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MIN, HeartRateRecord.BPM_MAX, HeartRateRecord.MEASUREMENTS_COUNT),
+                        window
+                    )
+                )
+                val avg = agg[HeartRateRecord.BPM_AVG]
+                if (avg != null) Measured(
+                    HeartRateSummary(
+                        avgBpm = avg,
+                        minBpm = agg[HeartRateRecord.BPM_MIN] ?: avg,
+                        maxBpm = agg[HeartRateRecord.BPM_MAX] ?: avg,
+                        samples = agg[HeartRateRecord.MEASUREMENTS_COUNT] ?: 0
+                    ),
+                    agg.dataOrigins.map { sourceAppLabel(it.packageName) }.distinct()
+                ) else null
+            } else null
+
+            val meta = record.metadata
+            HealthResult.Success(
+                WorkoutDetail(
+                    session = session,
+                    endEpochMs = record.endTime.toEpochMilli(),
+                    title = record.title?.takeIf { it.isNotBlank() },
+                    notes = record.notes?.takeIf { it.isNotBlank() },
+                    sourceId = meta.dataOrigin.packageName,
+                    recordingMethod = when (meta.recordingMethod) {
+                        HCMetadata.RECORDING_METHOD_ACTIVELY_RECORDED -> "Tracked in app"
+                        HCMetadata.RECORDING_METHOD_AUTOMATICALLY_RECORDED -> "Auto-detected"
+                        HCMetadata.RECORDING_METHOD_MANUAL_ENTRY -> "Manual entry"
+                        else -> null
+                    },
+                    device = meta.device?.let { d ->
+                        listOfNotNull(d.manufacturer, d.model).joinToString(" ").ifBlank { null }
+                            ?.let { name -> deviceTypeLabel(d.type)?.let { "$name ($it)" } ?: name }
+                            ?: deviceTypeLabel(d.type)
+                    },
+                    lastModifiedEpochMs = meta.lastModifiedTime.toEpochMilli(),
+                    activeKcal = calories,
+                    heartRate = heartRate,
+                    heartRateAllowed = hrAllowed,
+                    segments = record.segments.map { seg ->
+                        WorkoutSegment(
+                            name = segmentName(seg.segmentType),
+                            startEpochMs = seg.startTime.toEpochMilli(),
+                            endEpochMs = seg.endTime.toEpochMilli(),
+                            repetitions = seg.repetitions
+                        )
+                    },
+                    laps = record.laps.size,
+                    hasRoute = record.exerciseRouteResult !is ExerciseRouteResult.NoData
+                )
+            )
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Workout detail failed: ${e.message}", e)
+            HealthResult.Failure(HealthDataError.QueryError(e))
+        }
+    }
+
     override suspend fun writeNutritionRecord(entry: FoodDiaryEntry) {
         val healthClient = client ?: return
 
@@ -231,13 +386,42 @@ private class HealthConnectDataSource : HealthDataSource {
 }
 
 /** Known health apps by package; others resolve via PackageManager (may be hidden by package visibility). */
+private fun deviceTypeLabel(type: Int): String? = when (type) {
+    Device.TYPE_WATCH -> "watch"
+    Device.TYPE_PHONE -> "phone"
+    Device.TYPE_SCALE -> "scale"
+    Device.TYPE_RING -> "ring"
+    Device.TYPE_FITNESS_BAND -> "band"
+    Device.TYPE_CHEST_STRAP -> "chest strap"
+    else -> null
+}
+
+/** Health Connect segment types are 0..67 in declaration order; names derived from the constants. */
+private val SEGMENT_NAMES = listOf(
+    "Unknown", "Arm curl", "Back extension", "Ball slam", "Barbell shoulder press", "Bench press",
+    "Bench sit-up", "Biking", "Stationary biking", "Burpee", "Crunch", "Deadlift",
+    "Double-arm triceps extension", "Dumbbell curl (left)", "Dumbbell curl (right)", "Dumbbell front raise",
+    "Dumbbell lateral raise", "Dumbbell row", "Dumbbell triceps extension (left)",
+    "Dumbbell triceps extension (right)", "Dumbbell triceps extension", "Elliptical", "Forward twist",
+    "Front raise", "HIIT", "Hip thrust", "Hula hoop", "Jumping jack", "Jump rope", "Kettlebell swing",
+    "Lateral raise", "Lat pull-down", "Leg curl", "Leg extension", "Leg press", "Leg raise", "Lunge",
+    "Mountain climber", "Other workout", "Pause", "Pilates", "Plank", "Pull-up", "Punch", "Rest",
+    "Rowing machine", "Running", "Treadmill", "Shoulder press", "Single-arm triceps extension", "Sit-up",
+    "Squat", "Stair climbing", "Stair machine", "Stretching", "Backstroke", "Breaststroke", "Butterfly",
+    "Freestyle", "Mixed swimming", "Open-water swimming", "Swimming", "Pool swimming", "Upper twist",
+    "Walking", "Weightlifting", "Wheelchair", "Yoga"
+)
+
+private fun segmentName(type: Int): String = SEGMENT_NAMES.getOrNull(type) ?: "Exercise $type"
+
 private val KNOWN_SOURCES = mapOf(
     "com.mi.health" to "Mi Fitness",
     "com.xiaomi.wearable" to "Mi Fitness",
     "com.xiaomi.hm.health" to "Zepp Life",
     "com.google.android.apps.fitness" to "Google Fit",
     "com.samsung.android.app.health" to "Samsung Health",
-    "com.mettyoung.fitbro" to "FitBro"
+    "com.mettyoung.fitbro" to "FitBro",
+    "com.hevy" to "Hevy"
 )
 
 private fun sourceAppLabel(packageName: String): String =

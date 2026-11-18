@@ -65,6 +65,7 @@ import kotlin.math.roundToInt
 fun MacroProfilesSettings(
     stateHolder: MacroProfilesStateHolder,
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
     footer: @Composable () -> Unit = {}
 ) {
     val state by stateHolder.state.collectAsState()
@@ -91,7 +92,7 @@ fun MacroProfilesSettings(
                 .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState())
         ) {
-            ScreenHeader(title = "Settings", overline = "Targets & sync")
+            ScreenHeader(title = "Settings", overline = "Targets & sync", navigation = com.mettyoung.fitbro.ui.components.backNavigation(onBack))
 
             Column(
                 modifier = Modifier

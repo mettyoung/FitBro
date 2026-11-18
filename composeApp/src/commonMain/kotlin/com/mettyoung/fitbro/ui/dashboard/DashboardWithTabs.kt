@@ -10,15 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Dashboard
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Restaurant
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Icon
@@ -47,7 +45,10 @@ import com.mettyoung.fitbro.ui.settings.CloudSyncSettings
 import com.mettyoung.fitbro.ui.settings.MacroProfilesSettings
 import com.mettyoung.fitbro.ui.settings.MacroProfilesStateHolder
 import com.mettyoung.fitbro.ui.settings.WeekStartSettings
+import com.mettyoung.fitbro.ui.settings.WeeklyGoalsSettings
+import com.mettyoung.fitbro.ui.BackHandlerEffect
 import com.mettyoung.fitbro.ui.settings.WorkoutTypesSettings
+import com.mettyoung.fitbro.ui.settings.ResistanceSourcesSettings
 import com.mettyoung.fitbro.data.model.partialWeekSpan
 import com.mettyoung.fitbro.util.todayString
 
@@ -67,7 +68,15 @@ fun DashboardWithTabs(
     balances: List<DailyBalance>,
     modifier: Modifier = Modifier
 ) {
-    var selectedTabIndex by rememberSaveable { mutableStateOf(AppTab.TODAY.ordinal) }
+    var selectedTabIndex by rememberSaveable { mutableStateOf(AppTab.DASHBOARD.ordinal) }
+    var moreDestination by remember { mutableStateOf<MoreDestination?>(null) }
+    BackHandlerEffect(enabled = selectedTabIndex == AppTab.MORE.ordinal && moreDestination != null) { moreDestination = null }
+    // Cardio opened from the Dashboard's cardio card gets a back button; via the tab it doesn't.
+    var cardioFromDashboard by remember { mutableStateOf(false) }
+    BackHandlerEffect(enabled = selectedTabIndex == AppTab.CARDIO.ordinal && cardioFromDashboard) {
+        cardioFromDashboard = false
+        selectedTabIndex = AppTab.DASHBOARD.ordinal
+    }
 
     val dashboardDate by stateHolder.selectedDate.collectAsState()
     LaunchedEffect(dashboardDate) {
@@ -92,7 +101,12 @@ fun DashboardWithTabs(
                     val selected = selectedTabIndex == index
                     NavigationBarItem(
                         selected = selected,
-                        onClick = { selectedTabIndex = index },
+                        onClick = {
+                            // Re-tapping More returns to its list.
+                            if (tab == AppTab.MORE) moreDestination = null
+                            cardioFromDashboard = false
+                            selectedTabIndex = index
+                        },
                         icon = {
                             Icon(
                                 if (selected) tab.selectedIcon else tab.icon,
@@ -125,7 +139,23 @@ fun DashboardWithTabs(
             ) { tab ->
                 val cardioState by cardioStateHolder.state.collectAsState()
                 when (tab) {
-                    AppTab.TODAY -> MacroDailyCounterDetail(
+                    AppTab.DASHBOARD -> DashboardScreen(
+                        stateHolder = stateHolder,
+                        cardioSessions = cardioState.sessions,
+                        resistanceCount = cardioState.resistanceCount,
+                        strengthSessions = cardioState.strengthSessions,
+                        workoutDetail = cardioState.workoutDetail,
+                        onOpenWorkout = cardioStateHolder::openWorkout,
+                        onCloseWorkout = cardioStateHolder::closeWorkout,
+                        resistanceSources = cardioState.resistanceSources,
+                        excludedResistanceSources = cardioState.excludedResistanceSources,
+                        onToggleResistanceSource = cardioStateHolder::setResistanceSourceIncluded,
+                        onOpenCardio = {
+                            cardioFromDashboard = true
+                            selectedTabIndex = AppTab.CARDIO.ordinal
+                        }
+                    )
+                    AppTab.FOOD_LOG -> MacroDailyCounterDetail(
                         macroGoalRepository = macroGoalRepository,
                         foodDiaryStateHolder = foodDiaryStateHolder,
                         customMealStateHolder = customMealStateHolder,
@@ -135,33 +165,45 @@ fun DashboardWithTabs(
                         onDateSelected = stateHolder::setSelectedDate,
                         onBalanceRefreshNeeded = stateHolder::refresh
                     )
-                    AppTab.TRENDS -> DashboardScreen(
-                        stateHolder = stateHolder,
-                        cardioSessions = cardioState.sessions,
-                        previousCardioSessions = cardioState.previousWeekSessions,
-                        onOpenComparison = { selectedTabIndex = AppTab.COMPARE.ordinal }
-                    )
-                    AppTab.COMPARE -> WeekComparisonScreen(
-                        stateHolder = stateHolder,
-                        cardioSessions = cardioState.sessions,
-                        previousCardioSessions = cardioState.previousWeekSessions
-                    )
                     AppTab.CARDIO -> CardioScreen(
                         stateHolder = cardioStateHolder,
                         weekLabel = dashboardState.selectedWeek.label(todayString(), dashboardState.weekStart),
-                        partialSpan = partialWeekSpan(dashboardState.selectedWeek, todayString(), dashboardState.weekStart, includeToday = true)
+                        partialSpan = partialWeekSpan(dashboardState.selectedWeek, todayString(), dashboardState.weekStart, includeToday = true),
+                        onBack = if (cardioFromDashboard) {
+                            {
+                                cardioFromDashboard = false
+                                selectedTabIndex = AppTab.DASHBOARD.ordinal
+                            }
+                        } else null
                     )
-                    AppTab.SETTINGS -> MacroProfilesSettings(
-                        stateHolder = macroProfilesStateHolder,
-                        footer = {
-                            WeekStartSettings(
-                                weekStart = dashboardState.weekStart,
-                                onWeekStartChange = stateHolder::setWeekStart
-                            )
-                            WorkoutTypesSettings(cardioStateHolder)
-                            CloudSyncSettings(syncRepository, syncSettings)
-                        }
-                    )
+                    AppTab.MORE -> when (moreDestination) {
+                        null -> MoreScreen(onOpen = { moreDestination = it })
+                        MoreDestination.COMPARE -> WeekComparisonScreen(
+                            stateHolder = stateHolder,
+                            cardioSessions = cardioState.sessions,
+                            previousCardioSessions = cardioState.previousWeekSessions,
+                            onBack = { moreDestination = null }
+                        )
+                        MoreDestination.SETTINGS -> MacroProfilesSettings(
+                            stateHolder = macroProfilesStateHolder,
+                            onBack = { moreDestination = null },
+                            footer = {
+                                WeeklyGoalsSettings(
+                                    resistanceTarget = dashboardState.resistanceTarget,
+                                    cardioMinutesTarget = dashboardState.cardioMinutesTarget,
+                                    onResistanceChange = stateHolder::setResistanceTarget,
+                                    onCardioChange = stateHolder::setCardioMinutesTarget
+                                )
+                                WeekStartSettings(
+                                    weekStart = dashboardState.weekStart,
+                                    onWeekStartChange = stateHolder::setWeekStart
+                                )
+                                ResistanceSourcesSettings(cardioStateHolder)
+                                WorkoutTypesSettings(cardioStateHolder)
+                                CloudSyncSettings(syncRepository, syncSettings)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -169,9 +211,8 @@ fun DashboardWithTabs(
 }
 
 private enum class AppTab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
-    TODAY("Today", Icons.Outlined.Restaurant, Icons.Filled.Restaurant),
-    TRENDS("Trends", Icons.Outlined.Insights, Icons.Filled.Insights),
-    COMPARE("Compare", Icons.Outlined.BarChart, Icons.Filled.BarChart),
+    DASHBOARD("Dashboard", Icons.Outlined.Dashboard, Icons.Filled.Dashboard),
+    FOOD_LOG("Food log", Icons.Outlined.Restaurant, Icons.Filled.Restaurant),
     CARDIO("Cardio", Icons.AutoMirrored.Outlined.DirectionsRun, Icons.AutoMirrored.Filled.DirectionsRun),
-    SETTINGS("Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
+    MORE("More", Icons.Outlined.MoreHoriz, Icons.Filled.MoreHoriz),
 }

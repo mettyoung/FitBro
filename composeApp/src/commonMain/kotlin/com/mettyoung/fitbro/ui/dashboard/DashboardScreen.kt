@@ -26,8 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -58,9 +56,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mettyoung.fitbro.data.model.DailyBalance
-import com.mettyoung.fitbro.data.model.CardioSession
-import com.mettyoung.fitbro.data.model.comparedDayCount
 import com.mettyoung.fitbro.data.model.partialWeekSpan
+import com.mettyoung.fitbro.data.model.BodyMetric
+import com.mettyoung.fitbro.data.model.CardioSession
+import com.mettyoung.fitbro.data.model.WeekGoals
+import com.mettyoung.fitbro.data.model.WeekMetric
+import com.mettyoung.fitbro.data.model.WeekSummary
+import com.mettyoung.fitbro.data.model.minutesOn
+import com.mettyoung.fitbro.ui.components.ActivityRings
+import com.mettyoung.fitbro.ui.components.MetricTileCard
+import com.mettyoung.fitbro.ui.components.MiniTicks
+import com.mettyoung.fitbro.ui.components.StatItem
+import com.mettyoung.fitbro.ui.components.StatTripletCard
+import com.mettyoung.fitbro.ui.components.TwoColumnTiles
+import androidx.compose.material.icons.filled.CheckCircle
 import com.mettyoung.fitbro.ui.BackHandlerEffect
 import com.mettyoung.fitbro.ui.ColorCarbs
 import com.mettyoung.fitbro.ui.ColorFat
@@ -77,8 +86,15 @@ import kotlin.math.roundToInt
 fun DashboardScreen(
     stateHolder: DashboardStateHolder,
     cardioSessions: List<CardioSession> = emptyList(),
-    previousCardioSessions: List<CardioSession> = emptyList(),
-    onOpenComparison: () -> Unit = {},
+    resistanceCount: Int = 0,
+    strengthSessions: List<CardioSession> = emptyList(),
+    workoutDetail: WorkoutDetailState? = null,
+    onOpenWorkout: (CardioSession) -> Unit = {},
+    onCloseWorkout: () -> Unit = {},
+    resistanceSources: List<String> = emptyList(),
+    excludedResistanceSources: Set<String> = emptySet(),
+    onToggleResistanceSource: (String, Boolean) -> Unit = { _, _ -> },
+    onOpenCardio: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by stateHolder.state.collectAsState()
@@ -89,9 +105,16 @@ fun DashboardScreen(
         onNextWeek = stateHolder::nextWeek,
         onCurrentWeek = stateHolder::currentWeek,
         onToggleCarbsFat = { stateHolder.setShowCarbsFat(!state.showCarbsFat) },
-        onOpenComparison = onOpenComparison,
         cardioSessions = cardioSessions,
-        previousCardioSessions = previousCardioSessions,
+        resistanceCount = resistanceCount,
+        strengthSessions = strengthSessions,
+        workoutDetail = workoutDetail,
+        onOpenWorkout = onOpenWorkout,
+        onCloseWorkout = onCloseWorkout,
+        resistanceSources = resistanceSources,
+        excludedResistanceSources = excludedResistanceSources,
+        onToggleResistanceSource = onToggleResistanceSource,
+        onOpenCardio = onOpenCardio,
         modifier = modifier
     )
 }
@@ -104,19 +127,33 @@ fun DashboardContent(
     onNextWeek: () -> Unit = {},
     onCurrentWeek: () -> Unit = {},
     onToggleCarbsFat: () -> Unit = {},
-    onOpenComparison: () -> Unit = {},
     cardioSessions: List<CardioSession> = emptyList(),
-    previousCardioSessions: List<CardioSession> = emptyList(),
+    resistanceCount: Int = 0,
+    strengthSessions: List<CardioSession> = emptyList(),
+    workoutDetail: WorkoutDetailState? = null,
+    onOpenWorkout: (CardioSession) -> Unit = {},
+    onCloseWorkout: () -> Unit = {},
+    resistanceSources: List<String> = emptyList(),
+    excludedResistanceSources: Set<String> = emptySet(),
+    onToggleResistanceSource: (String, Boolean) -> Unit = { _, _ -> },
+    onOpenCardio: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
-    var selectedLens: DashboardViewMode? by remember { mutableStateOf(null) }
+    var page: DashboardPage? by remember { mutableStateOf(null) }
     var wasRefreshing by remember { mutableStateOf(false) }
     var showSuccessToast by remember { mutableStateOf(false) }
     var refreshError by remember { mutableStateOf<String?>(null) }
 
-    val inDetail = selectedLens != null
-    BackHandlerEffect(enabled = inDetail) { selectedLens = null }
+    val inDetail = page != null
+    // Workout detail sits under Resistance; everything else goes straight back to the Dashboard.
+    val goBack = {
+        if (page == DashboardPage.Workout) {
+            onCloseWorkout()
+            page = DashboardPage.Resistance
+        } else page = null
+    }
+    BackHandlerEffect(enabled = inDetail) { goBack() }
 
     val today = todayString()
     val week = state.selectedWeek
@@ -124,7 +161,6 @@ fun DashboardContent(
     // Current week: averages and the week-over-week window cover completed days only (today excluded).
     val averagingDays = remember(week, today) { week.averagingDays(today).toSet() }
     val excludesToday = week.contains(today)
-    val comparison = rememberWeekComparison(state, cardioSessions, previousCardioSessions, today)
     val isLoading = state.uiState is DashboardUiState.Loading
 
     LaunchedEffect(state.uiState) {
@@ -159,11 +195,24 @@ fun DashboardContent(
                 .verticalScroll(rememberScrollState())
         ) {
             ScreenHeader(
-                title = selectedLens?.label ?: "Trends",
-                overline = if (inDetail) "Trends" else "Energy balance",
+                title = when (val p = page) {
+                    null -> "Dashboard"
+                    is DashboardPage.Lens -> p.mode.label
+                    is DashboardPage.Body -> p.metric.label
+                    DashboardPage.Estimate -> "Estimated expenditure"
+                    DashboardPage.Resistance -> "Resistance"
+                    DashboardPage.Workout -> workoutDetail?.session?.activity ?: "Workout"
+                },
+                // Lens pages drop the week stepper (its ‹ read as a second back button); the overline keeps the week.
+                overline = when {
+                    page is DashboardPage.Lens -> week.label(today, state.weekStart)
+                    page == DashboardPage.Workout -> "Resistance"
+                    inDetail -> "Dashboard"
+                    else -> null
+                },
                 navigation = if (inDetail) {
                     {
-                        IconButton(onClick = { selectedLens = null }) {
+                        IconButton(onClick = goBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
@@ -177,7 +226,7 @@ fun DashboardContent(
                         }
                     }
                 },
-                bottom = {
+                bottom = if (page is DashboardPage.Lens || page == DashboardPage.Workout) null else ({
                     WeekStepper(
                         week = week,
                         today = today,
@@ -186,7 +235,7 @@ fun DashboardContent(
                         onNextWeek = onNextWeek,
                         onCurrentWeek = onCurrentWeek
                     )
-                }
+                })
             )
 
             Column(
@@ -206,33 +255,49 @@ fun DashboardContent(
                         }
                     }
                     is DashboardUiState.Success -> {
-                        if (selectedLens == null) {
-                            DashboardHome(
+                        when (val p = page) {
+                            null -> DashboardHome(
+                                balances = uiState.balances,
+                                days = weekDays,
+                                averagingDays = averagingDays,
+                                weekToDate = state.weekToDate,
+                                balanceCaption = balanceCaption(state, today),
+                                summary = state.weekSummary,
+                                goals = state.weekGoals,
+                                resistanceCount = resistanceCount,
+                                resistanceTarget = state.resistanceTarget,
+                                cardioMinutes = cardioSessions.minutesOn(weekDays),
+                                cardioSessions = cardioSessions.size,
+                                cardioTarget = state.cardioMinutesTarget,
+                                body = state.body,
+                                onOpen = { page = it },
+                                onOpenCardio = onOpenCardio,
+                                onBarClick = { selectedBreakdown = it }
+                            )
+                            is DashboardPage.Lens -> DashboardDetail(
                                 balances = uiState.balances,
                                 days = weekDays,
                                 averagingDays = averagingDays,
                                 excludesToday = excludesToday,
-                                onBarClick = { selectedBreakdown = it },
-                                onIntakeClick = { selectedLens = DashboardViewMode.INTAKE },
-                                onExpenditureClick = { selectedLens = DashboardViewMode.EXPENDITURE },
-                                comparisonCard = {
-                                    WeekComparisonTeaser(
-                                        rows = comparison,
-                                        loggedDays = state.weekSummary.loggedDays,
-                                        comparedDays = comparedDayCount(week, today),
-                                        partialSpan = partialWeekSpan(week, today, state.weekStart),
-                                        onClick = onOpenComparison
-                                    )
+                                viewMode = p.mode
+                            )
+                            is DashboardPage.Body -> BodyTrendDetail(state.body.trends[p.metric], p.metric, state.body.access)
+                            DashboardPage.Resistance -> ResistanceDetail(
+                                sessions = strengthSessions,
+                                target = state.resistanceTarget,
+                                sources = resistanceSources,
+                                excludedSources = excludedResistanceSources,
+                                onToggleSource = onToggleResistanceSource,
+                                onOpen = {
+                                    onOpenWorkout(it)
+                                    page = DashboardPage.Workout
                                 }
                             )
-                        } else {
-                            DashboardDetail(
-                                balances = uiState.balances,
-                                days = weekDays,
-                                averagingDays = averagingDays,
-                                excludesToday = excludesToday,
-                                viewMode = selectedLens!!,
-                                onBarClick = { selectedBreakdown = it }
+                            DashboardPage.Workout -> WorkoutDetailPage(workoutDetail)
+                            DashboardPage.Estimate -> EstimateDetail(
+                                estimate = state.body.estimate,
+                                healthAvgBurn = state.weekSummary.avgBurn,
+                                windowEnd = state.body.trends[BodyMetric.WEIGHT]?.windowDays?.lastOrNull()
                             )
                         }
                         if (uiState.warnings.isNotEmpty()) {
@@ -269,135 +334,21 @@ fun DashboardContent(
 }
 
 @Composable
-private fun DashboardHome(
-    balances: List<DailyBalance>,
-    days: List<String>,
-    averagingDays: Set<String>,
-    excludesToday: Boolean,
-    onBarClick: (DailyBalance) -> Unit,
-    onIntakeClick: () -> Unit,
-    onExpenditureClick: () -> Unit,
-    comparisonCard: @Composable () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SlidingWindowInsightCard(
-            balances = balances,
-            days = days,
-            averagingDays = averagingDays,
-            excludesToday = excludesToday,
-            viewMode = DashboardViewMode.BALANCE,
-            onBarClick = onBarClick,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            SummaryMetricCard(
-                viewMode = DashboardViewMode.INTAKE,
-                balances = balances.filter { it.date in averagingDays },
-                onClick = onIntakeClick,
-                modifier = Modifier.weight(1f)
-            )
-            SummaryMetricCard(
-                viewMode = DashboardViewMode.EXPENDITURE,
-                balances = balances.filter { it.date in averagingDays },
-                onClick = onExpenditureClick,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        comparisonCard()
-    }
-}
-
-@Composable
-private fun SummaryMetricCard(
-    viewMode: DashboardViewMode,
-    balances: List<DailyBalance>,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    isBig: Boolean = false,
-    extraContent: @Composable () -> Unit = {}
-) {
-    val logged = balances.filter { it.intake > 0 }
-    val avgValue = if (logged.isEmpty()) 0.0 else logged.sumOf { viewMode.valueOf(it) } / logged.size
-    val netBalance = logged.sumOf { it.balance }.roundToInt()
-
-    val valueColor = when (viewMode) {
-        DashboardViewMode.BALANCE     -> if (netBalance >= 0) PositiveColor else NegativeColor
-        DashboardViewMode.INTAKE      -> PositiveColor
-        DashboardViewMode.EXPENDITURE -> NegativeColor
-    }
-
-    Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(if (isBig) 20.dp else 16.dp)) {
-            Text(
-                text = viewMode.label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MiTextSecondary
-            )
-
-            Spacer(Modifier.height(10.dp))
-
-            Text(
-                text = if (logged.isEmpty()) "—" else "${formatCalorieValue(avgValue)} kcal",
-                style = if (isBig) MaterialTheme.typography.displayMedium else MaterialTheme.typography.headlineMedium,
-                color = valueColor,
-                fontWeight = FontWeight.Black
-            )
-
-            if (!isBig) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "Average daily",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MiTextSecondary
-                )
-            }
-
-            extraContent()
-
-            if (isBig) {
-                Spacer(Modifier.height(20.dp))
-                CalorieBalanceChart(
-                    balances = balances,
-                    onBarClick = { _ -> onClick() },
-                    modifier = Modifier.fillMaxWidth().height(120.dp),
-                    valueSelector = { viewMode.valueOf(it) },
-                    diverging = viewMode.isDiverging,
-                    showDayLabels = true
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun DashboardDetail(
     balances: List<DailyBalance>,
     days: List<String>,
     averagingDays: Set<String>,
     excludesToday: Boolean,
     viewMode: DashboardViewMode,
-    onBarClick: (DailyBalance) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        SlidingWindowInsightCard(
+        MetricDetailHeader(
             balances = balances,
             days = days,
             averagingDays = averagingDays,
             excludesToday = excludesToday,
             viewMode = viewMode,
-            onBarClick = onBarClick,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(32.dp))
@@ -425,8 +376,7 @@ private fun DashboardDetail(
                 balances.reversed().forEachIndexed { index, balance ->
                     CondensedLogItem(
                         balance = balance,
-                        viewMode = viewMode,
-                        onClick = { onBarClick(balance) }
+                        viewMode = viewMode
                     )
                     if (index < balances.size - 1) {
                         HorizontalDivider(
@@ -526,135 +476,14 @@ private fun ErrorDialog(error: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun SlidingWindowInsightCard(
-    balances: List<DailyBalance>,
-    days: List<String>,
-    averagingDays: Set<String>,
-    excludesToday: Boolean,
-    viewMode: DashboardViewMode,
-    onBarClick: (DailyBalance) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    // Averages/trend over logged days only, matching the week-over-week card (FR-5).
-    val logged = remember(balances, averagingDays) { balances.filter { it.intake > 0 && it.date in averagingDays } }
-    val metrics = remember(logged) { com.mettyoung.fitbro.data.model.calculateWindowMetrics(logged) }
-    val trendColor = when (metrics.trend) {
-        com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING -> PositiveColor
-        com.mettyoung.fitbro.data.model.TrendDirection.DECLINING -> NegativeColor
-        com.mettyoung.fitbro.data.model.TrendDirection.STABLE -> MiOrange
-    }
-
-    val isBalance = viewMode == DashboardViewMode.BALANCE
-    val headlineLabel = when (viewMode) {
-        DashboardViewMode.BALANCE -> "AVERAGE BALANCE"
-        DashboardViewMode.INTAKE -> "AVERAGE INTAKE"
-        DashboardViewMode.EXPENDITURE -> "AVERAGE EXPENDITURE"
-    }
-    val avgValue = if (isBalance) metrics.avgDailyBalance
-        else if (logged.isEmpty()) 0.0 else logged.sumOf { viewMode.valueOf(it) } / logged.size
-    val totalValue = if (isBalance) metrics.totalBalance else logged.sumOf { viewMode.valueOf(it) }
-
-    Card(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column {
-                    Text(
-                        text = headlineLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MiTextSecondary
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = if (logged.isEmpty()) "—" else "${formatCalorieValue(avgValue)} kcal",
-                        style = MaterialTheme.typography.displayMedium.copy(fontSize = 32.sp),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    if (excludesToday) {
-                        Text(
-                            text = "Completed days only · today excluded",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MiTextSecondary
-                        )
-                    }
-                }
-
-                if (isBalance) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(trendColor.copy(alpha = 0.1f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (metrics.trend == com.mettyoung.fitbro.data.model.TrendDirection.IMPROVING)
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = null,
-                            tint = trendColor,
-                            modifier = if (metrics.trend != com.mettyoung.fitbro.data.model.TrendDirection.STABLE)
-                                Modifier.size(24.dp) else Modifier.size(0.dp)
-                        )
-                        if (metrics.trend == com.mettyoung.fitbro.data.model.TrendDirection.STABLE) {
-                            Box(Modifier.size(12.dp, 2.dp).background(trendColor))
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            CalorieBalanceChart(
-                balances = balances,
-                onBarClick = onBarClick,
-                modifier = Modifier.fillMaxWidth().height(160.dp),
-                valueSelector = { viewMode.valueOf(it) },
-                diverging = viewMode.isDiverging,
-                days = days
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Total", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
-                    Text("${formatCalorieValue(totalValue)} kcal", style = MaterialTheme.typography.titleMedium)
-                }
-                if (isBalance) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Trend", style = MaterialTheme.typography.labelSmall, color = MiTextSecondary)
-                        Text(
-                            metrics.trend.name.lowercase().replaceFirstChar { it.uppercase() },
-                            style = MaterialTheme.typography.titleMedium,
-                            color = trendColor
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun CondensedLogItem(
     balance: DailyBalance,
-    viewMode: DashboardViewMode,
-    onClick: () -> Unit
+    viewMode: DashboardViewMode
 ) {
+    // History rows are read-only: they already show the day's split.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -759,11 +588,6 @@ private fun dayOfWeekAbbr(year: Int, month: Int, day: Int): String {
     return listOf("SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI")[h]
 }
 
-private fun formatCalorieValue(value: Double): String {
-    val v = value.toInt()
-    return if (abs(v) >= 1000) "${v / 1000}.${(abs(v) % 1000) / 100}k" else v.toString()
-}
-
 private fun suggestAction(errorMessage: String): String = when {
     "Permission denied" in errorMessage -> "Suggestion: Grant Health Connect permission in Settings"
     "Network" in errorMessage -> "Suggestion: Check your internet connection"
@@ -791,5 +615,17 @@ private fun SyncStatusBar(state: DashboardState) {
             style = MaterialTheme.typography.labelSmall,
             color = MiTextSecondary.copy(alpha = 0.5f)
         )
+    }
+}
+
+/** US-002 caption: "Mon–Tue · avg −620/day", "Full week · avg …", or why there's no number yet. */
+private fun balanceCaption(state: DashboardState, today: String): String {
+    val week = state.selectedWeek
+    val wtd = state.weekToDate
+    val span = partialWeekSpan(week, today, state.weekStart) ?: "Full week"
+    return when {
+        week.averagingDays(today).isEmpty() -> "No completed days yet"
+        wtd == null -> "$span · no days logged"
+        else -> "$span · ${wtd.loggedDays} logged · avg ${(if (wtd.average > 0) "+" else "") + wtd.average.grouped()}/day"
     }
 }

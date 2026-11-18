@@ -124,6 +124,7 @@ fun App() {
                 foodDiaryRepository = foodDiaryRepository,
                 userSettingsDataSource = userSettingsDataSource,
                 calorieMathRepository = calorieMathRepository,
+                macroGoalRepository = macroGoalRepository,
                 scope = scope,
                 onBalancesComputed = syncRepository::publishExpenditure
             )

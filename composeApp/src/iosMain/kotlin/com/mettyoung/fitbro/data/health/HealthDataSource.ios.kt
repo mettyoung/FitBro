@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.data.health
 
 import com.mettyoung.fitbro.data.model.ActivityBurn
+import com.mettyoung.fitbro.data.model.BodyMeasurement
 import com.mettyoung.fitbro.data.model.CardioSession
 import com.mettyoung.fitbro.data.model.FoodDiaryEntry
 import com.mettyoung.fitbro.data.model.Metabolism
@@ -27,6 +28,10 @@ import platform.HealthKit.HKQuantityTypeIdentifierDietaryProtein
 import platform.HealthKit.HKQuantityTypeIdentifierDietaryCarbohydrates
 import platform.HealthKit.HKQuantityTypeIdentifierDietaryFatTotal
 import platform.HealthKit.HKSampleQuery
+import platform.HealthKit.HKQuantityTypeIdentifierBodyMass
+import platform.HealthKit.HKQuantityTypeIdentifierBodyFatPercentage
+import platform.HealthKit.HKQuantityTypeIdentifierLeanBodyMass
+import platform.HealthKit.percentUnit
 import platform.HealthKit.HKUnit
 import platform.HealthKit.HKWorkout
 import platform.Foundation.timeIntervalSince1970
@@ -169,6 +174,74 @@ private class HealthKitDataSource : HealthDataSource {
         healthStore.executeQuery(query)
     }
 
+    override suspend fun readBodyMeasurements(
+        startDate: String,
+        endDate: String
+    ): HealthResult<List<BodyMeasurement>> {
+        if (!HKHealthStore.isHealthDataAvailable()) {
+            return HealthResult.Failure(HealthDataError.NotAvailable)
+        }
+        val massType = HKQuantityType.quantityTypeForIdentifier(HKQuantityTypeIdentifierBodyMass)
+            ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+        val fatType = HKQuantityType.quantityTypeForIdentifier(HKQuantityTypeIdentifierBodyFatPercentage)
+            ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+        val leanType = HKQuantityType.quantityTypeForIdentifier(HKQuantityTypeIdentifierLeanBodyMass)
+            ?: return HealthResult.Failure(HealthDataError.NotAvailable)
+
+        if (!requestAuthorization(setOf(massType, fatType, leanType))) {
+            return HealthResult.Failure(HealthDataError.PermissionDenied)
+        }
+
+        val formatter = NSDateFormatter().apply {
+            dateFormat = "yyyy-MM-dd"
+            timeZone = NSTimeZone.localTimeZone
+        }
+        val (startNSDate, endNSDate) = buildDateRange(startDate, endDate, formatter)
+            ?: return HealthResult.Failure(HealthDataError.QueryError(Exception("Invalid date range")))
+        val predicate = HKQuery.predicateForSamplesWithStartDate(
+            startDate = startNSDate,
+            endDate = endNSDate,
+            options = HKQueryOptionNone
+        )
+
+        // HealthKit hides denied read types as "no samples", so each query just returns what it can.
+        val kg = lastPerDay(massType, predicate, formatter) { it.doubleValueForUnit(HKUnit.gramUnit()) / 1000.0 }
+        val fat = lastPerDay(fatType, predicate, formatter) { it.doubleValueForUnit(HKUnit.percentUnit()) * 100.0 }
+        val lean = lastPerDay(leanType, predicate, formatter) { it.doubleValueForUnit(HKUnit.gramUnit()) / 1000.0 }
+
+        val measurements = (kg.keys + fat.keys + lean.keys).sorted().map { d ->
+            BodyMeasurement(date = d, weightKg = kg[d], bodyFatPct = fat[d], leanMassKg = lean[d])
+        }
+        return HealthResult.Success(measurements)
+    }
+
+    /** Last sample value per local date (empty on error). */
+    private suspend fun lastPerDay(
+        type: HKQuantityType,
+        predicate: NSPredicate,
+        formatter: NSDateFormatter,
+        value: (HKQuantity) -> Double
+    ): Map<String, Double> = suspendCancellableCoroutine { cont ->
+        val query = HKSampleQuery(
+            sampleType = type,
+            predicate = predicate,
+            limit = 0u,
+            sortDescriptors = null,
+            resultsHandler = { _, samples, error ->
+                if (error != null) {
+                    cont.resume(emptyMap())
+                } else {
+                    val result = samples.orEmpty()
+                        .mapNotNull { it as? HKQuantitySample }
+                        .sortedBy { it.startDate.timeIntervalSince1970 }
+                        .associate { formatter.stringFromDate(it.startDate) to value(it.quantity) }
+                    cont.resume(result)
+                }
+            }
+        )
+        healthStore.executeQuery(query)
+    }
+
     @Suppress("UNCHECKED_CAST")
     override suspend fun readBasalMetabolicRate(
         startDate: String,
@@ -236,6 +309,30 @@ private class HealthKitDataSource : HealthDataSource {
     }
 
     @Suppress("UNCHECKED_CAST")
+    /**
+     * HealthKit: session fields only for now (no per-workout heart-rate / energy queries yet).
+     * Source = the app that saved the HKWorkout.
+     */
+    override suspend fun readWorkoutDetail(session: CardioSession): HealthResult<com.mettyoung.fitbro.data.model.WorkoutDetail> =
+        HealthResult.Success(
+            com.mettyoung.fitbro.data.model.WorkoutDetail(
+                session = session,
+                endEpochMs = session.startEpochMs + session.minutes * 60_000L,
+                title = null,
+                notes = null,
+                sourceId = null,
+                recordingMethod = null,
+                device = null,
+                lastModifiedEpochMs = null,
+                activeKcal = null,
+                heartRate = null,
+                heartRateAllowed = false,
+                segments = emptyList(),
+                laps = 0,
+                hasRoute = false
+            )
+        )
+
     override suspend fun readExerciseSessions(
         startDate: String,
         endDate: String

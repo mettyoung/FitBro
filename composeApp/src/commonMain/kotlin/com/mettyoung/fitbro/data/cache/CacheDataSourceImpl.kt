@@ -1,6 +1,7 @@
 package com.mettyoung.fitbro.data.cache
 
 import com.mettyoung.fitbro.data.model.ActivityBurn
+import com.mettyoung.fitbro.data.model.BodyMeasurement
 import com.mettyoung.fitbro.data.model.Metabolism
 import com.russhwolf.settings.Settings
 import kotlinx.serialization.encodeToString
@@ -14,6 +15,7 @@ class CacheDataSourceImpl(private val settings: Settings) : CacheDataSource {
     private fun activityKey(start: String, end: String) = "activity_${start}_${end}"
     private fun syncKey(source: CacheSource) = "sync_${source.name}"
     private val latestBmrKey = "latest_known_bmr"
+    private val BODY_KEY = "body_measurements"
 
     override suspend fun saveMetabolism(startDate: String, endDate: String, data: List<Metabolism>) {
         settings.putString(metabolismKey(startDate, endDate), json.encodeToString(data))
@@ -30,6 +32,13 @@ class CacheDataSourceImpl(private val settings: Settings) : CacheDataSource {
     override suspend fun getActivityBurn(startDate: String, endDate: String): List<ActivityBurn>? =
         settings.getStringOrNull(activityKey(startDate, endDate))
             ?.let { json.decodeFromString(it) }
+
+    override suspend fun saveBodyMeasurements(data: List<BodyMeasurement>) {
+        settings.putString(BODY_KEY, json.encodeToString(data))
+    }
+
+    override suspend fun getBodyMeasurements(): List<BodyMeasurement>? =
+        settings.getStringOrNull(BODY_KEY)?.let { json.decodeFromString(it) }
 
     override fun getSyncTimestamp(source: CacheSource): Long? =
         settings.getLongOrNull(syncKey(source))

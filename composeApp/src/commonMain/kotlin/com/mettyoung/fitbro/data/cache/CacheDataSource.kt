@@ -12,6 +12,10 @@ interface CacheDataSource {
     suspend fun saveActivityBurn(startDate: String, endDate: String, data: List<ActivityBurn>)
     suspend fun getActivityBurn(startDate: String, endDate: String): List<ActivityBurn>?
 
+    /** Last successful body-measurement read (any range), used as a fallback. */
+    suspend fun saveBodyMeasurements(data: List<com.mettyoung.fitbro.data.model.BodyMeasurement>)
+    suspend fun getBodyMeasurements(): List<com.mettyoung.fitbro.data.model.BodyMeasurement>?
+
     fun getSyncTimestamp(source: CacheSource): Long?
     fun saveSyncTimestamp(source: CacheSource, timestampMs: Long)
     fun getLatestBmr(): Double?

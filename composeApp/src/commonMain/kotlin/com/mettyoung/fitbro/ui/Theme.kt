@@ -26,6 +26,10 @@ import androidx.compose.ui.unit.sp
 val ColorProtein = Color(0xFF4F6BF0)
 val ColorCarbs = Color(0xFFE5487E)
 val ColorFat = Color(0xFF2FB4D8)
+val ColorCardio = Color(0xFF7ED957)
+val ColorWeight = Color(0xFF7F77DD)
+val ColorLeanMass = Color(0xFF1D9E75)
+val ColorBodyFat = Color(0xFFBA7517)
 val ColorBurn = Color(0xFFFF9F1C)
 
 /** Semantic colors Material 3 has no slot for (surplus/deficit, success). */

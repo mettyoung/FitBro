@@ -4,6 +4,7 @@ import androidx.compose.material3.Card
 import androidx.compose.foundation.layout.Row
 import com.mettyoung.fitbro.ui.components.ScreenGutter
 import com.mettyoung.fitbro.ui.components.ScreenHeader
+import com.mettyoung.fitbro.ui.components.backNavigation
 import com.mettyoung.fitbro.ui.components.SectionLabel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +67,8 @@ fun CardioScreen(
     weekLabel: String,
     /** e.g. "Mon–Wed" when the selected week is still in progress. */
     partialSpan: String?,
+    /** Non-null when opened from the Dashboard: shows a back button. */
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val state by stateHolder.state.collectAsState()
@@ -92,7 +95,8 @@ fun CardioScreen(
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         ScreenHeader(
             title = "Cardio",
-            overline = "$weekLabel · ${state.week.start.toShortDate()} – ${state.week.end.toShortDate()}"
+            overline = "$weekLabel · ${state.week.start.toShortDate()} – ${state.week.end.toShortDate()}",
+            navigation = backNavigation(onBack)
         )
 
         Scaffold(

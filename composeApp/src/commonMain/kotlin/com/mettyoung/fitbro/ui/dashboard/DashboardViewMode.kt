@@ -6,7 +6,7 @@ import com.mettyoung.fitbro.data.model.DailyBalance
 enum class DashboardViewMode(val label: String) {
     BALANCE("Balance"),
     INTAKE("Intake"),
-    EXPENDITURE("Expenditure")
+    EXPENDITURE("Burn")
 }
 
 /** Per-day value plotted/aggregated for this lens. */

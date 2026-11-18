@@ -84,3 +84,6 @@ fun formatTimeAgo(timestampMs: Long): String {
         else -> "${days}d ago"
     }
 }
+
+/** Whole days from [this] to [other] ("YYYY-MM-DD"); negative if [other] is earlier. */
+fun String.daysUntil(other: String): Int = other.toDaysSinceEpoch() - toDaysSinceEpoch()

@@ -38,7 +38,7 @@ Trends currently shows a free-form date range (start/end pickers, persisted star
 
 **Acceptance Criteria:**
 - [ ] New "vs last week" card under the chart with rows: Avg intake, Avg burn, Avg balance, Net balance, Avg protein, Cardio minutes
-  - *Revised:* Trends shows a compact teaser (Avg intake / Avg balance / Cardio deltas); tapping opens the "Vs last week" page — its own **Compare** bottom-nav tab, sharing the Trends week and stepper with a day-by-day paired bar chart (Intake / Balance / Expenditure; this week = primary, last week = muted; today and future days have no current bar) and per-metric this-week/last-week bars (balance metrics diverge around zero)
+  - *Revised:* Week-over-week lives only on the **Compare** bottom-nav tab (no entry card on Trends; (shares the Trends week + stepper). Layout follows a health-app home: three rings (Intake, Protein, Cardio; fill = this week ÷ last week, second lap when over), a 3-up stat card ("this /last unit") with the like-for-like caption row, then a 2-column tile grid — one tile per metric with icon badge, value, "was X · delta" and a mini day-by-day tick chart (last week muted, this week coloured; Net balance plots the running total; today/future days have no current tick)
 - [ ] Avg carbs and Avg fat rows hidden by default; a "Show carbs & fat" / "Hide carbs & fat" toggle in the card reveals them; choice persists
 - [ ] Each row: this week's value, delta vs previous week (▲/▼ + absolute value, e.g. "▲ 120 kcal"), and previous week's value in secondary text
 - [ ] Current week compares like-for-like: previous week truncated to the same elapsed days (e.g. Mon–Wed vs Mon–Wed); card caption says so ("Mon–Wed vs Mon–Wed last week")

@@ -158,3 +158,12 @@ fun List<CardioSession>.minutesOn(days: Collection<String>): Int {
     val set = days.toSet()
     return filter { it.date in set }.sumOf { it.minutes }
 }
+
+/** The week's macro goals: mean of each day's active profile (goals can differ by weekday). */
+data class WeekGoals(val caloriesKcal: Double, val proteinG: Double, val carbsG: Double, val fatG: Double)
+
+fun averageGoals(profiles: List<MacroGoalProfile>): WeekGoals? {
+    if (profiles.isEmpty()) return null
+    fun avg(f: (MacroGoalProfile) -> Double) = profiles.sumOf(f) / profiles.size
+    return WeekGoals(avg { it.caloriesKcal }, avg { it.proteinG }, avg { it.carbsG }, avg { it.fatG })
+}

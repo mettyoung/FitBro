@@ -4,6 +4,7 @@ import com.mettyoung.fitbro.data.cache.CacheDataSource
 import com.mettyoung.fitbro.data.cache.CacheSource
 import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
 import com.mettyoung.fitbro.data.health.HealthDataSource
+import com.mettyoung.fitbro.data.health.HealthDataError
 import com.mettyoung.fitbro.data.health.HealthResult
 import com.mettyoung.fitbro.data.model.ActivityBurn
 import com.mettyoung.fitbro.data.model.DailyBalance
@@ -12,11 +13,23 @@ import com.mettyoung.fitbro.data.model.DailyMacroTotals
 import com.mettyoung.fitbro.data.model.Metabolism
 import com.mettyoung.fitbro.data.model.Week
 import com.mettyoung.fitbro.data.model.WeekStart
+import com.mettyoung.fitbro.data.model.BodyMeasurement
+import com.mettyoung.fitbro.data.model.BodyMetric
+import com.mettyoung.fitbro.data.model.averageGoals
+import com.mettyoung.fitbro.data.model.estimateExpenditure
+import com.mettyoung.fitbro.data.model.points
+import com.mettyoung.fitbro.data.model.rollingExpenditure
+import com.mettyoung.fitbro.data.model.summarizeTrend
+import com.mettyoung.fitbro.data.model.trendReadDays
+import com.mettyoung.fitbro.data.model.trendSeries
+import com.mettyoung.fitbro.data.model.trendWindow
+import com.mettyoung.fitbro.data.model.weekToDateBalance
 import com.mettyoung.fitbro.data.model.comparisonDays
 import com.mettyoung.fitbro.data.model.summarizeWeek
 import com.mettyoung.fitbro.data.repository.CalorieMathRepository
 import com.mettyoung.fitbro.data.repository.CalorieResult
 import com.mettyoung.fitbro.data.repository.FoodDiaryRepository
+import com.mettyoung.fitbro.data.repository.MacroGoalRepository
 import com.mettyoung.fitbro.util.currentEpochMs
 import com.mettyoung.fitbro.util.todayString
 import kotlinx.coroutines.CoroutineScope
@@ -35,6 +48,7 @@ class DashboardStateHolder(
     private val foodDiaryRepository: FoodDiaryRepository,
     private val userSettingsDataSource: UserSettingsDataSource,
     private val calorieMathRepository: CalorieMathRepository,
+    private val macroGoalRepository: MacroGoalRepository,
     private val scope: CoroutineScope,
     /** Receives each refresh's computed balances (wired to cloud sync so expenditure reaches the MCP server). */
     private val onBalancesComputed: (List<DailyBalance>) -> Unit = {}
@@ -47,7 +61,9 @@ class DashboardStateHolder(
                 errorMessage = null,
                 weekStart = weekStart,
                 selectedWeek = Week.of(todayString(), weekStart),
-                showCarbsFat = userSettingsDataSource.getShowCarbsFatComparison()
+                showCarbsFat = userSettingsDataSource.getShowCarbsFatComparison(),
+                resistanceTarget = userSettingsDataSource.getWeeklyResistanceTarget(),
+                cardioMinutesTarget = userSettingsDataSource.getWeeklyCardioMinutesTarget()
             )
         }
     )
@@ -58,6 +74,44 @@ class DashboardStateHolder(
 
     fun setSelectedDate(date: String) {
         _selectedDate.value = date
+    }
+
+    fun setResistanceTarget(sessions: Int) {
+        val v = sessions.coerceIn(1, 14)
+        userSettingsDataSource.setWeeklyResistanceTarget(v)
+        _state.update { it.copy(resistanceTarget = v) }
+    }
+
+    fun setCardioMinutesTarget(minutes: Int) {
+        val v = minutes.coerceIn(10, 2000)
+        userSettingsDataSource.setWeeklyCardioMinutesTarget(v)
+        _state.update { it.copy(cardioMinutesTarget = v) }
+    }
+
+    private suspend fun computeBodyTrends(
+        result: HealthResult<List<BodyMeasurement>>,
+        intakeByDate: Map<String, Double>,
+        readDays: List<String>,
+        window: List<String>,
+        weekDays: List<String>,
+        averagingDays: Set<String>
+    ): BodyTrends {
+        val (measurements, access) = when (result) {
+            is HealthResult.Success -> {
+                cacheDataSource.saveBodyMeasurements(result.value)
+                result.value to BodyAccess.OK
+            }
+            is HealthResult.Failure -> (cacheDataSource.getBodyMeasurements() ?: emptyList()) to
+                if (result.error is HealthDataError.PermissionDenied) BodyAccess.NO_PERMISSION else BodyAccess.UNAVAILABLE
+        }
+        val weightPoints = BodyMetric.WEIGHT.points(measurements)
+        val trendByDate = readDays.zip(trendSeries(weightPoints, readDays)).toMap()
+        return BodyTrends(
+            access = access,
+            trends = BodyMetric.entries.associateWith { summarizeTrend(measurements, it, readDays, window) },
+            estimate = estimateExpenditure(intakeByDate, weightPoints, trendByDate, window),
+            estimateSeries = rollingExpenditure(intakeByDate, weightPoints, trendByDate, weekDays) { it in averagingDays }
+        )
     }
 
     fun refresh() {
@@ -72,6 +126,12 @@ class DashboardStateHolder(
             val activityDeferred = async { healthDataSource.readActivityData(range.startDate, range.endDate) }
             val foodDiaryTotalsDeferred = async {
                 foodDiaryRepository.getDailyTotalsForRange(range.startDate, range.endDate).first()
+            }
+            // Body trends + estimated expenditure need a longer window (FR-10).
+            val readDays = trendReadDays(week, today)
+            val bodyDeferred = async { healthDataSource.readBodyMeasurements(readDays.first(), readDays.last()) }
+            val longIntakeDeferred = async {
+                foodDiaryRepository.getDailyTotalsForRange(readDays.first(), readDays.last()).first()
             }
 
             val metabolismResult = metabolismDeferred.await()
@@ -115,6 +175,17 @@ class DashboardStateHolder(
             // Averages exclude today (partial day) for the current week.
             val weekSummary = summarizeWeek(balances, week.averagingDays(today))
             val previousWeekSummary = summarizeWeek(allBalances, comparisonDays(week, today))
+            // Goals over the same days as the averages; first day of the week → the whole week's goals.
+            val goalDays = week.averagingDays(today).ifEmpty { week.days() }
+            val body = computeBodyTrends(
+                bodyDeferred.await(),
+                longIntakeDeferred.await().associate { it.date to it.calories },
+                readDays,
+                trendWindow(week, today),
+                week.days(),
+                week.averagingDays(today).toSet()
+            )
+            val weekGoals = runCatching { averageGoals(goalDays.map { macroGoalRepository.getActiveProfileForDate(it) }) }.getOrNull()
 
             val updatedSyncTime = mapOf(
                 CacheSource.HEALTH_METABOLISM to cacheDataSource.getSyncTimestamp(CacheSource.HEALTH_METABOLISM),
@@ -138,6 +209,9 @@ class DashboardStateHolder(
                     weekSummary = weekSummary,
                     previousWeekSummary = previousWeekSummary,
                     previousWeekBalances = allBalances.filter { week.previous().contains(it.date) },
+                    weekGoals = weekGoals,
+                    weekToDate = weekToDateBalance(balances, week.averagingDays(today)),
+                    body = body,
                     errorMessage = if (errors.isNotEmpty()) errors.joinToString("\n") else null
                 )
             }

@@ -152,4 +152,12 @@ class WeekTest {
         assertEquals("same", formatDelta(0.3, "min"))
         assertEquals("—", formatDelta(null, "kcal"))
     }
+
+    @Test
+    fun weekGoalsAverageDailyProfiles() {
+        val training = MacroGoalProfile(name = "Training", proteinG = 180.0, carbsG = 250.0, fatG = 60.0, caloriesKcal = 2600.0)
+        val rest = MacroGoalProfile(name = "Rest", proteinG = 160.0, carbsG = 150.0, fatG = 70.0, caloriesKcal = 2200.0)
+        assertEquals(WeekGoals(2400.0, 170.0, 200.0, 65.0), averageGoals(listOf(training, rest)))
+        assertNull(averageGoals(emptyList()))
+    }
 }

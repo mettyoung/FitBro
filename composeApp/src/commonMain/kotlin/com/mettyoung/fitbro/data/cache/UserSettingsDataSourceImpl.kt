@@ -15,7 +15,10 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         private const val FOOD_DATABASE_KEY = "food_database"
         private const val WEEK_START_KEY = "week_start"
         private const val SHOW_CARBS_FAT_KEY = "wow_show_carbs_fat"
+        private const val RESISTANCE_TARGET_KEY = "weekly_resistance_target"
+        private const val CARDIO_TARGET_KEY = "weekly_cardio_minutes_target"
         private const val HIDDEN_WORKOUT_TYPES_KEY = "hidden_workout_types"
+        private const val EXCLUDED_RESISTANCE_SOURCES_KEY = "resistance_excluded_sources"
         private const val SYNC_URL_KEY = "sync_url"
         private const val SYNC_TOKEN_KEY = "sync_token"
         private const val SYNC_CURSOR_KEY = "sync_cursor"
@@ -75,11 +78,31 @@ class UserSettingsDataSourceImpl(private val settings: Settings) : UserSettingsD
         settings.putBoolean(SHOW_CARBS_FAT_KEY, show)
     }
 
+    override fun getWeeklyResistanceTarget(): Int = settings.getInt(RESISTANCE_TARGET_KEY, 3)
+
+    override fun setWeeklyResistanceTarget(sessions: Int) {
+        settings.putInt(RESISTANCE_TARGET_KEY, sessions)
+    }
+
+    override fun getWeeklyCardioMinutesTarget(): Int = settings.getInt(CARDIO_TARGET_KEY, 150)
+
+    override fun setWeeklyCardioMinutesTarget(minutes: Int) {
+        settings.putInt(CARDIO_TARGET_KEY, minutes)
+    }
+
     override fun getHiddenWorkoutTypes(): Set<WorkoutType> =
         WorkoutType.parseHidden(settings.getStringOrNull(HIDDEN_WORKOUT_TYPES_KEY))
 
     override fun setHiddenWorkoutTypes(types: Set<WorkoutType>) {
         settings.putString(HIDDEN_WORKOUT_TYPES_KEY, WorkoutType.serializeHidden(types))
+    }
+
+    override fun getExcludedResistanceSources(): Set<String> =
+        settings.getStringOrNull(EXCLUDED_RESISTANCE_SOURCES_KEY)
+            ?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+
+    override fun setExcludedResistanceSources(sources: Set<String>) {
+        settings.putString(EXCLUDED_RESISTANCE_SOURCES_KEY, sources.sorted().joinToString("\n"))
     }
 
     override fun getSyncUrl(): String = settings.getString(SYNC_URL_KEY, "")

@@ -1,5 +1,10 @@
 package com.mettyoung.fitbro.ui.dashboard
 
+import com.mettyoung.fitbro.data.model.resistanceCount
+import com.mettyoung.fitbro.data.model.strengthSessions
+import com.mettyoung.fitbro.data.model.strengthSources
+import com.mettyoung.fitbro.data.model.overlappingSessions
+
 import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
 import com.mettyoung.fitbro.data.health.HealthDataError
 import com.mettyoung.fitbro.data.health.HealthDataSource
@@ -28,7 +33,12 @@ class CardioStateHolder(
     private val userSettingsDataSource: UserSettingsDataSource,
     private val scope: CoroutineScope
 ) {
-    private val _state = MutableStateFlow(CardioState(hiddenTypes = userSettingsDataSource.getHiddenWorkoutTypes()))
+    private val _state = MutableStateFlow(
+        CardioState(
+            hiddenTypes = userSettingsDataSource.getHiddenWorkoutTypes(),
+            excludedResistanceSources = userSettingsDataSource.getExcludedResistanceSources()
+        )
+    )
     val state: StateFlow<CardioState> = _state.asStateFlow()
 
     /**
@@ -65,6 +75,27 @@ class CardioStateHolder(
         }
     }
 
+    /** Opens a workout's detail page and reads its full record (UDF: result lands in [CardioState.workoutDetail]). */
+    fun openWorkout(session: CardioSession) {
+        _state.update { it.copy(workoutDetail = WorkoutDetailState.Loading(session)) }
+        scope.launch {
+            val next = when (val result = healthDataSource.readWorkoutDetail(session)) {
+                is HealthResult.Success -> WorkoutDetailState.Loaded(result.value, overlappingSessions(session, allSessions))
+                is HealthResult.Failure -> WorkoutDetailState.Failed(session, result.error.message())
+            }
+            // Ignore a late result if the user already left or opened another workout.
+            _state.update { if (it.workoutDetail?.session?.id == session.id) it.copy(workoutDetail = next) else it }
+        }
+    }
+
+    fun closeWorkout() = _state.update { it.copy(workoutDetail = null) }
+
+    fun setResistanceSourceIncluded(source: String, included: Boolean) {
+        val excluded = _state.value.excludedResistanceSources.let { if (included) it - source else it + source }
+        userSettingsDataSource.setExcludedResistanceSources(excluded)
+        _state.update { it.copy(excludedResistanceSources = excluded).withFilter(allSessions) }
+    }
+
     fun hideType(type: WorkoutType) = setHidden(_state.value.hiddenTypes + type)
 
     fun showType(type: WorkoutType) = setHidden(_state.value.hiddenTypes - type)
@@ -86,7 +117,10 @@ class CardioStateHolder(
             totalMinutes = visible.sumOf { it.minutes },
             previousWeekSessions = previousVisible,
             previousWeekMinutes = previousVisible.minutesOn(comparisonDays(week, todayString(), includeToday = true)),
-            hiddenCount = thisWeek.size - visible.size
+            hiddenCount = thisWeek.size - visible.size,
+            resistanceCount = resistanceCount(all, week, excludedResistanceSources),
+            strengthSessions = strengthSessions(all, week, excludedResistanceSources),
+            resistanceSources = strengthSources(all, excludedResistanceSources)
         )
     }
 }

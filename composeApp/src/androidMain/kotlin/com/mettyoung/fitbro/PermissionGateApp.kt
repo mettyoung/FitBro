@@ -44,6 +44,10 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BasalMetabolicRateRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.LeanBodyMassRecord
+import androidx.health.connect.client.records.WeightRecord
 import com.mettyoung.fitbro.ui.FitBroTheme
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
@@ -53,6 +57,18 @@ private val REQUIRED_READ_PERMISSIONS = setOf(
     HealthPermission.getReadPermission(BasalMetabolicRateRecord::class),
     HealthPermission.getReadPermission(ExerciseSessionRecord::class)
 )
+
+/**
+ * Optional (body-composition trends, workout heart rate): requested alongside, never blocks the app.
+ */
+private val BODY_READ_PERMISSIONS = setOf(
+    HealthPermission.getReadPermission(WeightRecord::class),
+    HealthPermission.getReadPermission(BodyFatRecord::class),
+    HealthPermission.getReadPermission(LeanBodyMassRecord::class),
+    HealthPermission.getReadPermission(HeartRateRecord::class)
+)
+/** Bump the suffix when adding optional permissions so existing installs are asked once more. */
+private const val BODY_PERMISSIONS_ASKED = "optional_permissions_asked_v2"
 
 @Composable
 fun PermissionGateApp() {
@@ -78,6 +94,9 @@ private fun PermissionGateContent() {
 
     var requiredGranted by remember { mutableStateOf(false) }
     var checked by remember { mutableStateOf(false) }
+    var bodyMissing by remember { mutableStateOf(false) }
+    var grantedAtStart by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val prefs = remember { context.getSharedPreferences("fitbro_permissions", android.content.Context.MODE_PRIVATE) }
 
     val launcher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract()
@@ -99,6 +118,8 @@ private fun PermissionGateContent() {
             emptySet()
         }
         requiredGranted = granted.containsAll(REQUIRED_READ_PERMISSIONS)
+        bodyMissing = !granted.containsAll(BODY_READ_PERMISSIONS)
+        grantedAtStart = granted
         checked = true
     }
 
@@ -109,8 +130,20 @@ private fun PermissionGateContent() {
         ) {
             CircularProgressIndicator(color = MiOrange)
         }
-        requiredGranted -> App()
-        else -> PermissionScreen(onGrant = { launcher.launch(REQUIRED_READ_PERMISSIONS) })
+        requiredGranted -> {
+            // Existing installs: ask once for the new body-composition permissions.
+            LaunchedEffect(bodyMissing) {
+                if (bodyMissing && !prefs.getBoolean(BODY_PERMISSIONS_ASKED, false)) {
+                    prefs.edit().putBoolean(BODY_PERMISSIONS_ASKED, true).apply()
+                    launcher.launch(BODY_READ_PERMISSIONS - grantedAtStart)
+                }
+            }
+            App()
+        }
+        else -> PermissionScreen(onGrant = {
+            prefs.edit().putBoolean(BODY_PERMISSIONS_ASKED, true).apply()
+            launcher.launch(REQUIRED_READ_PERMISSIONS + BODY_READ_PERMISSIONS)
+        })
     }
 }
 

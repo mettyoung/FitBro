@@ -28,9 +28,18 @@ interface UserSettingsDataSource {
     fun getShowCarbsFatComparison(): Boolean
     fun setShowCarbsFatComparison(show: Boolean)
 
+    /** Dashboard weekly targets (FR-6). */
+    fun getWeeklyResistanceTarget(): Int
+    fun setWeeklyResistanceTarget(sessions: Int)
+    fun getWeeklyCardioMinutesTarget(): Int
+    fun setWeeklyCardioMinutesTarget(minutes: Int)
+
     /** Workout types hidden from the Cardio tab; defaults to [WorkoutType.DEFAULT_HIDDEN] until set. */
     fun getHiddenWorkoutTypes(): Set<WorkoutType>
     fun setHiddenWorkoutTypes(types: Set<WorkoutType>)
+    /** Source apps (display labels, e.g. "Mi Fitness") excluded from resistance counting. Default: none. */
+    fun getExcludedResistanceSources(): Set<String>
+    fun setExcludedResistanceSources(sources: Set<String>)
 }
 
 expect fun createUserSettingsDataSource(): UserSettingsDataSource

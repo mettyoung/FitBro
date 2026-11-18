@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +29,7 @@ import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.ui.MiOrange
 import com.mettyoung.fitbro.ui.MiTextSecondary
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @Composable
 fun CalorieBalanceChart(
@@ -37,6 +39,8 @@ fun CalorieBalanceChart(
     valueSelector: (DailyBalance) -> Double = { it.balance },
     diverging: Boolean = true,
     showDayLabels: Boolean = true,
+    /** Small value label at the end of each bar. */
+    showValues: Boolean = false,
     /** Fixed slots (e.g. the 7 days of a week); days without a balance render as empty slots. */
     days: List<String>? = null
 ) {
@@ -81,6 +85,7 @@ fun CalorieBalanceChart(
                             maxValue = maxValue,
                             diverging = diverging,
                             showLabel = showDayLabels,
+                            showValue = showValues,
                             onClick = { onBarClick(balance) }
                         )
                     } else {
@@ -99,6 +104,7 @@ private fun CalorieBarItem(
     maxValue: Double,
     diverging: Boolean,
     showLabel: Boolean,
+    showValue: Boolean,
     onClick: () -> Unit
 ) {
     val positiveColor = MiOrange
@@ -110,46 +116,21 @@ private fun CalorieBarItem(
     val drawTop = !diverging || value > 0
     val drawBottom = diverging && value < 0
 
+    val label = if (showValue) barValueLabel(value, signed = diverging) else null
     Column(
         modifier = Modifier
             .fillMaxHeight()
+            .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp),
+            .padding(horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Top half (positive)
-        Box(
-            modifier = Modifier.weight(1f).width(12.dp),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            if (drawTop) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(heightFactor)
-                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-                        .background(color)
-                )
-            }
-        }
-
+        // Labels always sit on top of the bar; a deficit bar's top is the zero line.
+        BarHalf(Modifier.weight(1f), drawTop, heightFactor, color, label.takeIf { drawTop }, top = true, labelOnly = drawBottom)
         Spacer(Modifier.height(4.dp)) // Space for the zero line area
-
         // Bottom half (negative)
-        Box(
-            modifier = Modifier.weight(1f).width(12.dp),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            if (drawBottom) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(heightFactor)
-                        .clip(RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp))
-                        .background(color)
-                )
-            }
-        }
+        BarHalf(Modifier.weight(1f), drawBottom, heightFactor, color, null, top = false, reserveLabel = label != null)
 
         if (showLabel) {
             Spacer(Modifier.height(12.dp))
@@ -161,6 +142,67 @@ private fun CalorieBarItem(
             )
         }
     }
+}
+
+/** One half of a diverging bar; the optional [label] sits at the bar's outer end. */
+@Composable
+private fun BarHalf(
+    modifier: Modifier,
+    draw: Boolean,
+    heightFactor: Float,
+    color: Color,
+    label: String?,
+    top: Boolean,
+    /** Deficit bar: draw only [label] (passed via labelOnly path) just above the zero line. */
+    labelOnly: Boolean = false,
+    /** Keep negative bars on the same scale as labelled positive ones. */
+    reserveLabel: Boolean = false
+) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        if (labelOnly && label != null) {
+            BarLabel(label, Modifier.align(Alignment.BottomCenter))
+            return@BoxWithConstraints
+        }
+        if (!draw) return@BoxWithConstraints
+        val labelSpace = if (label != null || reserveLabel) 14.dp else 0.dp
+        val barHeight = (maxHeight - labelSpace).coerceAtLeast(0.dp) * heightFactor
+        val shape = if (top) RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)
+            else RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp)
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = if (top) Arrangement.Bottom else Arrangement.Top
+        ) {
+            if (label != null) BarLabel(label)
+            Box(Modifier.width(12.dp).height(barHeight).clip(shape).background(color))
+        }
+    }
+}
+
+@Composable
+private fun BarLabel(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        modifier = modifier,
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 13.sp),
+        color = MiOrange,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        softWrap = false
+    )
+}
+
+/** Compact bar label: "-523", "+1.2k", "2.4k". */
+internal fun barValueLabel(value: Double, signed: Boolean): String {
+    val v = value.roundToInt()
+    val a = abs(v)
+    val body = if (a >= 1000) "${a / 1000}.${(a % 1000) / 100}k" else a.toString()
+    val sign = when {
+        v < 0 -> "−"
+        signed && v > 0 -> "+"
+        else -> ""
+    }
+    return sign + body
 }
 
 @Composable
