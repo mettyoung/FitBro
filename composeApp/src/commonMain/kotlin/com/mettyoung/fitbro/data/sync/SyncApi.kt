@@ -69,9 +69,6 @@ internal data class PullResponse(val changes: List<ChangeDto>, val cursor: Long)
 @Serializable
 internal data class GoalsDto(val calories: Double, val proteinG: Double, val carbG: Double, val fatG: Double)
 
-@Serializable
-internal data class SettingsBody(val goalsByWeekday: Map<String, GoalsDto>)
-
 /** Wire format shared with mcp-server/src/sync.ts (`PUT /sync/expenditure`). */
 @Serializable
 internal data class ExpenditureDto(
@@ -235,14 +232,24 @@ class SyncApi(private val settings: SyncSettings) {
     )
 
     /** Keys are weekdays 0 = Monday … 6 = Sunday. */
-    suspend fun putGoals(goalsByWeekday: Map<Int, WeekdayGoals>): SyncResult<Unit> = call(
+    internal suspend fun putSettings(goalsByWeekday: Map<Int, WeekdayGoals>, preferences: PreferencesDto): SyncResult<Unit> =
+        putJson("/sync/settings", SettingsBodyV2(
+            goalsByWeekday.entries.associate { (day, g) -> day.toString() to GoalsDto(g.calories, g.proteinG, g.carbG, g.fatG) },
+            preferences
+        ))
+
+    internal suspend fun putBody(body: BodyBody): SyncResult<Unit> = putJson("/sync/body", body)
+
+    internal suspend fun putWorkouts(body: WorkoutsBody): SyncResult<Unit> = putJson("/sync/workouts", body)
+
+    internal suspend fun putLibrary(body: LibraryBody): SyncResult<Unit> = putJson("/sync/library", body)
+
+    private suspend inline fun <reified B : Any> putJson(path: String, body: B): SyncResult<Unit> = call(
         block = { baseUrl, token ->
-            client.put("$baseUrl/sync/settings") {
+            client.put("$baseUrl$path") {
                 bearerAuth(token)
                 contentType(ContentType.Application.Json)
-                setBody(SettingsBody(goalsByWeekday.entries.associate { (day, g) ->
-                    day.toString() to GoalsDto(g.calories, g.proteinG, g.carbG, g.fatG)
-                }))
+                setBody(body)
             }
         },
         parse = { }

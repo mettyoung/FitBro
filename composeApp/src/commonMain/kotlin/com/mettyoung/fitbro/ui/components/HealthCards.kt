@@ -73,6 +73,8 @@ fun MetricTileCard(
     value: String,
     subtitle: String,
     modifier: Modifier = Modifier,
+    /** Shown small after [value] (e.g. "kcal") so big numbers don't wrap. */
+    unit: String? = null,
     onClick: (() -> Unit)? = null,
     chart: @Composable ColumnScope.() -> Unit
 ) {
@@ -84,7 +86,13 @@ fun MetricTileCard(
                 Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
             }
             Spacer(Modifier.height(8.dp))
-            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                if (unit != null && value != "—") {
+                    Spacer(Modifier.width(4.dp))
+                    Text(unit, style = MaterialTheme.typography.titleSmall, color = TextSecondary, maxLines = 1, modifier = Modifier.padding(bottom = 4.dp))
+                }
+            }
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(10.dp))
             chart()
@@ -136,12 +144,21 @@ fun MiniLine(
  * (MacroFactor-style). Y range auto-fits with a little padding; min/max labelled on the right.
  */
 @Composable
-fun TrendChart(scale: List<Double?>, trend: List<Double?>, color: Color, unit: String, modifier: Modifier = Modifier) {
+fun TrendChart(
+    scale: List<Double?>,
+    trend: List<Double?>,
+    color: Color,
+    unit: String,
+    modifier: Modifier = Modifier,
+    /** Headroom above/below the data, in the value's unit. */
+    pad: Double = 0.3,
+    axisLabel: (Double) -> String = ::formatOneDecimal
+) {
     val dot = MaterialTheme.colorScheme.outline
     val grid = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     val all = (scale + trend).filterNotNull()
-    val lo = (all.minOrNull() ?: 0.0) - 0.3
-    val hi = (all.maxOrNull() ?: 1.0) + 0.3
+    val lo = (all.minOrNull() ?: 0.0) - pad
+    val hi = (all.maxOrNull() ?: 1.0) + pad
     Row(modifier = modifier.fillMaxWidth()) {
         Canvas(modifier = Modifier.weight(1f).height(200.dp)) {
             if (all.isEmpty()) return@Canvas
@@ -169,7 +186,7 @@ fun TrendChart(scale: List<Double?>, trend: List<Double?>, color: Color, unit: S
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             listOf(hi, (hi + lo) / 2, lo).forEach {
-                Text(formatOneDecimal(it), style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                Text(axisLabel(it), style = MaterialTheme.typography.labelSmall, color = TextSecondary)
             }
         }
     }

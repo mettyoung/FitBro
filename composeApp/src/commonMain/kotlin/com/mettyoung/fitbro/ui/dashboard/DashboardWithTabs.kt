@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -16,6 +17,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -95,6 +98,9 @@ fun DashboardWithTabs(
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 0.dp,
+                // Five tabs: keep the outer labels off the screen edges.
+                windowInsets = androidx.compose.material3.NavigationBarDefaults.windowInsets
+                    .add(WindowInsets(left = 12.dp, right = 12.dp)),
             ) {
                 AppTab.entries.forEachIndexed { index, tab ->
                     val selected = selectedTabIndex == index
@@ -110,7 +116,15 @@ fun DashboardWithTabs(
                                 contentDescription = null
                             )
                         },
-                        label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
+                        label = {
+                            Text(
+                                tab.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             selectedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -176,6 +190,10 @@ fun DashboardWithTabs(
                             }
                         } else null
                     )
+                    AppTab.INSIGHTS -> DashboardScreen(
+                        stateHolder = stateHolder,
+                        section = DashboardSection.INSIGHTS
+                    )
                     AppTab.SETTINGS -> MacroProfilesSettings(
                             stateHolder = macroProfilesStateHolder,
                             footer = {
@@ -202,8 +220,9 @@ fun DashboardWithTabs(
 }
 
 private enum class AppTab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
-    DASHBOARD("Dashboard", Icons.Outlined.Dashboard, Icons.Filled.Dashboard),
+    DASHBOARD("Home", Icons.Outlined.Dashboard, Icons.Filled.Dashboard),
     FOOD_LOG("Food log", Icons.Outlined.Restaurant, Icons.Filled.Restaurant),
     CARDIO("Cardio", Icons.AutoMirrored.Outlined.DirectionsRun, Icons.AutoMirrored.Filled.DirectionsRun),
+    INSIGHTS("Insights", Icons.Outlined.Insights, Icons.Filled.Insights),
     SETTINGS("Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
 }

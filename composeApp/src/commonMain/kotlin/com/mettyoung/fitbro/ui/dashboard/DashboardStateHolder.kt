@@ -91,9 +91,7 @@ class DashboardStateHolder(
         result: HealthResult<List<BodyMeasurement>>,
         intakeByDate: Map<String, Double>,
         readDays: List<String>,
-        window: List<String>,
-        weekDays: List<String>,
-        averagingDays: Set<String>
+        window: List<String>
     ): BodyTrends {
         val (measurements, access) = when (result) {
             is HealthResult.Success -> {
@@ -109,7 +107,9 @@ class DashboardStateHolder(
             access = access,
             trends = BodyMetric.entries.associateWith { summarizeTrend(measurements, it, readDays, window) },
             estimate = estimateExpenditure(intakeByDate, weightPoints, trendByDate, window),
-            estimateSeries = rollingExpenditure(intakeByDate, weightPoints, trendByDate, weekDays) { it in averagingDays }
+            estimateWindowDays = window,
+            estimateWindowSeries = rollingExpenditure(intakeByDate, weightPoints, trendByDate, window) { true },
+            windowIntake = window.map { d -> intakeByDate[d]?.takeIf { it > 0 } }
         )
     }
 
@@ -179,9 +179,7 @@ class DashboardStateHolder(
                 bodyDeferred.await(),
                 longIntakeDeferred.await().associate { it.date to it.calories },
                 readDays,
-                trendWindow(week, today),
-                week.days(),
-                week.averagingDays(today).toSet()
+                trendWindow(week, today)
             )
             val weekGoals = runCatching { averageGoals(goalDays.map { macroGoalRepository.getActiveProfileForDate(it) }) }.getOrNull()
 

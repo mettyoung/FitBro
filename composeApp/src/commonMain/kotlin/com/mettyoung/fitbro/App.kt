@@ -69,13 +69,16 @@ fun App() {
         }
 
         val syncSettings = userSettingsDataSource as SyncSettings
-        val syncRepository = remember(foodDiaryRepository, healthDataSource, macroGoalRepository, scope) {
+        val syncRepository = remember(foodDiaryRepository, healthDataSource, macroGoalRepository, customFoodRepository, customMealRepository, scope) {
             SyncRepository(
                 api = SyncApi(syncSettings),
                 store = foodDiaryRepository,
                 settings = syncSettings,
                 healthDataSource = healthDataSource,
                 macroGoalRepository = macroGoalRepository,
+                appSettings = userSettingsDataSource,
+                customFoodRepository = customFoodRepository,
+                customMealRepository = customMealRepository,
                 scope = scope
             )
         }

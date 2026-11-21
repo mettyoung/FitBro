@@ -35,6 +35,10 @@ data class BodyTrends(
     val access: BodyAccess = BodyAccess.OK,
     val trends: Map<BodyMetric, TrendSummary> = emptyMap(),
     val estimate: ExpenditureEstimate? = null,
-    /** Rolling estimate per day of the selected week (null where not computable). */
-    val estimateSeries: List<Double?> = emptyList()
+    /** 28-day window (same as the body trends) for the Expenditure detail chart. */
+    val estimateWindowDays: List<String> = emptyList(),
+    /** Rolling estimate per window day (null where not computable). */
+    val estimateWindowSeries: List<Double?> = emptyList(),
+    /** Logged intake per window day (null = not logged). */
+    val windowIntake: List<Double?> = emptyList()
 )

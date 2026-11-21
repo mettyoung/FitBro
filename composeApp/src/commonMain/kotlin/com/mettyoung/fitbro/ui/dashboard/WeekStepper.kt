@@ -54,16 +54,17 @@ fun WeekStepper(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onCurrentWeek).padding(horizontal = 8.dp, vertical = 2.dp)
         ) {
+            val label = week.label(today, weekStart)
+            val range = "${week.start.toShortDate()} – ${week.end.toShortDate()}"
             Text(
-                text = week.label(today, weekStart),
+                text = label,
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Text(
-                text = "${week.start.toShortDate()} – ${week.end.toShortDate()}",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary
-            )
+            // Older weeks are labelled by their dates already; don't repeat them.
+            if (label.none { it.isDigit() }) {
+                Text(text = range, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+            }
         }
         IconButton(onClick = onNextWeek, enabled = canGoNext, modifier = Modifier.size(36.dp)) {
             Icon(

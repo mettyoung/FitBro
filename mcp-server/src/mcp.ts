@@ -11,9 +11,31 @@ import {
   nextSortOrder,
   totalsByDay,
   weekdayMonBased,
+  bodyInRange,
+  getLibrary,
+  getPreferences,
+  workoutsInRange,
   type Entry,
   type Expenditure,
+  type Preferences,
+  type Workout,
 } from "./db";
+import {
+  TREND_WARMUP_DAYS,
+  TREND_WINDOW_DAYS,
+  averagingDays,
+  bodyFatKg,
+  cardioSessions,
+  dateRange,
+  estimateExpenditure,
+  metricPoints,
+  resistanceSessions,
+  summarizeTrend,
+  trendSeries,
+  weekBalance,
+  weekStartFor,
+  type BodyMetric,
+} from "./analytics";
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 const mealType = z.enum(MEAL_TYPES);
@@ -66,6 +88,74 @@ const EXPENDITURE_NOTE =
   "Computed by the FitBro app from Health Connect: burn = bmr (basal) + tef (digesting food) + neat (everyday movement) + eat (exercise); " +
   "balance = intake - burn (negative = deficit). intake is the app's figure for that day and can differ from diary totals when the day's " +
   "source is Health Connect. Values are as of synced_at, so today's burn grows as the day goes on; days the app never computed are absent.";
+
+
+function round2(n: number | null): number | null {
+  return n == null ? null : Math.round(n * 100) / 100;
+}
+
+const BODY_METRICS: BodyMetric[] = ["weight", "lean_mass", "body_fat"];
+
+const TODAY_NOTE = "today = the user's current local date (YYYY-MM-DD); it's needed because the server doesn't know their time zone.";
+
+/** Before the app has synced preferences: the app's defaults (Monday weeks, strength + mind-body hidden from cardio). */
+function effectivePreferences(p: Preferences | null) {
+  return {
+    synced: p != null,
+    weekStart: p?.weekStart ?? "MONDAY",
+    resistanceSessionsPerWeek: p?.resistanceSessionsPerWeek ?? null,
+    cardioMinutesPerWeek: p?.cardioMinutesPerWeek ?? null,
+    excludedResistanceSources: p?.excludedResistanceSources ?? [],
+    isCardio: (w: Workout) =>
+      p ? cardioSessions([w], p.hiddenWorkoutTypes).length > 0 : w.category !== "STRENGTH" && w.category !== "MIND_BODY",
+  };
+}
+
+function publicWorkout(w: Workout, withDetail: boolean) {
+  const d = w.detail;
+  return {
+    id: w.id,
+    date: w.date,
+    start: new Date(w.startMs).toISOString(),
+    minutes: w.minutes,
+    activity: w.activity,
+    type: w.type,
+    category: w.category,
+    source_app: w.source,
+    ...(withDetail
+      ? {
+          detail: d && {
+            title: d.title,
+            notes: d.notes,
+            recording_method: d.recordingMethod,
+            device: d.device,
+            active_kcal: d.activeKcal == null ? null : round(d.activeKcal),
+            active_kcal_sources: d.activeKcalSources,
+            heart_rate: d.heartRate && {
+              avg_bpm: d.heartRate.avgBpm,
+              min_bpm: d.heartRate.minBpm,
+              max_bpm: d.heartRate.maxBpm,
+              samples: d.heartRate.samples,
+              sources: d.heartRate.sources,
+            },
+            heart_rate_permission: d.heartRateAllowed,
+            exercises: d.segments.map((s) => ({
+              name: s.name,
+              repetitions: s.repetitions || null,
+              minutes: round((s.endMs - s.startMs) / 60000),
+            })),
+            laps: d.laps,
+            has_route: d.hasRoute,
+          },
+        }
+      : {}),
+  };
+}
+
+const WORKOUT_NOTE =
+  "Sessions are read by the app from Health Connect / HealthKit (written there by Mi Fitness, Hevy, etc.). Health Connect has no " +
+  "sets/weights, so strength detail is limited to what the source app wrote (often just duration and calories). Only the last " +
+  "~90 days are synced; detail (heart rate, active kcal, exercises) may be null for sessions the app hasn't read yet.";
 
 export function createServer(db: D1Database, now: () => number = Date.now): McpServer {
   const server = new McpServer({ name: "fitbro", version: "1.0.0" });
@@ -193,22 +283,226 @@ export function createServer(db: D1Database, now: () => number = Date.now): McpS
   server.registerTool(
     "get_goals",
     {
-      description: "The user's daily calorie and macro goals by weekday (Monday … Sunday).",
+      description:
+        "The user's daily calorie and macro goals by weekday (Monday … Sunday), plus weekly targets (resistance sessions, cardio minutes), " +
+        "week start day, workout types hidden from cardio and apps excluded from resistance.",
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
     async () => {
       const goals = await getGoals(db);
-      if (!goals) return result({ goals: null, note: "Goals have not been synced from the app yet." });
+      const prefs = await getPreferences(db);
+      const weekly = prefs && {
+        resistance_sessions_per_week: prefs.resistanceSessionsPerWeek,
+        cardio_minutes_per_week: prefs.cardioMinutesPerWeek,
+        week_starts_on: prefs.weekStart,
+        hidden_workout_types: prefs.hiddenWorkoutTypes,
+        resistance_excluded_apps: prefs.excludedResistanceSources,
+      };
+      if (!goals) return result({ goals: null, weekly_targets: weekly, note: "Goals have not been synced from the app yet." });
       const names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
-      return result(
-        Object.fromEntries(
+      return result({
+        ...Object.fromEntries(
           names.map((name, i) => {
             const g = goals[String(i)];
             return [name, g && { calories: g.calories, protein_g: g.proteinG, carb_g: g.carbG, fat_g: g.fatG }];
           }),
         ),
+        weekly_targets: weekly,
+      });
+    },
+  );
+
+
+  // ---- Health data mirrored from the app ----
+  server.registerTool(
+    "get_body_measurements",
+    {
+      description:
+        `Scale readings between start_date and end_date inclusive (max ${MAX_RANGE_DAYS} days): weight (kg), body fat (% and kg = weight × %), ` +
+        "lean body mass (kg, only when the scale wrote it — never derived), each with the smoothed weight trend the app shows. " +
+        "From Health Connect / HealthKit via the app; last ~120 days synced.",
+      inputSchema: { start_date: date, end_date: date },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ start_date, end_date }) => {
+      if (rangeTooLong(start_date, end_date)) return error(`end_date must be within ${MAX_RANGE_DAYS} days after start_date`);
+      const readDays = dateRange(addDays(start_date, -TREND_WARMUP_DAYS), end_date);
+      const all = await bodyInRange(db, readDays[0], end_date);
+      const series = trendSeries(metricPoints("weight", all), readDays);
+      const weightTrend = new Map(readDays.map((d, i) => [d, series[i]]));
+      return result(
+        all
+          .filter((m) => m.date >= start_date)
+          .map((m) => ({
+            date: m.date,
+            weight_kg: round2(m.weightKg),
+            weight_trend_kg: round2(weightTrend.get(m.date) ?? null),
+            body_fat_pct: round2(m.bodyFatPct),
+            body_fat_kg: round2(bodyFatKg(m)),
+            lean_mass_kg: round2(m.leanMassKg),
+          })),
       );
+    },
+  );
+
+  server.registerTool(
+    "get_insights",
+    {
+      description:
+        "The FitBro Insights tab: smoothed trends (EMA α 0.1) for weight, lean body mass and body fat kg over the 28 days ending end_date, " +
+        "with change over the window and the average, plus estimated expenditure (TDEE) = average intake − trend weight change × 7700 kcal/kg ÷ " +
+        "days between first and last weigh-in (needs ≥14 logged days and weigh-ins ≥14 days apart). end_date defaults to the day before " +
+        "today (the app uses the last completed day). " + TODAY_NOTE,
+      inputSchema: { today: date, end_date: date.optional() },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ today, end_date }) => {
+      const end = end_date ?? addDays(today, -1);
+      const window = dateRange(addDays(end, -(TREND_WINDOW_DAYS - 1)), end);
+      const readDays = dateRange(addDays(window[0], -TREND_WARMUP_DAYS), end);
+      const measurements = await bodyInRange(db, readDays[0], end);
+      const trends = Object.fromEntries(
+        BODY_METRICS.map((metric) => {
+          const t = summarizeTrend(metric, measurements, readDays, window);
+          return [
+            metric,
+            {
+              trend_kg: round2(t.value),
+              change_kg: round2(t.change),
+              average_kg: round2(t.average),
+              readings_in_window: t.readings.length,
+            },
+          ];
+        }),
+      );
+      const intake = new Map(totalsByDay(await entriesInRange(db, window[0], end), window[0], end).map((d) => [d.date, d.calories]));
+      const weightPoints = metricPoints("weight", measurements);
+      const series = trendSeries(weightPoints, readDays);
+      const estimate = estimateExpenditure(intake, weightPoints, new Map(readDays.map((d, i) => [d, series[i]])), window);
+      const hcLogged = (await expenditureInRange(db, window[0], end)).filter((d) => d.intake > 0);
+      const hcAvg = hcLogged.length ? round(hcLogged.reduce((s, d) => s + d.burn, 0) / hcLogged.length) : null;
+      return result({
+        window: { start: window[0], end },
+        trends,
+        estimated_expenditure: estimate
+          ? {
+              kcal_per_day: round(estimate.kcalPerDay),
+              average_intake: round(estimate.avgIntake),
+              logged_days: estimate.loggedDays,
+              trend_weight_change_kg: round2(estimate.trendChangeKg),
+              span_days: estimate.spanDays,
+            }
+          : null,
+        estimated_expenditure_note: estimate ? null : "Needs ≥14 logged days and two weigh-ins ≥14 days apart in the window.",
+        health_connect_average_burn: hcAvg,
+      });
+    },
+  );
+
+  server.registerTool(
+    "get_workouts",
+    {
+      description:
+        `Exercise sessions between start_date and end_date inclusive (max ${MAX_RANGE_DAYS} days), optionally one category ` +
+        `(CARDIO, STRENGTH, MIND_BODY, SPORT, OTHER), with heart rate, active calories and exercises when available. ${WORKOUT_NOTE}`,
+      inputSchema: {
+        start_date: date,
+        end_date: date,
+        category: z.enum(["CARDIO", "STRENGTH", "MIND_BODY", "SPORT", "OTHER"]).optional(),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ start_date, end_date, category }) => {
+      if (rangeTooLong(start_date, end_date)) return error(`end_date must be within ${MAX_RANGE_DAYS} days after start_date`);
+      const workouts = (await workoutsInRange(db, start_date, end_date)).filter((w) => !category || w.category === category);
+      return result({
+        workouts: workouts.map((w) => publicWorkout(w, true)),
+        count: workouts.length,
+        total_minutes: workouts.reduce((s, w) => s + w.minutes, 0),
+      });
+    },
+  );
+
+  server.registerTool(
+    "get_week_summary",
+    {
+      description:
+        "The FitBro Home tab for the calendar week containing date (default today; week start from the user's setting): week-to-date " +
+        "calorie balance and average intake / burn over completed logged days (today excluded, like the app), average calorie goal, " +
+        "resistance sessions vs weekly target (strength sessions from counted apps) and cardio minutes vs weekly target (excluding the " +
+        "workout types the user hides). " + TODAY_NOTE,
+      inputSchema: { today: date, date: date.optional() },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ today, date: anyDay }) => {
+      const prefs = effectivePreferences(await getPreferences(db));
+      const start = weekStartFor(anyDay ?? today, prefs.weekStart);
+      const days = dateRange(start, addDays(start, 6));
+      const completed = averagingDays(days, today);
+      const balance = weekBalance(await expenditureInRange(db, days[0], days[6]), completed);
+      const goals = await getGoals(db);
+      const goalDays = completed.length ? completed : days;
+      const goalValues = goalDays.map((d) => goals?.[String(weekdayMonBased(d))]?.calories).filter((v): v is number => v != null);
+      const workouts = await workoutsInRange(db, days[0], days[6]);
+      const resistance = resistanceSessions(workouts, prefs.excludedResistanceSources);
+      const cardio = workouts.filter(prefs.isCardio);
+      return result({
+        week: { start: days[0], end: days[6], week_starts_on: prefs.weekStart, completed_days: completed.length },
+        balance: {
+          week_to_date_kcal: balance.total == null ? null : round(balance.total),
+          average_per_day: balance.average == null ? null : round(balance.average),
+          logged_days: balance.loggedDays,
+        },
+        average_intake: balance.avgIntake == null ? null : round(balance.avgIntake),
+        average_burn: balance.avgBurn == null ? null : round(balance.avgBurn),
+        average_calorie_goal: goalValues.length ? round(goalValues.reduce((a, b) => a + b, 0) / goalValues.length) : null,
+        resistance: {
+          sessions: resistance.length,
+          target: prefs.resistanceSessionsPerWeek,
+          counted_apps_exclude: prefs.excludedResistanceSources,
+          list: resistance.map((w) => publicWorkout(w, false)),
+        },
+        cardio: {
+          minutes: cardio.reduce((s, w) => s + w.minutes, 0),
+          sessions: cardio.length,
+          target_minutes: prefs.cardioMinutesPerWeek,
+        },
+        preferences_synced: prefs.synced,
+      });
+    },
+  );
+
+  server.registerTool(
+    "get_custom_foods",
+    {
+      description:
+        "The user's saved custom foods and custom meals from FitBro (macros are for the stated serving_size_g; a meal's items are what it logs). " +
+        "Use these when the user mentions one by name, e.g. log a custom meal by calling log_food for each item.",
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    },
+    async () => {
+      const library = await getLibrary(db);
+      if (!library) return result({ custom_foods: [], custom_meals: [], note: "Not synced from the app yet." });
+      const food = (f: { name: string; brandName: string | null; calories: number; proteinG: number; carbG: number; fatG: number; servingSizeG: number }) => ({
+        name: f.name,
+        brand_name: f.brandName,
+        calories: round(f.calories),
+        protein_g: round(f.proteinG),
+        carb_g: round(f.carbG),
+        fat_g: round(f.fatG),
+        serving_size_g: round(f.servingSizeG),
+      });
+      return result({
+        custom_foods: library.value.customFoods.map(food),
+        custom_meals: library.value.customMeals.map((m) => ({
+          name: m.name,
+          items: m.items.map((i) => ({ ...food(i), serving_unit: i.servingUnit })),
+          total_calories: round(m.items.reduce((s, i) => s + i.calories, 0)),
+        })),
+        synced_at: new Date(library.updatedAt).toISOString(),
+      });
     },
   );
 

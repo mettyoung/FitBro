@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -119,8 +120,32 @@ internal fun DashboardHome(
             days = days,
             weekToDate = weekToDate,
             caption = balanceCaption,
-            onBarClick = onBarClick
+            onBarClick = onBarClick,
+            modifier = Modifier.weight(1f)
         )
+
+        TwoColumnTiles(listOf(WeekMetric.AVG_INTAKE, WeekMetric.AVG_BURN)) { m, tileModifier ->
+            val style = styles.getValue(m)
+            val isIntake = m == WeekMetric.AVG_INTAKE
+            // Both bars measure against the calorie goal: intake over it = surplus, burn over it = deficit.
+            val avg = m.valueOf(summary)
+            val goal = goals?.caloriesKcal
+            val overColor = if (isIntake) MaterialTheme.colorScheme.error else NegativeColor
+            MetricTileCard(
+                icon = style.icon,
+                color = style.color,
+                title = if (isIntake) "Average intake" else "Average burn",
+                value = avg?.grouped() ?: "—",
+                unit = "kcal",
+                subtitle = goalSubtitle(avg, goal, isIntake),
+                modifier = tileModifier,
+                onClick = {
+                    onOpen(DashboardPage.Lens(if (m == WeekMetric.AVG_INTAKE) DashboardViewMode.INTAKE else DashboardViewMode.EXPENDITURE))
+                }
+            ) {
+                GoalBar(value = avg, goal = goal, color = style.color, overColor = overColor)
+            }
+        }
 
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             GoalCard(
@@ -143,41 +168,24 @@ internal fun DashboardHome(
                 title = "Cardio",
                 value = "$cardioMinutes",
                 target = "/ $cardioTarget min",
-                subtitle = if (cardioMinutes >= cardioTarget) "Target hit · $cardioSessions sessions"
-                else "$cardioSessions sessions · ${cardioTarget - cardioMinutes} min to go",
+                subtitle = if (cardioMinutes >= cardioTarget) "Target hit"
+                else "${cardioTarget - cardioMinutes} min to go",
                 onClick = onOpenCardio,
                 modifier = Modifier.weight(1f).fillMaxHeight()
             ) { ProgressBar(cardioMinutes.toFloat() / cardioTarget.coerceAtLeast(1), ColorCardio) }
         }
 
-        TwoColumnTiles(listOf(WeekMetric.AVG_INTAKE, WeekMetric.AVG_BURN)) { m, tileModifier ->
-            val style = styles.getValue(m)
-            val isIntake = m == WeekMetric.AVG_INTAKE
-            // Both bars measure against the calorie goal: intake over it = surplus, burn over it = deficit.
-            val avg = m.valueOf(summary)
-            val goal = goals?.caloriesKcal
-            val overColor = if (isIntake) MaterialTheme.colorScheme.error else NegativeColor
-            MetricTileCard(
-                icon = style.icon,
-                color = style.color,
-                title = if (isIntake) "Average intake" else "Average burn",
-                value = formatValue(avg, m),
-                subtitle = goalSubtitle(avg, goal, isIntake),
-                modifier = tileModifier,
-                onClick = {
-                    onOpen(DashboardPage.Lens(if (m == WeekMetric.AVG_INTAKE) DashboardViewMode.INTAKE else DashboardViewMode.EXPENDITURE))
-                }
-            ) {
-                GoalBar(value = avg, goal = goal, color = style.color, overColor = overColor)
-            }
-        }
+    }
+}
 
-        Text(
-            "Insights",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(start = 4.dp, top = 8.dp)
-        )
+/** Insights tab: estimated expenditure + body trends (28-day window ending the last completed day). */
+@Composable
+internal fun InsightsHome(
+    body: BodyTrends,
+    onOpen: (DashboardPage) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val insights: List<DashboardPage> = listOf(DashboardPage.Estimate) + BodyMetric.entries.map { DashboardPage.Body(it) }
         TwoColumnTiles(insights) { page, tileModifier ->
             when (page) {
@@ -185,11 +193,12 @@ internal fun DashboardHome(
                     icon = Icons.Filled.Calculate,
                     color = ColorBurn,
                     title = "Estimated expenditure",
-                    value = body.estimate?.let { "${it.kcalPerDay.grouped()} kcal" } ?: "—",
+                    value = body.estimate?.kcalPerDay?.grouped() ?: "—",
+                    unit = "kcal",
                     subtitle = if (body.estimate != null) "intake + weight trend" else "Needs $EE_MIN_LOGGED_DAYS logged days + 2 weigh-ins",
                     modifier = tileModifier,
                     onClick = { onOpen(page) }
-                ) { MiniLine(body.estimateSeries, ColorBurn) }
+                ) { MiniLine(body.estimateWindowSeries, ColorBurn) }
                 is DashboardPage.Body -> {
                     val trend = body.trends[page.metric]
                     val style = bodyStyle(page.metric)
@@ -197,7 +206,8 @@ internal fun DashboardHome(
                         icon = style.icon,
                         color = style.color,
                         title = page.metric.label,
-                        value = kg(trend?.value),
+                        value = trend?.value?.let { formatOneDecimal(it) } ?: "—",
+                        unit = "kg",
                         subtitle = bodySubtitle(page.metric, trend, body.access),
                         modifier = tileModifier,
                         onClick = { onOpen(page) }
@@ -258,16 +268,17 @@ private fun WeekToDateBalanceCard(
     days: List<String>,
     weekToDate: WeekToDateBalance?,
     caption: String,
-    onBarClick: (DailyBalance) -> Unit
+    onBarClick: (DailyBalance) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val total = weekToDate?.total
     // Not clickable as a whole: each bar opens that day's breakdown.
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(Modifier.padding(20.dp)) {
+        Column(Modifier.fillMaxHeight().padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Balance, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
@@ -293,7 +304,7 @@ private fun WeekToDateBalanceCard(
             CalorieBalanceChart(
                 balances = balances,
                 onBarClick = onBarClick,
-                modifier = Modifier.fillMaxWidth().height(140.dp),
+                modifier = Modifier.fillMaxWidth().weight(1f).heightIn(min = 120.dp),
                 valueSelector = { it.balance },
                 diverging = true,
                 showDayLabels = true,
@@ -415,28 +426,57 @@ internal fun BodyTrendDetail(trend: TrendSummary?, metric: BodyMetric, access: B
 
 /** US-007 detail. */
 @Composable
-internal fun EstimateDetail(estimate: ExpenditureEstimate?, healthAvgBurn: Double?, windowEnd: String?) {
-    DetailCard {
-        HeaderStat("Estimated expenditure", estimate?.let { "${it.kcalPerDay.grouped()} kcal/day" } ?: "—", Modifier)
-        Spacer(Modifier.height(16.dp))
-        if (estimate == null) {
-            Text(
-                "Needs at least $EE_MIN_LOGGED_DAYS logged days and two weigh-ins $EE_MIN_SPAN_DAYS+ days apart in the last 28 days.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
-            )
-        } else {
-            EstimateRow("Average intake", "${estimate.avgIntake.grouped()} kcal", "${estimate.loggedDays} logged days")
-            EstimateRow("Trend weight change", kgDelta(estimate.trendChangeKg), "over ${estimate.spanDays} days")
-            EstimateRow("Health Connect average", healthAvgBurn?.let { "${it.grouped()} kcal" } ?: "—", "this week's burn")
+internal fun EstimateDetail(body: BodyTrends, healthAvgBurn: Double?) {
+    val estimate = body.estimate
+    val days = body.estimateWindowDays
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        DetailCard {
+            HeaderStat("Estimated expenditure", estimate?.let { "${it.kcalPerDay.grouped()} kcal/day" } ?: "—", Modifier)
+            if (days.isNotEmpty()) {
+                Text("${days.first().toShortDate()} – ${days.last().toShortDate()}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            }
+            Spacer(Modifier.height(16.dp))
+            if (body.estimateWindowSeries.none { it != null }) {
+                Text(
+                    "Needs at least $EE_MIN_LOGGED_DAYS logged days and two weigh-ins $EE_MIN_SPAN_DAYS+ days apart in the last 28 days.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(vertical = 24.dp)
+                )
+            } else {
+                // Dots above the line = surplus days, below = deficit days.
+                TrendChart(
+                    scale = body.windowIntake,
+                    trend = body.estimateWindowSeries,
+                    color = ColorBurn,
+                    unit = "kcal",
+                    pad = 100.0,
+                    axisLabel = { it.grouped() }
+                )
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    Text(days.first().toShortDate(), style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.weight(1f))
+                    Text(days.last().toShortDate(), style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    LegendDot(MaterialTheme.colorScheme.outline, "Intake")
+                    LegendDot(ColorBurn, "Estimated expenditure")
+                }
+            }
         }
-        Spacer(Modifier.height(12.dp))
-        Text(
-            "Average intake − trend change × 7,700 kcal/kg ÷ days between weigh-ins, over the 28 days" +
-                (windowEnd?.let { " ending ${it.toShortDate()}" } ?: "") + ".",
-            style = MaterialTheme.typography.bodySmall,
-            color = TextSecondary
-        )
+        if (estimate != null) {
+            DetailCard {
+                EstimateRow("Average intake", "${estimate.avgIntake.grouped()} kcal", "${estimate.loggedDays} logged days")
+                EstimateRow("Trend weight change", kgDelta(estimate.trendChangeKg), "over ${estimate.spanDays} days")
+                EstimateRow("Health Connect average", healthAvgBurn?.let { "${it.grouped()} kcal" } ?: "—", "this week's burn")
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Average intake − trend change × 7,700 kcal/kg ÷ days between weigh-ins, over the 28 days.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            }
+        }
     }
 }
 

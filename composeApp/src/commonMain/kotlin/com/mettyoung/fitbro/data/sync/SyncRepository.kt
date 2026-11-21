@@ -1,6 +1,12 @@
 package com.mettyoung.fitbro.data.sync
 
+import com.mettyoung.fitbro.data.cache.UserSettingsDataSource
 import com.mettyoung.fitbro.data.health.HealthDataSource
+import com.mettyoung.fitbro.data.health.HealthResult
+import com.mettyoung.fitbro.data.model.WorkoutDetail
+import com.mettyoung.fitbro.data.repository.CustomFoodRepository
+import com.mettyoung.fitbro.data.repository.CustomMealRepository
+import kotlinx.coroutines.flow.first
 import com.mettyoung.fitbro.data.model.DailyBalance
 import com.mettyoung.fitbro.data.repository.FoodDiarySyncStore
 import com.mettyoung.fitbro.data.repository.MacroGoalRepository
@@ -31,6 +37,9 @@ class SyncRepository(
     private val settings: SyncSettings,
     private val healthDataSource: HealthDataSource,
     private val macroGoalRepository: MacroGoalRepository,
+    private val appSettings: UserSettingsDataSource,
+    private val customFoodRepository: CustomFoodRepository,
+    private val customMealRepository: CustomMealRepository,
     private val scope: CoroutineScope,
     private val now: () -> Long = ::currentEpochMs
 ) {
@@ -41,6 +50,8 @@ class SyncRepository(
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
 
     private val expenditureOutbox = ExpenditureOutbox() // guarded by mutex
+    /** Workout ids whose detail the server already has (this process); guarded by mutex. */
+    private val detailSent = HashSet<String>()
 
     /**
      * Queues the dashboard's computed expenditure and pushes it on its own (no full diary sync), so Grok sees
@@ -127,11 +138,46 @@ class SyncRepository(
             since = page.cursor
         }
 
-        // Goals are best-effort context for Grok; a failure here shouldn't fail the diary sync.
-        api.putGoals(goalsByWeekday())
-        // Same for expenditure: retry anything a standalone publish couldn't push.
+        // Everything below is read-only context for Grok; failures here shouldn't fail the diary sync.
+        api.putSettings(goalsByWeekday(), preferences())
+        // Retry anything a standalone expenditure publish couldn't push.
         flushExpenditure()
+        mirrorHealth()
+        api.putLibrary(libraryBody(customFoodRepository.getAllCustomFoods().first(), customMealRepository.getAllCustomMeals().first()))
         return SyncResult.Success(Unit)
+    }
+
+    private fun preferences() = PreferencesDto(
+        weekStart = appSettings.getWeekStart().name,
+        resistanceSessionsPerWeek = appSettings.getWeeklyResistanceTarget(),
+        cardioMinutesPerWeek = appSettings.getWeeklyCardioMinutesTarget(),
+        hiddenWorkoutTypes = appSettings.getHiddenWorkoutTypes().map { it.name }.sorted(),
+        excludedResistanceSources = appSettings.getExcludedResistanceSources().sorted()
+    )
+
+    /**
+     * Mirrors body readings and exercise sessions so MCP clients can query them. Each push replaces its date
+     * range on the server, so it's skipped entirely when the read fails (e.g. permission revoked) rather than
+     * wiping the cloud copy. Workout detail costs three Health Connect reads per session, so only sessions the
+     * server lacks detail for are read, newest first, a few per sync. Caller holds [mutex].
+     */
+    private suspend fun mirrorHealth() {
+        val today = todayString()
+        val bodyStart = today.plusDays(-BODY_DAYS)
+        val body = healthDataSource.readBodyMeasurements(bodyStart, today)
+        if (body is HealthResult.Success) api.putBody(bodyBody(bodyStart, today, body.value))
+
+        val workoutStart = today.plusDays(-WORKOUT_DAYS)
+        val sessions = (healthDataSource.readExerciseSessions(workoutStart, today) as? HealthResult.Success)?.value ?: return
+        val details = HashMap<String, WorkoutDetail>()
+        sessions.filter { it.id !in detailSent }
+            .sortedByDescending { it.startEpochMs }
+            .take(DETAILS_PER_SYNC)
+            .forEach { s ->
+                (healthDataSource.readWorkoutDetail(s) as? HealthResult.Success)?.let { details[s.id] = it.value }
+            }
+        val pushed = api.putWorkouts(WorkoutsBody(workoutStart, today, sessions.map { it.toDto(details[it.id]) }))
+        if (pushed is SyncResult.Success) detailSent += details.keys
     }
 
     private suspend fun goalsByWeekday(): Map<Int, WeekdayGoals> {
@@ -151,5 +197,8 @@ class SyncRepository(
 
     private companion object {
         const val PUSH_BATCH = 200
+        const val BODY_DAYS = 120
+        const val WORKOUT_DAYS = 90
+        const val DETAILS_PER_SYNC = 15
     }
 }

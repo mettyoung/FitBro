@@ -273,3 +273,213 @@ export function addDays(date: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+// ---- Settings blobs (app is the only writer; whole value replaced on each push) ----
+
+async function putSetting(db: D1Database, key: string, value: unknown, now: number): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    )
+    .bind(key, JSON.stringify(value), now)
+    .run();
+}
+
+async function getSetting<T>(db: D1Database, key: string): Promise<{ value: T; updatedAt: number } | null> {
+  const row = await db
+    .prepare("SELECT value, updated_at FROM settings WHERE key = ?")
+    .bind(key)
+    .first<{ value: string; updated_at: number }>();
+  return row ? { value: JSON.parse(row.value) as T, updatedAt: row.updated_at } : null;
+}
+
+/** App preferences that shape the Dashboard (Settings → Weekly goals / Week start / Cardio / Resistance). */
+export interface Preferences {
+  /** MONDAY … SUNDAY */
+  weekStart: string;
+  resistanceSessionsPerWeek: number;
+  cardioMinutesPerWeek: number;
+  /** WorkoutType names left out of the Cardio tab and cardio minutes. */
+  hiddenWorkoutTypes: string[];
+  /** Source apps whose strength sessions don't count toward resistance. */
+  excludedResistanceSources: string[];
+}
+
+const PREFERENCES_KEY = "preferences";
+export const putPreferences = (db: D1Database, p: Preferences, now: number) => putSetting(db, PREFERENCES_KEY, p, now);
+export async function getPreferences(db: D1Database): Promise<Preferences | null> {
+  return (await getSetting<Preferences>(db, PREFERENCES_KEY))?.value ?? null;
+}
+
+export interface CustomFood {
+  name: string;
+  brandName: string | null;
+  calories: number;
+  proteinG: number;
+  carbG: number;
+  fatG: number;
+  servingSizeG: number;
+}
+
+export interface CustomMealItem extends CustomFood {
+  servingUnit: string;
+}
+
+export interface CustomMeal {
+  name: string;
+  items: CustomMealItem[];
+}
+
+export interface Library {
+  customFoods: CustomFood[];
+  customMeals: CustomMeal[];
+}
+
+const LIBRARY_KEY = "library";
+export const putLibrary = (db: D1Database, l: Library, now: number) => putSetting(db, LIBRARY_KEY, l, now);
+export async function getLibrary(db: D1Database): Promise<{ value: Library; updatedAt: number } | null> {
+  return getSetting<Library>(db, LIBRARY_KEY);
+}
+
+// ---- Body measurements ----
+
+export interface BodyMeasurement {
+  date: string;
+  weightKg: number | null;
+  bodyFatPct: number | null;
+  leanMassKg: number | null;
+}
+
+interface BodyRow {
+  date: string;
+  weight_kg: number | null;
+  body_fat_pct: number | null;
+  lean_mass_kg: number | null;
+}
+
+/** Replaces [start, end] with [days]: readings deleted on the phone disappear here too. */
+export async function replaceBody(
+  db: D1Database,
+  start: string,
+  end: string,
+  days: BodyMeasurement[],
+  now: number,
+): Promise<void> {
+  await db.batch([
+    db.prepare("DELETE FROM body_measurements WHERE date >= ? AND date <= ?").bind(start, end),
+    ...days
+      .filter((d) => d.date >= start && d.date <= end)
+      .map((d) =>
+        db
+          .prepare(
+            `INSERT INTO body_measurements (date, weight_kg, body_fat_pct, lean_mass_kg, updated_at) VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(date) DO UPDATE SET weight_kg = excluded.weight_kg, body_fat_pct = excluded.body_fat_pct,
+               lean_mass_kg = excluded.lean_mass_kg, updated_at = excluded.updated_at`,
+          )
+          .bind(d.date, d.weightKg, d.bodyFatPct, d.leanMassKg, now),
+      ),
+  ]);
+}
+
+export async function bodyInRange(db: D1Database, start: string, end: string): Promise<BodyMeasurement[]> {
+  const { results } = await db
+    .prepare("SELECT * FROM body_measurements WHERE date >= ? AND date <= ? ORDER BY date ASC")
+    .bind(start, end)
+    .all<BodyRow>();
+  return results.map((r) => ({ date: r.date, weightKg: r.weight_kg, bodyFatPct: r.body_fat_pct, leanMassKg: r.lean_mass_kg }));
+}
+
+// ---- Workouts ----
+
+export interface WorkoutDetail {
+  title: string | null;
+  notes: string | null;
+  recordingMethod: string | null;
+  device: string | null;
+  activeKcal: number | null;
+  activeKcalSources: string[];
+  heartRate: { avgBpm: number; minBpm: number; maxBpm: number; samples: number; sources: string[] } | null;
+  heartRateAllowed: boolean;
+  segments: { name: string; startMs: number; endMs: number; repetitions: number }[];
+  laps: number;
+  hasRoute: boolean;
+}
+
+export interface Workout {
+  id: string;
+  date: string;
+  startMs: number;
+  minutes: number;
+  activity: string;
+  /** WorkoutType enum name, e.g. RUNNING, STRENGTH_TRAINING */
+  type: string;
+  /** CARDIO | STRENGTH | MIND_BODY | SPORT | OTHER */
+  category: string;
+  source: string;
+  detail: WorkoutDetail | null;
+}
+
+interface WorkoutRow {
+  id: string;
+  date: string;
+  start_ms: number;
+  minutes: number;
+  activity: string;
+  type: string;
+  category: string;
+  source: string;
+  detail: string | null;
+}
+
+/** Replaces the sessions in [start, end]; a session pushed without detail keeps the detail stored earlier. */
+export async function replaceWorkouts(
+  db: D1Database,
+  start: string,
+  end: string,
+  workouts: Workout[],
+  now: number,
+): Promise<void> {
+  const inRange = workouts.filter((w) => w.date >= start && w.date <= end);
+  await db.batch([
+    db
+      .prepare("DELETE FROM workouts WHERE date >= ? AND date <= ? AND id NOT IN (SELECT value FROM json_each(?))")
+      .bind(start, end, JSON.stringify(inRange.map((w) => w.id))),
+    ...inRange.map((w) =>
+      db
+        .prepare(
+          `INSERT INTO workouts (id, date, start_ms, minutes, activity, type, category, source, detail, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET date = excluded.date, start_ms = excluded.start_ms, minutes = excluded.minutes,
+             activity = excluded.activity, type = excluded.type, category = excluded.category, source = excluded.source,
+             detail = COALESCE(excluded.detail, workouts.detail), updated_at = excluded.updated_at`,
+        )
+        .bind(
+          w.id, w.date, w.startMs, w.minutes, w.activity, w.type, w.category, w.source,
+          w.detail ? JSON.stringify(w.detail) : null, now,
+        ),
+    ),
+  ]);
+}
+
+export async function workoutsInRange(db: D1Database, start: string, end: string): Promise<Workout[]> {
+  const { results } = await db
+    .prepare("SELECT * FROM workouts WHERE date >= ? AND date <= ? ORDER BY start_ms ASC")
+    .bind(start, end)
+    .all<WorkoutRow>();
+  return results.map((r) => ({
+    id: r.id,
+    date: r.date,
+    startMs: r.start_ms,
+    minutes: r.minutes,
+    activity: r.activity,
+    type: r.type,
+    category: r.category,
+    source: r.source,
+    detail: r.detail ? (JSON.parse(r.detail) as WorkoutDetail) : null,
+  }));
+}
+
+export function daysBetween(start: string, end: string): number {
+  return Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000);
+}

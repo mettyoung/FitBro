@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -55,21 +56,18 @@ fun CalorieBalanceChart(
 
     // Diverging (balance) keeps the original 100..3000 clamp; positive-only modes
     // normalize against the actual window max of the plotted value.
-    val maxValue = if (diverging) {
-        (balances.maxOfOrNull { abs(valueSelector(it)) } ?: 0.0).coerceAtLeast(100.0).coerceAtMost(3000.0)
-    } else {
-        (balances.maxOfOrNull { abs(valueSelector(it)) } ?: 0.0).coerceAtLeast(1.0)
-    }
+    // Diverging: the zero line sits where the data needs it — an all-deficit week uses the full
+    // height below it instead of wasting the top half. Both sides share one kcal-per-dp scale.
+    val values = balances.map(valueSelector)
+    val posMax = (values.maxOrNull() ?: 0.0).coerceAtLeast(0.0)
+    val negMax = (-(values.minOrNull() ?: 0.0)).coerceAtLeast(0.0)
+    val maxValue = if (diverging) maxOf(posMax, negMax).coerceAtLeast(100.0)
+        else (values.maxOfOrNull { abs(it) } ?: 0.0).coerceAtLeast(1.0)
+    val topWeight = if (!diverging) 1f else (posMax / maxValue).toFloat()
+    val bottomWeight = if (!diverging) 0f else (negMax / maxValue).toFloat()
+    val split = if (diverging && posMax + negMax > 0) Split(topWeight, bottomWeight) else Split(1f, if (diverging) 1f else 0f)
 
     Box(modifier = modifier) {
-        // Zero Line
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .align(Alignment.Center)
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-        )
 
         Row(
             modifier = Modifier.fillMaxSize(),
@@ -83,13 +81,14 @@ fun CalorieBalanceChart(
                             balance = balance,
                             value = valueSelector(balance),
                             maxValue = maxValue,
+                            split = split,
                             diverging = diverging,
                             showLabel = showDayLabels,
                             showValue = showValues,
                             onClick = { onBarClick(balance) }
                         )
                     } else {
-                        EmptySlot(date = date, showLabel = showDayLabels)
+                        EmptySlot(date = date, showLabel = showDayLabels, split = split, diverging = diverging)
                     }
                 }
             }
@@ -102,81 +101,45 @@ private fun CalorieBarItem(
     balance: DailyBalance,
     value: Double,
     maxValue: Double,
+    split: Split,
     diverging: Boolean,
     showLabel: Boolean,
     showValue: Boolean,
     onClick: () -> Unit
 ) {
-    val positiveColor = BrandPrimary
-    val negativeColor = MaterialTheme.colorScheme.tertiary
     // Positive-only modes always use the positive accent; diverging keys on sign.
-    val color = if (!diverging || value >= 0) positiveColor else negativeColor
-    val heightFactor = (abs(value) / maxValue).toFloat().coerceIn(0.1f, 1f)
-    // Positive-only modes draw every bar in the top half (upward-only).
-    val drawTop = !diverging || value > 0
-    val drawBottom = diverging && value < 0
-
+    val color = if (!diverging || value >= 0) BrandPrimary else MaterialTheme.colorScheme.tertiary
+    val above = !diverging || value >= 0
+    // Relative to its own side's max (each side's height is proportional to that max).
+    val sideMax = maxValue * (if (above) split.top else split.bottom)
+    val factor = if (sideMax <= 0) 0f else (abs(value) / sideMax).toFloat().coerceIn(0.06f, 1f)
     val label = if (showValue) barValueLabel(value, signed = diverging) else null
-    Column(
-        modifier = Modifier
-            .fillMaxHeight()
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Top half (positive)
-        // Labels always sit on top of the bar; a deficit bar's top is the zero line.
-        BarHalf(Modifier.weight(1f), drawTop, heightFactor, color, label.takeIf { drawTop }, top = true, labelOnly = drawBottom)
-        Spacer(Modifier.height(4.dp)) // Space for the zero line area
-        // Bottom half (negative)
-        BarHalf(Modifier.weight(1f), drawBottom, heightFactor, color, null, top = false, reserveLabel = label != null)
 
-        if (showLabel) {
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = balance.date.toDayInitial(),
-                style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary,
-                fontWeight = FontWeight.Bold
+    SlotColumn(
+        date = balance.date,
+        showLabel = showLabel,
+        split = split,
+        diverging = diverging,
+        modifier = Modifier.clickable(onClick = onClick),
+        top = {
+            val h = maxHeight
+            // Bar grows up from zero; its label rides on top (overflowing into the label strip).
+            // A deficit's label sits just above the zero line.
+            Column(
+                Modifier.fillMaxWidth().wrapContentHeight(Alignment.Bottom, unbounded = true),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (label != null) BarLabel(label)
+                if (above) Box(Modifier.width(12.dp).height(h * factor).clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)).background(color))
+            }
+        },
+        bottom = {
+            if (!above) Box(
+                Modifier.align(Alignment.TopCenter).width(12.dp).height(maxHeight * factor)
+                    .clip(RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp)).background(color)
             )
         }
-    }
-}
-
-/** One half of a diverging bar; the optional [label] sits at the bar's outer end. */
-@Composable
-private fun BarHalf(
-    modifier: Modifier,
-    draw: Boolean,
-    heightFactor: Float,
-    color: Color,
-    label: String?,
-    top: Boolean,
-    /** Deficit bar: draw only [label] (passed via labelOnly path) just above the zero line. */
-    labelOnly: Boolean = false,
-    /** Keep negative bars on the same scale as labelled positive ones. */
-    reserveLabel: Boolean = false
-) {
-    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        if (labelOnly && label != null) {
-            BarLabel(label, Modifier.align(Alignment.BottomCenter))
-            return@BoxWithConstraints
-        }
-        if (!draw) return@BoxWithConstraints
-        val labelSpace = if (label != null || reserveLabel) 14.dp else 0.dp
-        val barHeight = (maxHeight - labelSpace).coerceAtLeast(0.dp) * heightFactor
-        val shape = if (top) RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)
-            else RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp)
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = if (top) Arrangement.Bottom else Arrangement.Top
-        ) {
-            if (label != null) BarLabel(label)
-            Box(Modifier.width(12.dp).height(barHeight).clip(shape).background(color))
-        }
-    }
+    )
 }
 
 @Composable
@@ -205,24 +168,56 @@ internal fun barValueLabel(value: Double, signed: Boolean): String {
     return sign + body
 }
 
+private val LabelStrip = 16.dp
+
+/** Relative heights of the regions above / below zero. */
+private class Split(val top: Float, val bottom: Float)
+
+/**
+ * One day's column: label strip, region above zero, zero line, region below zero, day initial.
+ * Every slot uses the same structure so zero lines and labels align across the week.
+ */
 @Composable
-private fun EmptySlot(date: String, showLabel: Boolean) {
+private fun SlotColumn(
+    date: String,
+    showLabel: Boolean,
+    split: Split,
+    diverging: Boolean,
+    modifier: Modifier = Modifier,
+    labelAlpha: Float = 1f,
+    top: @Composable androidx.compose.foundation.layout.BoxWithConstraintsScope.() -> Unit = {},
+    bottom: @Composable androidx.compose.foundation.layout.BoxWithConstraintsScope.() -> Unit = {}
+) {
     Column(
-        modifier = Modifier.fillMaxHeight().padding(horizontal = 4.dp),
+        modifier = modifier.fillMaxHeight().fillMaxWidth().padding(horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(LabelStrip))
+        BoxWithConstraints(
+            (if (split.top > 0f) Modifier.weight(split.top) else Modifier.height(0.dp)).fillMaxWidth(),
+            contentAlignment = Alignment.BottomCenter,
+            content = top
+        )
+        Box(
+            Modifier.fillMaxWidth().padding(vertical = 1.dp).height(1.dp)
+                .background(if (diverging) MaterialTheme.colorScheme.outlineVariant else Color.Transparent)
+        )
+        if (split.bottom > 0f) BoxWithConstraints(Modifier.weight(split.bottom).fillMaxWidth(), content = bottom)
         if (showLabel) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 text = date.toDayInitial(),
                 style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary.copy(alpha = 0.4f),
+                color = TextSecondary.copy(alpha = labelAlpha),
                 fontWeight = FontWeight.Bold
             )
         }
     }
 }
+
+@Composable
+private fun EmptySlot(date: String, showLabel: Boolean, split: Split, diverging: Boolean) =
+    SlotColumn(date, showLabel, split, diverging, labelAlpha = 0.4f)
 
 private fun String.toDayInitial(): String {
     val parts = split("-")

@@ -91,6 +91,7 @@ fun DashboardScreen(
     excludedResistanceSources: Set<String> = emptySet(),
     onToggleResistanceSource: (String, Boolean) -> Unit = { _, _ -> },
     onOpenCardio: () -> Unit = {},
+    section: DashboardSection = DashboardSection.HOME,
     modifier: Modifier = Modifier
 ) {
     val state by stateHolder.state.collectAsState()
@@ -110,9 +111,12 @@ fun DashboardScreen(
         excludedResistanceSources = excludedResistanceSources,
         onToggleResistanceSource = onToggleResistanceSource,
         onOpenCardio = onOpenCardio,
+        section = section,
         modifier = modifier
     )
 }
+
+enum class DashboardSection { HOME, INSIGHTS }
 
 @Composable
 fun DashboardContent(
@@ -131,6 +135,7 @@ fun DashboardContent(
     excludedResistanceSources: Set<String> = emptySet(),
     onToggleResistanceSource: (String, Boolean) -> Unit = { _, _ -> },
     onOpenCardio: () -> Unit = {},
+    section: DashboardSection = DashboardSection.HOME,
     modifier: Modifier = Modifier
 ) {
     var selectedBreakdown by remember { mutableStateOf<DailyBalance?>(null) }
@@ -182,18 +187,21 @@ fun DashboardContent(
 
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
+    // Dashboard home fits the screen (balance chart flexes); every other page scrolls.
+    val fitHome = page == null && section == DashboardSection.HOME && state.uiState is DashboardUiState.Success
+    val scrollState = rememberScrollState()
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .then(if (fitHome) Modifier else Modifier.verticalScroll(scrollState))
         ) {
             val weekRange = "${week.start.toShortDate()} – ${week.end.toShortDate()}"
             val bodyWindow = state.body.trends[BodyMetric.WEIGHT]?.windowDays
                 ?.let { d -> if (d.isEmpty()) null else "${d.first().toShortDate()} – ${d.last().toShortDate()}" }
             when (val p = page) {
                 null -> ScreenHeader(
-                    title = "Dashboard",
+                    title = if (section == DashboardSection.INSIGHTS) "Insights" else "Home",
                     actions = {
                         if (isLoading && wasRefreshing) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -233,10 +241,11 @@ fun DashboardContent(
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .then(if (fitHome) Modifier.weight(1f) else Modifier)
                     .padding(horizontal = ScreenGutter)
             ) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(if (fitHome) 0.dp else 8.dp))
 
                 when (val uiState = state.uiState) {
                     is DashboardUiState.Loading -> {
@@ -249,7 +258,10 @@ fun DashboardContent(
                     }
                     is DashboardUiState.Success -> {
                         when (val p = page) {
-                            null -> DashboardHome(
+                            null -> if (section == DashboardSection.INSIGHTS) InsightsHome(
+                                body = state.body,
+                                onOpen = { page = it }
+                            ) else DashboardHome(
                                 balances = uiState.balances,
                                 days = weekDays,
                                 averagingDays = averagingDays,
@@ -265,7 +277,8 @@ fun DashboardContent(
                                 body = state.body,
                                 onOpen = { page = it },
                                 onOpenCardio = onOpenCardio,
-                                onBarClick = { selectedBreakdown = it }
+                                onBarClick = { selectedBreakdown = it },
+                                modifier = Modifier.weight(1f)
                             )
                             is DashboardPage.Lens -> DashboardDetail(
                                 balances = uiState.balances,
@@ -287,11 +300,7 @@ fun DashboardContent(
                                 }
                             )
                             DashboardPage.Workout -> WorkoutDetailPage(workoutDetail)
-                            DashboardPage.Estimate -> EstimateDetail(
-                                estimate = state.body.estimate,
-                                healthAvgBurn = state.weekSummary.avgBurn,
-                                windowEnd = state.body.trends[BodyMetric.WEIGHT]?.windowDays?.lastOrNull()
-                            )
+                            DashboardPage.Estimate -> EstimateDetail(body = state.body, healthAvgBurn = state.weekSummary.avgBurn)
                         }
                         if (uiState.warnings.isNotEmpty()) {
                             Spacer(Modifier.height(24.dp))
@@ -305,9 +314,9 @@ fun DashboardContent(
                     }
                 }
 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(if (fitHome) 8.dp else 32.dp))
                 SyncStatusBar(state = state)
-                Spacer(Modifier.height(48.dp))
+                Spacer(Modifier.height(if (fitHome) 8.dp else 48.dp))
             }
         }
 
